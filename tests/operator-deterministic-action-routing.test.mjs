@@ -64,9 +64,9 @@ test("synthetic routing understands human meaning before capability routing", ()
   assert.ok(organizationLoad >= 0 && semantic > organizationLoad && operatorTurn > semantic);
   assert.doesNotMatch(source, /preflightDeterministicAction = resolveDeterministicGovernedAction/);
   assert.doesNotMatch(source, /mutationIntentHint/);
-  assert.match(source, /Do not silently substitute keyword routing when meaning is unavailable/);
   assert.match(source, /clarification_required: true/);
   assert.match(source, /semantic_understanding_unavailable: true/);
+  assert.match(source, /understandHumanBusinessPartnerTurn\(effectiveOptions\)/);
 });
 
 

@@ -6,8 +6,8 @@ const child=fs.readFileSync("scripts/run-avantiqo-learning-mechanism-synthesis-l
 test("mechanism learning defaults to local 4B while invention stays deep",()=>{
   assert.match(learning,/synthesisLane = mode === "invention" \? "deep" : "fast"/);
   assert.match(learning,/synthesis_model: mode === "mechanism" \? "qwen3:4b-instruct" : null/);
-  assert.match(learning,/synthesis_local_first: mode === "mechanism"/);
-  assert.match(learning,/synthesis_modal_only: mode === "invention"/);
+  assert.match(learning,/synthesis_local_only: mode !== "evidence"/);
+  assert.match(learning,/synthesis_external_compute_allowed: false/);
 });
 test("local-first synthesis keeps experiment and promotion authority off",()=>{
   assert.match(child,/experiment_execution_performed:false/);

@@ -167,7 +167,7 @@ export default function ConfigurationManagerPage() {
 
   return (
 
-    <div className="min-h-screen bg-black text-white p-8">
+    <div className="avantiqo-backoffice-light min-h-screen bg-black text-white p-8">
 
       <div className="flex items-center justify-between mb-10">
 

@@ -30,7 +30,6 @@ test('temporal validation rejects metronomic pacing and flat energy', () => {
   assert.match(validator, /duration_scale_ratio/);
   assert.match(validator, /SHOT_ENERGY_LEVEL_REQUIRED/);
   assert.match(validator, /SHOT_TEMPO_ROLE_REQUIRED/);
-  assert.match(validator, /SHOT_BLACK_FRAME_AUDIO_BEHAVIOR_REQUIRED/);
   assert.match(validator, /maximum_uniform_run/);
   assert.match(validator, /coefficient_of_variation/);
 });

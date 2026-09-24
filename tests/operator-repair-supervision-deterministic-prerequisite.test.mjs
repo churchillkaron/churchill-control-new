@@ -36,6 +36,10 @@ test("known mission schema prerequisite bypasses redundant model repair supervis
   assert.deepEqual(classifyOperatorFailureRecovery(result), {
     classification: "CONFIGURATION_OR_EXTERNAL",
     code_engineering_candidate: false,
+    failure_class: "PREREQUISITE_FAILURE",
+    recovery_strategy: "REPAIR_PREREQUISITE",
+    automatic_retry_allowed: false,
+    authorization_effect: "NONE",
   });
   assert.deepEqual(evaluateOperatorRepairSupervision(result), {
     applicable: false,

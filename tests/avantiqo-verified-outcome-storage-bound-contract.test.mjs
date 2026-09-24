@@ -14,7 +14,7 @@ test("verified outcome learning uses bounded rolling storage buckets", () => {
   assert.match(runtime, /rolling_bucket: true/);
   assert.match(runtime, /retention_days: RETENTION_DAYS/);
   assert.match(runtime, /created_at: nowIso/);
-  assert.match(runtime, /\.upsert\(row, \{ onConflict: "organization_id,memory_scope,memory_key" \}\)/);
+  assert.match(runtime, /\.upsert\(row, \{ onConflict: "organization_id,memory_scope,memory_key"/);
   assert.doesNotMatch(runtime, /randomUUID/);
   assert.doesNotMatch(runtime, /\.insert\(row\)/);
 });

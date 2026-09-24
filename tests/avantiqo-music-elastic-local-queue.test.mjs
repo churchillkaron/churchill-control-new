@@ -7,11 +7,11 @@ const local = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-a
 const worker = fs.readFileSync("scripts/local-node/avantiqo-node01-worker.ps1", "utf8");
 const runner = fs.readFileSync("services/avantiqo-music-elastic-engine/local_runner.py", "utf8");
 
-test("Music Elastic prefers the owned local queue and retains Modal fallback", () => {
-  assert.match(provider, /AvantiqoMusicElasticLocalQueueProvider\.available/);
-  assert.match(provider, /AvantiqoMusicElasticLocalQueueProvider\.execute/);
-  assert.match(provider, /AVANTIQO_MUSIC_ELASTIC_LOCAL_FALLBACK_MODAL/);
-  assert.match(provider, /AvantiqoMusicElasticModalProvider\.execute/);
+test("Music Elastic uses the owned local queue only", () => {
+  assert.match(provider, /AvantiqoMusicElasticLocalQueueProvider/);
+  assert.match(provider, /executeLocal\(AvantiqoMusicElasticLocalQueueProvider/);
+  assert.match(provider, /AVANTIQO_MUSIC_ELASTIC_LOCAL_NODE_UNAVAILABLE/);
+  assert.doesNotMatch(provider, /AvantiqoMusicElasticModalProvider/);
 });
 
 test("Music Elastic local queue is governed and capability-scoped", () => {

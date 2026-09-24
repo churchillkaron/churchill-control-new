@@ -80,7 +80,7 @@ test('multiple statement candidates do not trigger deterministic single-document
 test('synthetic runtime skips owned cognitive brief for prepared attachment reflex', () => {
   const synthetic = readFileSync('lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js', 'utf8');
   assert.match(synthetic, /hasPreparedAttachmentReflexCandidate/);
-  assert.match(synthetic, /preparedAttachmentReflex \? null : await ownedCognitiveBrief/);
+  assert.match(synthetic, /preparedAttachmentReflex \|\| pendingControlDecision \|\| deterministicExactAction[\s\S]*\? null[\s\S]*: await ownedCognitiveBrief/);
 });
 
 test('bank statement preparation requires entity before scoped account query', () => {

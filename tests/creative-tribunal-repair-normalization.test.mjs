@@ -5,7 +5,7 @@ import test from "node:test";
 const source=fs.readFileSync(new URL("../lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js",import.meta.url),"utf8");
 test("Tribunal promotes common repair contract into canonical patch",()=>{
   assert.match(source,/const common = object\(envelope\.common_plan_contract\)/);
-  assert.match(source,/const patch = \{ \.\.\.envelope, \.\.\.common \}/);
+  assert.match(source,/const patch = \{ \.\.\.expandRepairPaths\(envelope\), \.\.\.expandRepairPaths\(common\) \}/);
 });
 test("Tribunal preserves verified execution routing during creative repair",()=>{
   assert.match(source,/service: baseStep\.service/);

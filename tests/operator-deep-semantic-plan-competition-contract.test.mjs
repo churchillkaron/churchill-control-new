@@ -10,7 +10,7 @@ const source = fs.readFileSync(
 test("deep strategic cognition activates multi-candidate planning", () => {
   assert.match(source, /semanticDepth === "deep"/);
   assert.match(source, /\["strategic", "analytical", "creative"\]\.includes\(semanticMode\)/);
-  assert.match(source, /cognitiveBriefSystem\(\{ multiCandidate \}\)/);
+  assert.match(source, /cognitiveBriefSystem\(options\.measuredCalibrationPolicy\)/);
   assert.match(source, /generate 2 to 4 materially different plan_candidates/);
   assert.match(source, /operator_plan_graph deliberate/);
   assert.match(source, /stress_test/);

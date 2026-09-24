@@ -62,11 +62,11 @@ test("generation envelope overrides any legacy prompt as creative authority", ()
   assert.match(instruction, /CREATIVE_SHOT_CINEMATIC_DNA_V1/);
 });
 
-test("production video routing reserves fast lane for explicit preview profiles", () => {
+test("production video routing has no implicit preview bypass on the local-only provider", () => {
   const source = fs.readFileSync(new URL("../lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js", import.meta.url), "utf8");
-  assert.match(source, /FAST_PREVIEW.*DRAFT_PREVIEW.*BENCHMARK_PREVIEW/s);
   assert.match(source, /ROUTED_MASTERED_CAPABILITIES\.has\(capability\)/);
-  assert.doesNotMatch(source, /function fastPreviewRequested[\s\S]*return true;/);
+  assert.match(source, /AVANTIQO_VIDEO_LOCAL_ENGINE_NOT_IMPLEMENTED/);
+  assert.doesNotMatch(source, /FAST_PREVIEW|DRAFT_PREVIEW|BENCHMARK_PREVIEW/);
 });
 
 test("native modal job treats structured Studio envelope as native master authority", () => {

@@ -127,21 +127,18 @@ test("Voice registration does not falsely certify realtime or recorded-reference
   assert.match(source, /ai\.text\.to\.speech/);
 });
 
-test("Voice V2 prefers Node 01 and keeps Modal as the asynchronous fallback", async () => {
+test("Voice V2 is Node01 local-only and retires external transports", async () => {
   const source = await readFile(
     new URL("../lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProviderV2.js", import.meta.url),
     "utf8",
   );
   assert.match(source, /AvantiqoVoiceSttLocalQueueProvider\.available/);
   assert.match(source, /AvantiqoVoiceTtsLocalQueueProvider\.available/);
-  assert.match(source, /AVANTIQO_VOICE_STT_LOCAL_FALLBACK_MODAL/);
-  assert.match(source, /AVANTIQO_VOICE_TTS_LOCAL_FALLBACK_MODAL/);
-  assert.match(source, /executeVoiceModalDirect/);
   assert.match(source, /isVoiceSttLocalJob/);
   assert.match(source, /isVoiceTtsLocalJob/);
-  assert.match(source, /isVoiceModalDirectJob/);
+  assert.match(source, /AVANTIQO_VOICE_LOCAL_NODE_UNAVAILABLE/);
   assert.match(source, /AVANTIQO_VOICE_LEGACY_JOB_TRANSPORT_RETIRED/);
-  assert.doesNotMatch(source, /RUNPOD|SAFE_LEASE|runsync/i);
+  assert.doesNotMatch(source, /executeVoiceModalDirect|isVoiceModalDirectJob|RUNPOD|SAFE_LEASE|runsync/i);
 });
 
 test("Operator speech APIs delegate capability-only execution to async Voice runtimes", async () => {
@@ -214,7 +211,7 @@ test("TTS worker emits a startup breadcrumb before heavy model imports", async (
   assert.doesNotMatch(handler, /import runpod/);
 });
 
-test("Voice TTS local queue is governed and storage-scoped before Modal fallback", async () => {
+test("Voice TTS local queue is governed and storage-scoped with no external fallback", async () => {
   const localQueue = await readFile(
     new URL("../lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceTtsLocalQueueProvider.js", import.meta.url),
     "utf8",
@@ -227,12 +224,12 @@ test("Voice TTS local queue is governed and storage-scoped before Modal fallback
   assert.match(localQueue, /AVANTIQO_LOCAL_VOICE_TTS_ENABLED/);
   assert.match(localQueue, /AVANTIQO_VOICE_TTS_LOCAL_GOVERNED_CONTEXT_REQUIRED/);
   assert.match(localQueue, /createSignedUploadUrl/);
-  assert.match(localQueue, /LOCAL_GPU_FIRST_MODAL_FALLBACK/);
-  assert.match(provider, /AVANTIQO_VOICE_TTS_LOCAL_FALLBACK_MODAL/);
-  assert.doesNotMatch(localQueue, /RUNPOD|SAFE_LEASE/i);
+  assert.match(localQueue, /LOCAL_GPU_ONLY/);
+  assert.match(provider, /AVANTIQO_VOICE_LOCAL_NODE_UNAVAILABLE/);
+  assert.doesNotMatch(provider, /executeVoiceModalDirect|RUNPOD|SAFE_LEASE/i);
 });
 
-test("Voice STT can use Node 01 with the same Whisper foundation model and Modal fallback", async () => {
+test("Voice STT uses Node01 with the same Whisper foundation model and fails closed", async () => {
   const provider = await readFile(
     new URL("../lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProviderV2.js", import.meta.url),
     "utf8",
@@ -255,13 +252,13 @@ test("Voice STT can use Node 01 with the same Whisper foundation model and Modal
   );
 
   assert.match(provider, /AvantiqoVoiceSttLocalQueueProvider\.available/);
-  assert.match(provider, /AVANTIQO_VOICE_STT_LOCAL_FALLBACK_MODAL/);
+  assert.match(provider, /AVANTIQO_VOICE_LOCAL_NODE_UNAVAILABLE/);
   assert.match(localQueue, /AVANTIQO_LOCAL_VOICE_STT_ENABLED/);
   assert.match(localQueue, /model:\s*MODEL/);
   assert.match(localQueue, /const MODEL = "openai\/whisper-large-v3-turbo"/);
   assert.match(worker, /'ai\.speech\.to\.text'/);
   assert.match(worker, /RunVoiceSttJob/);
-  assert.match(worker, /ValidateSet\('supervisor','gpu','cpu'\)/);
+  assert.match(worker, /ValidateSet\('supervisor','gpu','cpu','live','training'\)/);
   assert.match(worker, /\$GpuCapabilities = @\([^\n]*'ai\.speech\.to\.text'[^\n]*\)/);
   assert.match(worker, /\$CpuCapabilities = @\([^\n]*'ai\.audio\.elastic-warp'[^\n]*'media\.ffmpeg\.process'[^\n]*\)/);
   assert.match(worker, /Start-Job -Name \("Avantiqo-" \+ \$childLane\)/);

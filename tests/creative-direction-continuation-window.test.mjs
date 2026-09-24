@@ -12,7 +12,9 @@ test("in-progress direction may continue after start deadline without resetting 
 });
 
 test("approval state still enforces original money and call ceilings", () => {
-  assert.match(source, /CREATIVE_DIRECTION_BUDGET_EXHAUSTED/);
-  assert.match(source, /CREATIVE_DIRECTION_CALL_BUDGET_EXHAUSTED/);
+  assert.match(source, /remaining === null \|\| remaining <= 0/);
+  assert.match(source, /channel\.errorPrefix.*BUDGET_EXHAUSTED/);
+  assert.match(source, /Number\(approval\.call_count \|\| 0\) >= Number\(approval\.maximum_calls\)/);
+  assert.match(source, /channel\.errorPrefix.*CALL_BUDGET_EXHAUSTED/);
   assert.match(source, /maximum - spent/);
 });

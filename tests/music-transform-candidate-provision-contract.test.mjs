@@ -1,113 +1,20 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import fs from "node:fs";
 import test from "node:test";
 
-const provisioner = await readFile("scripts/provision-avantiqo-music-transform-candidate-runpod-local.mjs", "utf8");
-const preflight = await readFile("scripts/preflight-avantiqo-music-transform-candidate-local.mjs", "utf8");
-const benchmark = await readFile("scripts/benchmark-avantiqo-music-transform.mjs", "utf8");
-const launcher = await readFile("scripts/run-avantiqo-music-transform-certification-local.mjs", "utf8");
-const policy = await readFile("config/avantiqo-runpod-safe-lease-policy.json", "utf8");
+const provider = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProvider.js", "utf8");
+const engine = fs.readFileSync("lib/creative/runtime/engines/MusicEngine.js", "utf8");
+const route = fs.readFileSync("app/api/creative/music/remix/route.js", "utf8");
 
-test("Music transform candidate endpoint is distinct from production Compose", () => {
-  assert.match(provisioner, /ENDPOINT_NAME = "avantiqo-music-transform-candidate-v1"/);
-  assert.match(provisioner, /PRODUCTION_AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1"/);
-  assert.match(provisioner, /production_audio_endpoint_mutation_allowed: false/);
-  assert.match(provisioner, /production_audio_endpoint_mutation_performed: false/);
-  assert.match(provisioner, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_COLLIDES_WITH_PRODUCTION_AUDIO/);
-  assert.match(policy, /"music-transform-candidate": "avantiqo-music-transform-candidate-v1"/);
+test("retired RunPod transform candidate provisioning stays absent", () => {
+  assert.equal(fs.existsSync("scripts/provision-avantiqo-music-transform-candidate-runpod-local.mjs"), false);
+  assert.equal(fs.existsSync("scripts/preflight-avantiqo-music-transform-candidate-local.mjs"), false);
 });
 
-test("Music transform candidate remains parked until Safe Lease opens it", () => {
-  assert.match(provisioner, /workersMax: 0/);
-  assert.match(provisioner, /workersMin: 0/);
-  assert.match(provisioner, /body: \{ workersMin: 0, workersMax: 0 \}/);
-  assert.match(provisioner, /parking_repair_performed/);
-  assert.match(provisioner, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PARK_VERIFY_FAILED/);
-  assert.match(provisioner, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_PARK_VERIFY_FAILED/);
-  assert.match(provisioner, /workers_opened: false/);
-  assert.match(provisioner, /provider_job_submitted: false/);
-  assert.match(provisioner, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PROVISION_APPROVED/);
-  assert.match(provisioner, /SAFE_LEASE_LANE = "music-transform-candidate"/);
-});
-
-test("Candidate template binds the V2 image, shared cache, and certification lane", () => {
-  assert.match(provisioner, /IMAGE_EVIDENCE_PATH = "audits\/results\/avantiqo-audio-worker-image.json"/);
-  assert.match(provisioner, /REQUEST_CONTRACT = "AVANTIQO_AUDIO_WORKER_IMAGE_REQUEST_V11"/);
-  assert.match(provisioner, /AVANTIQO_AUDIO_CERTIFICATION_SAFE_LEASE_LANE: SAFE_LEASE_LANE/);
-  assert.match(provisioner, /CANONICAL_VOLUME_NAME = "avantiqo-shared-audio-voice-cache"/);
-  assert.match(provisioner, /networkVolumeId: volume\.id/);
-  assert.doesNotMatch(provisioner, /^\s*networkVolumeIds:\s*/m);
-  assert.match(provisioner, /authoritativeTemplate/);
-  assert.match(provisioner, /ENDPOINT_TEMPLATE_ID_TO_TEMPLATE_LIST/);
-  assert.match(provisioner, /embedded_template_view_used_for_digest_decision: false/);
-  assert.match(provisioner, /template_rebind_performed/);
-  assert.match(provisioner, /body: \{\s*templateId: targetTemplateId,\s*workersMin: 0,\s*workersMax: 0,\s*\}/s);
-  assert.match(provisioner, /XL_TURBO_REPAINT_RIGHT_OUTPAINT/);
-});
-
-test("Candidate preflight is zero-spend and proves authoritative endpoint state before leasing", () => {
-  assert.match(preflight, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_V1/);
-  assert.match(preflight, /RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID/);
-  assert.match(preflight, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_NOT_PARKED_0_0/);
-  assert.match(preflight, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_TEMPLATE_IMAGE_MISMATCH/);
-  assert.match(preflight, /authoritativeTemplate/);
-  assert.match(preflight, /ENDPOINT_TEMPLATE_ID_TO_TEMPLATE_LIST/);
-  assert.match(preflight, /embedded_template_view_used_for_digest_decision: false/);
-  assert.doesNotMatch(preflight, /candidate\?\.template && typeof candidate\.template === "object"\s*\? candidate\.template/);
-  assert.match(preflight, /AVANTIQO_AUDIO_CERTIFICATION_SAFE_LEASE_LANE/);
-  assert.match(preflight, /runpod_run_called: false/);
-  assert.match(preflight, /runpod_runsync_called: false/);
-  assert.match(preflight, /provider_job_submitted: false/);
-  assert.match(preflight, /workers_opened: false/);
-  assert.match(preflight, /endpoint_mutation_performed: false/);
-  assert.match(preflight, /ready_for_safe_lease_certification: true/);
-});
-
-test("Benchmark and launcher can only address the candidate lane", () => {
-  assert.match(benchmark, /RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID/);
-  assert.doesNotMatch(benchmark, /RUNPOD_AVANTIQO_AUDIO_ENDPOINT_ID/);
-  assert.match(benchmark, /SAFE_LEASE_LANE = "music-transform-candidate"/);
-  assert.match(launcher, /PREFLIGHT_SCRIPT/);
-  assert.match(launcher, /spawnSync\(process\.execPath, \[PREFLIGHT_SCRIPT\]/);
-  assert.match(launcher, /AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_PREFLIGHT_FAILED/);
-  assert.match(launcher, /SAFE_LEASE_LANE = "music-transform-candidate"/);
-  assert.doesNotMatch(launcher, /--lane=audio/);
-});
-
-test("Music transform benchmark is Node 20 safe and storage-only", () => {
-  assert.doesNotMatch(benchmark, /@supabase\/supabase-js/);
-  assert.doesNotMatch(benchmark, /createClient\(/);
-  assert.match(benchmark, /\/storage\/v1/);
-  assert.match(benchmark, /\/object\/sign\//);
-  assert.match(benchmark, /\/object\/upload\/sign\//);
-  assert.match(benchmark, /SUPABASE_SERVICE_ROLE_KEY/);
-  assert.match(benchmark, /source_asset_roles: \{ source_audio: sourceSignedUrl \}/);
-  assert.match(benchmark, /storage_upload: \{ signed_url: outputSignedUrl, storage_reference: outputReference \}/);
-});
-
-test("Music transform launcher resolves candidate endpoint by exact name", () => {
-  assert.match(launcher, /CANDIDATE_ENDPOINT_NAME = "avantiqo-music-transform-candidate-v1"/);
-  assert.match(launcher, /PRODUCTION_AUDIO_ENDPOINT_NAME = "avantiqo-audio-v1"/);
-  assert.match(launcher, /resolveCandidateEndpointId/);
-  assert.match(launcher, /CANDIDATE_ENDPOINT_RESOLUTION_FAILED:matches=/);
-  assert.match(launcher, /CANDIDATE_PRODUCTION_AUDIO_COLLISION/);
-  assert.match(launcher, /CANDIDATE_CONFIGURED_ENDPOINT_ID_STALE/);
-  assert.match(launcher, /RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID: candidateEndpointId/);
-  assert.doesNotMatch(launcher, /required\("RUNPOD_AVANTIQO_MUSIC_TRANSFORM_CANDIDATE_ENDPOINT_ID"\)/);
-});
-
-test("Music transform submission only retries bounded RunPod endpoint-open propagation", () => {
-  assert.match(benchmark, /ENDPOINT_OPEN_PROPAGATION_TIMEOUT_MS = 45_000/);
-  assert.match(benchmark, /ENDPOINT_OPEN_PROPAGATION_POLL_MS = 2_000/);
-  assert.match(benchmark, /function endpointPausedPropagationError/);
-  assert.match(benchmark, /RUNPOD_HTTP_409/);
-  assert.match(benchmark, /ENDPOINT_PAUSED/);
-  assert.match(benchmark, /submitRunpodJob/);
-  assert.match(benchmark, /assertLease\(endpointId\)/);
-  assert.match(benchmark, /ENDPOINT_OPEN_PROPAGATION_TIMEOUT:rejected_attempts=/);
-  assert.match(benchmark, /ENDPOINT_OPEN_PROPAGATION_WAIT/);
-  assert.match(benchmark, /provider_jobs_submitted: 0/);
-  assert.match(benchmark, /ENDPOINT_OPEN_PROPAGATED/);
-  assert.match(benchmark, /provider_jobs_submitted: 1/);
-  assert.match(benchmark, /endpoint_open_propagation_rejections: endpointOpenPropagationRejections/);
+test("Remix Edit and Extend remain research-only and cannot reach production provider", () => {
+  assert.match(engine, /capability: "ai\.audio\.remix"[\s\S]*implementation: "RESEARCH_ONLY"/);
+  assert.match(engine, /capability: "ai\.audio\.edit"[\s\S]*implementation: "RESEARCH_ONLY"/);
+  assert.match(engine, /capability: "ai\.audio\.extend"[\s\S]*implementation: "RESEARCH_ONLY"/);
+  assert.match(route, /CREATIVE_MUSIC_TRANSFORM_NOT_CERTIFIED/);
+  assert.doesNotMatch(provider, /capability === "ai\.audio\.(remix|edit|extend)"/);
 });

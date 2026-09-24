@@ -28,7 +28,7 @@ test("publishing inspection and execution APIs require explicit publish permissi
     assert.match(route, /requireOrganizationAccess/);
     assert.match(route, /creative\.release\.publish/);
   }
-  assert.match(executeRoute, /CreativePublishExecutionRuntime\.execute/);
+  assert.match(executeRoute, /CreativePublishExecutionRuntimeV2\.execute/);
   assert.match(executeRoute, /user_id:\s*access\.userId/);
   assert.match(executeRoute, /staff_account_id:\s*access\.staff\?\.id/);
 });
@@ -53,18 +53,19 @@ test("provider execution is separate, authenticated, idempotent and evidence bas
   assert.match(executionRuntime, /external_publication_id/);
   assert.match(executionRuntime, /external_publication_url/);
   assert.match(executionRuntime, /EVIDENCE_REQUIRED/);
-  assert.match(executionRuntime, /hasDeliveryEvidence/);
+  assert.match(executionRuntime, /function externalEvidence/);
+  assert.match(executionRuntime, /return Boolean\(text\(evidence\.external_publication_id\)\)/);
 });
 
 test("release desk keeps approval, authorization and external execution distinct", () => {
   assert.match(workspace, /Approve publication release/);
   assert.match(workspace, /Authorize target/);
-  assert.match(workspace, /Execute delivery/);
+  assert.match(workspace, /\{target\.can_poll \? "Check provider" : "Publish"\}/);
   assert.match(workspace, /Check provider/);
-  assert.match(workspace, /Open external publication/);
+  assert.match(workspace, /Open verified publication/);
   assert.match(workspace, /Creates an immutable publish command only/);
-  assert.match(workspace, /External execution requires explicit action/);
-  assert.match(workspace, /Nothing is published automatically/);
+  assert.match(workspace, /no external publication executed yet/);
+  assert.match(workspace, /Only provider read-back proves publication/);
 });
 
 test("release desk only polls existing commands and never publishes on mount", () => {

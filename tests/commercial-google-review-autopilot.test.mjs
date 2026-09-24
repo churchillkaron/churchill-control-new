@@ -35,12 +35,12 @@ test("successful discovery clears stale Google approval state", () => {
   assert.match(profile, /location_discovery_requires_project_approval: false/);
 });
 
-test("review autopilot runs every fifteen minutes", () => {
+test("review autopilot runs three times daily under the release capacity schedule", () => {
   const vercel = JSON.parse(source("vercel.json"));
   const job = vercel.crons.find(
     (row) => row.path === "/api/internal/reputation/google-reviews/process"
   );
-  assert.equal(job?.schedule, "*/15 * * * *");
+  assert.equal(job?.schedule, "0 0,8,16 * * *");
 });
 
 test("transient review infrastructure failures preserve retry budget for the next cron", () => {

@@ -7,10 +7,10 @@ const source = fs.readFileSync("components/operator/HomeAvantiqoIntelligence.jsx
 
 test("Business Partner matches the light Avantiqo organization workspace", () => {
   parse(source, { sourceType: "module", plugins: ["jsx"] });
-  assert.match(source, /border-black\/\[0\.075\] bg-white/);
+  assert.match(source, /border-black\/\[0\.08\] bg-white/);
   assert.match(source, /text-\[#191919\]/);
   assert.match(source, /text-\[#6C6963\]/);
-  assert.match(source, /bg-\[#FBF7F1\]/);
+  assert.match(source, /bg-\[#FBFAF8\]/);
   assert.match(source, /OperatorConversationText content=\{message\.content\} tone="light"/);
   assert.doesNotMatch(source, /bg-black\/(?:15|20|25)/);
   assert.doesNotMatch(source, /border-white\/10/);

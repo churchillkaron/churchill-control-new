@@ -54,9 +54,10 @@ test("lens character models optical behavior instead of focal length alone", () 
 
 test("movement choreography supports compound spatial camera language", () => {
   for (const primitive of [
-    "PAN", "TILT", "ROLL", "DOLLY", "TRUCK", "PEDESTAL",
-    "ORBIT", "CRANE", "AERIAL", "ZOOM", "HANDHELD",
-  ]) assert.match(craft, new RegExp(primitive));
+    "pan", "tilt", "roll", "dolly", "truck", "pedestal",
+    "orbit", "crane", "aerial", "zoom", "handheld",
+  ]) assert.match(craft, new RegExp(`\\[\\"${primitive}\\"`));
+  assert.match(craft, /primitives\.push\(name\.toUpperCase\(\)\)/);
   assert.match(craft, /compound_move/);
   assert.match(craft, /parallax_strategy/);
   assert.match(craft, /foreground_reveal/);
@@ -98,7 +99,7 @@ test("native controls bind motion and performance references and preserve source
   assert.match(native, /PERFORMANCE_REFERENCE/);
   assert.match(native, /camera_motion_reference_bound/);
   assert.match(native, /performance_reference_bound/);
-  assert.match(native, /source_assets_preserved:\s*true/);
+  assert.match(native, /source_assets_preserved:[\s\S]*sourceAssets\.length === sourceAssetCandidates\.length/);
   assert.match(native, /list\(input\.source_assets\)/);
 });
 

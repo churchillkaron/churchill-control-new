@@ -9,7 +9,8 @@ test("workflow resolution reuses settled governed master-plan reasoning before c
   assert.match(source, /MASTER_PLAN_DYNAMIC_V2/);
   assert.match(source, /MASTER_PLAN_CONTRACT_REPAIR_V1/);
   assert.match(source, /CreativeMasterPlanRuntime\.resumeFromResult/);
-  assert.match(source, /\|\|\s*await CreativeMasterPlanRuntime\.create/);
+  assert.match(source, /let initialMaster = await recoverSettledInitialMaster/);
+  assert.match(source, /if \(!initialMaster\) \{[\s\S]*initialMaster = await CreativeMasterPlanRuntime\.create/);
 });
 
 test("settled recovery is scoped to successful usage ids recorded on current approval operations", () => {

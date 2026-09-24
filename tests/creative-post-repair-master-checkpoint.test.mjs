@@ -18,7 +18,7 @@ test("post-repair master checkpoint is durable and scope-bound", () => {
 test("repaired master is persisted before Tribunal resumes", () => {
   const resume = source.match(/async resumeApprovedCouncil[\s\S]*$/)?.[0] || "";
   const repairAt = resume.indexOf("resumeApprovedCouncilPlan");
-  const persistAt = resume.indexOf("persistPostRepairMasterCheckpoint(context, councilMaster)");
+  const persistAt = resume.indexOf("persistPostRepairMasterCheckpoint(context, tribunalMaster)");
   const tribunalAt = resume.indexOf("reviewWithDurableResume");
   assert.ok(repairAt >= 0 && persistAt > repairAt && tribunalAt > persistAt);
 });

@@ -1,106 +1,46 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import fs from "node:fs";
 import test from "node:test";
 
-async function source(path) {
-  return readFile(new URL(`../${path}`, import.meta.url), "utf8");
-}
+const source = (path) => fs.readFileSync(path, "utf8");
+const jobs = source("lib/operator/runtime/OperatorVoiceAsyncJobRuntime.js");
+const runtime = source("lib/operator/runtime/OperatorVoiceAsyncTranscriptionRuntime.js");
+const provider = source("lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProviderV2.js");
+const localStt = source("lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceSttLocalQueueProvider.js");
+const route = source("app/api/operator/transcribe/route.js");
+const client = source("lib/operator/voice/AsyncRecordedTranscriptionClient.js");
 
-test("Operator STT uses durable distributed Safe Lease V2 jobs without persisting audio", async () => {
-  const runtime = await source("lib/operator/runtime/OperatorVoiceAsyncTranscriptionRuntime.js");
-  const route = await source("app/api/operator/transcribe/route.js");
-
+test("Operator STT uses durable local owned Voice jobs without persisting audio in its job ledger", () => {
   assert.match(runtime, /const LANE = "voice-stt"/);
   assert.match(runtime, /const CAPABILITY = "ai\.speech\.to\.text"/);
-  assert.match(runtime, /acquireVoiceRunpodWebLease/);
-  assert.match(runtime, /runpod_safe_lease: lease/);
-  assert.match(runtime, /ServiceExecutionRuntime\.execute/);
-  assert.match(runtime, /ServiceExecutionRuntime\.settle/);
-  assert.match(runtime, /audio_persisted: false/);
-  assert.doesNotMatch(runtime, /audio_base64\s*:/);
-  assert.match(runtime, /\.eq\("organization_id", organizationId\)/);
-  assert.match(runtime, /\.eq\("capability", CAPABILITY\)/);
-  assert.match(runtime, /\.eq\("lane", LANE\)/);
+  assert.match(runtime, /insertVoiceAsyncJob/);
+  assert.match(runtime, /submitVoiceService/);
+  assert.match(runtime, /settleVoiceJob/);
+  assert.doesNotMatch(jobs, /audio_base64\s*:/);
+  assert.match(jobs, /\.eq\("organization_id", organizationId\)/);
+  assert.match(jobs, /\.eq\("capability", capability\)/);
+  assert.match(jobs, /\.eq\("lane", lane\)/);
+});
 
-  assert.match(route, /startOperatorAsyncTranscription/);
-  assert.match(route, /pollOperatorAsyncTranscription/);
+test("STT provider is Node01-only and exact-job cancelable", () => {
+  assert.match(provider, /AvantiqoVoiceSttLocalQueueProvider\.available/);
+  assert.match(provider, /AvantiqoVoiceSttLocalQueueProvider\.execute/);
+  assert.match(provider, /isVoiceSttLocalJob/);
+  assert.match(provider, /AvantiqoVoiceSttLocalQueueProvider\.cancel/);
+  assert.match(localStt, /const MODEL = "openai\/whisper-large-v3-turbo"/);
+  assert.match(localStt, /\.eq\("id", rawJobId\(jobId\)\)/);
+  assert.match(localStt, /exact_job_only: true/);
+  assert.doesNotMatch(provider, /RunPod|Safe Lease|executeVoiceModalDirect/);
+});
+
+test("transcription API and browser client use bounded authenticated async polling", () => {
+  assert.match(route, /requireOrganizationAccess/);
+  assert.match(route, /export async function POST/);
   assert.match(route, /export async function GET/);
+  assert.match(route, /export async function DELETE/);
   assert.match(route, /status: 202/);
   assert.match(route, /Retry-After/);
-  assert.match(route, /requireOrganizationAccess/);
-  assert.match(route, /resolveBusinessContext/);
-});
-
-test("TTS async cancellation cancels only the captured provider job and never purges a queue", async () => {
-  const runtime = await source("lib/operator/runtime/OperatorVoiceAsyncSpeechRuntime.js");
-  const route = await source("app/api/operator/speak/jobs/route.js");
-  const leaseRuntime = await source("lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceRunpodLeaseRuntime.js");
-
-  assert.match(runtime, /cancelOperatorAsyncSpeech/);
-  assert.match(runtime, /cancelExactJob: Boolean\(job\.provider_job_id\)/);
-  assert.match(runtime, /status: "CANCELLED"/);
-  assert.match(runtime, /blind_queue_purge_requested: false/);
-  assert.match(route, /export async function DELETE/);
-  assert.match(route, /OperatorVoiceAsyncSpeechRuntime\.cancel/);
-  assert.match(route, /organizationAccess\(request, organizationId\)/);
-  assert.doesNotMatch(leaseRuntime, /purge-queue/);
-});
-
-test("Voice proof, readiness and smoke all require exact Safe Lease V2", async () => {
-  const proof = await source("scripts/run-avantiqo-voice-tts-v3-one-proof-local.mjs");
-  const readiness = await source("scripts/check-avantiqo-voice-tts-v3-readiness-local.mjs");
-  const smoke = await source("scripts/smoke-avantiqo-voice-tts-cold-start-local.mjs");
-
-  for (const value of [proof, readiness, smoke]) {
-    assert.match(value, /AVANTIQO_RUNPOD_SAFE_LEASE_V2/);
-    assert.match(value, /AVANTIQO_RUNPOD_SAFE_LEASE_ACTIVE/);
-    assert.match(value, /AVANTIQO_RUNPOD_SAFE_LEASE_LANE/);
-    assert.match(value, /voice-tts/);
-    assert.match(value, /AVANTIQO_RUNPOD_SAFE_LEASE_ENDPOINT_ID/);
-    assert.match(value, /AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT/);
-  }
-
-  assert.match(smoke, /requireSafeLeaseV2\(endpointId\);[\s\S]*?rawRequest\(endpointId, "\/run"/);
-  assert.match(proof, /AVANTIQO_VOICE_TTS_V3_ONE_PROOF_FINAL_JOB_HEALTH_CLEAR/);
-  assert.match(proof, /worker_state_authority: "READINESS_THREE_PLANE_RECONCILIATION"/);
-  assert.doesNotMatch(proof, /AVANTIQO_VOICE_TTS_V3_ONE_PROOF_FINAL_HEALTH_BLOCKED/);
-});
-
-test("Voice readiness models true 0\/1 serverless cold start", async () => {
-  const readiness = await source("scripts/check-avantiqo-voice-tts-v3-readiness-local.mjs");
-
-  assert.match(readiness, /AVANTIQO_VOICE_TTS_V3_READINESS_V4/);
-  assert.match(readiness, /zero_live_workers_allowed: true/);
-  assert.match(readiness, /serverless_cold_start_ready/);
-  assert.doesNotMatch(readiness, /READY_WORKER_NOT_STABLY_VISIBLE/);
-  assert.match(readiness, /WORKERS_MIN_NOT_ZERO/);
-  assert.match(readiness, /WORKERS_MAX_NOT_ONE_UNDER_SAFE_LEASE/);
-  assert.match(readiness, /JOBS_IN_QUEUE/);
-  assert.match(readiness, /JOBS_IN_PROGRESS/);
-  assert.match(readiness, /STALE_WORKER_PRESENT/);
-  assert.match(readiness, /LIVE_WORKER_IMAGE_MISMATCH/);
-  assert.match(readiness, /TERMINAL_WORKER_STATUSES = new Set\(\["EXITED", "STOPPED", "TERMINATED", "DELETED"\]\)/);
-  assert.match(readiness, /function nonTerminalControlWorkers\(workers\)/);
-  assert.match(readiness, /function activeManagementWorkers\(workers\)/);
-  assert.match(readiness, /function managementHourlyCost\(workers\)/);
-  assert.match(readiness, /function terminalManagementRecord\(worker\)/);
-  assert.match(readiness, /function reconcileWorkerState\(workerRecords, managementWorkerRecords, managementActiveWorkers, rawHealth\)/);
-  assert.match(readiness, /managementPlaneClean/);
-  assert.match(readiness, /managementHasOnlyTerminalHistory/);
-  assert.match(readiness, /allObservedControlWorkersRetired/);
-  assert.match(readiness, /retiredWorkerPlane/);
-  assert.match(readiness, /retiredHealthWorkerTelemetry/);
-  assert.match(readiness, /retired_health_worker_telemetry_ignored/);
-  assert.match(readiness, /retired_worker_plane/);
-  assert.match(readiness, /management_active_hourly_cost_usd/);
-  assert.match(readiness, /management_plane_clean/);
-  assert.match(readiness, /zero_live_workers_observed/);
-  assert.match(readiness, /terminal_worker_history_ignored: true/);
-  assert.match(readiness, /stale_control_ghost_history_ignored_only_when_live_planes_are_zero: true/);
-  assert.match(readiness, /retired_control_ghost_history_requires_terminal_management_evidence: true/);
-  assert.match(readiness, /retired_worker_health_telemetry_ignored_only_when_all_control_workers_are_retired: true/);
-  assert.match(readiness, /management_plane_authoritative_for_retired_worker_history: true/);
-  assert.match(readiness, /CONTROL_HEALTH_WORKER_STATE_DISAGREEMENT/);
-  assert.match(readiness, /MANAGEMENT_HEALTH_WORKER_STATE_DISAGREEMENT/);
-  assert.match(readiness, /CONTROL_MANAGEMENT_WORKER_STATE_DISAGREEMENT/);
+  assert.match(client, /\/api\/operator\/transcribe/);
+  assert.match(client, /method: "DELETE"/);
+  assert.doesNotMatch(client, /runpod|modal/i);
 });

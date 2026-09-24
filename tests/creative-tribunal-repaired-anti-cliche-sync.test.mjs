@@ -8,5 +8,5 @@ test('Tribunal repair synchronizes final anti-cliche rules with repaired concept
 });
 test('concept selection rationale is audit history, not final review evidence',()=>{
   const canonical=source.slice(source.indexOf('function canonicalReviewPlan'),source.indexOf('function tribunalResumePackage'));
-  assert.match(canonical,/"concept_selection_reason"/);
+  assert.match(canonical,/delete canonical\.concept_selection_reason/);
 });

@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CreativeGeneratedMediaPerceptualExecutionGate as gate } from '../lib/creative/quality/runtime/CreativeGeneratedMediaPerceptualExecutionGate.js';
+import { register } from 'node:module';
+import { pathToFileURL } from 'node:url';
+register('./scripts/next-alias-loader.mjs', pathToFileURL('./'));
+const { CreativeGeneratedMediaPerceptualExecutionGate: gate } = await import('../lib/creative/quality/runtime/CreativeGeneratedMediaPerceptualExecutionGate.js');
 
 test('owned Vision nested envelope normalizes scores, frame count, and plural artifacts',()=>{
  const task={output:{raw:{output:{analysis_frame_count:7,result:{passed:true,scores:{overall:95,story:96,environment:97,camera:98,anatomy:99,identity:99,product_fidelity:99,music_energy:96,performance:97,continuity:98,physics:98,artifacts:99},failures:[],repair_instructions:[]}}}}};

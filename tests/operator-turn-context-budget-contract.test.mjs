@@ -20,6 +20,6 @@ test("context budget telemetry is exposed without changing authorization state",
 });
 
 test("persisted conversation loader has a hard server-side turn ceiling", () => {
-  assert.match(conversation, /function boundedTurns\(rows = \[\], limit = 12\)/);
-  assert.match(conversation, /Math\.min\(24, Number\(limit\) \|\| 12\)/);
+  assert.match(conversation, /boundRecentConversationTurns/);
+  assert.match(conversation, /\.limit\(24\)/);
 });

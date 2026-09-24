@@ -15,7 +15,7 @@ test('audio uploads are transcribed by owned Avantiqo Voice before semantic rout
   assert.match(runtime, /external_provider_fallback_allowed:\s*false/);
   assert.match(policy, /"ai\.speech\.to\.text": "avantiqo-voice"/);
   assert.match(voice, /openai\/whisper-large-v3-turbo/);
-  assert.match(voice, /AVANTIQO_VOICE_MODAL_DIRECT_CONFIGURATION_REQUIRED/);
+  assert.match(voice, /AVANTIQO_VOICE_LOCAL_NODE_UNAVAILABLE/);
 });
 
 test('audio analysis failure cannot authorize or fabricate routing', () => {

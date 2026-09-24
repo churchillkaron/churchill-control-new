@@ -6,7 +6,7 @@ const source = fs.readFileSync('lib/creative/director/runtime/CreativeWorkflowRe
 
 test('resume checkpoints settled Tribunal replay instead of stale Council master', () => {
   const resume = source.slice(source.indexOf('async resumeApprovedCouncil'));
-  const recover = resume.indexOf('const recoveredTribunalResume = await recoverSettledTribunalResume');
+  const recover = resume.indexOf('await recoverSettledTribunalResume');
   const tribunalRaw = resume.indexOf('const tribunalMasterRaw = recoveredTribunalResume?.replayed_plan');
   const grounded = resume.indexOf('CreativeExactClaimAuthorityRuntime.ground');
   const persist = resume.indexOf('await persistPostRepairMasterCheckpoint(context, tribunalMaster)');

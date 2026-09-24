@@ -2,37 +2,18 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-const workflow = fs.readFileSync(
-  new URL("../.github/workflows/avantiqo-music-separator-certification.yml", import.meta.url),
-  "utf8",
-);
+const local = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicSeparatorLocalQueueProvider.js", "utf8");
+const readiness = fs.readFileSync("app/api/creative/music/readiness/route.js", "utf8");
 
-test("Music separator certification workflow installs only required CI runtime dependencies", () => {
-  assert.match(workflow, /npm install --no-save --package-lock=false @next\/env@14\.2\.35 @supabase\/supabase-js@2\.105\.4/);
-  assert.doesNotMatch(workflow, /\brun:\s*npm ci\b/);
+test("legacy separator cloud certification workflow stays retired", () => {
+  assert.equal(fs.existsSync(".github/workflows/avantiqo-music-separator-certification.yml"), false);
 });
 
-test("Music separator certification fails closed before provider work when credentials are absent", () => {
-  assert.match(workflow, /AVANTIQO_MUSIC_SEPARATOR_CREDENTIAL_PREFLIGHT_V1/);
-  assert.match(workflow, /RUNPOD_MANAGEMENT_API_KEY/);
-  assert.match(workflow, /RUNPOD_API_KEY/);
-  assert.match(workflow, /NEXT_PUBLIC_SUPABASE_URL/);
-  assert.match(workflow, /SUPABASE_SERVICE_ROLE_KEY/);
-  assert.match(workflow, /provider_job_submitted[^\n]*false/);
-  assert.match(workflow, /endpoint_mutation_performed[^\n]*false/);
-});
-
-test("Music separator provisioning pipeline propagates node failures through tee", () => {
-  assert.match(
-    workflow,
-    /Provision dedicated separator endpoint if missing[\s\S]*?set -euo pipefail[\s\S]*?provision-avantiqo-music-separator-runpod-local\.mjs --apply \| tee/,
-  );
-});
-
-test("Music separator certification remains one-run and non-activating", () => {
-  assert.match(workflow, /AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_SPEND_APPROVED:\s*"YES"/);
-  assert.match(workflow, /AVANTIQO_MUSIC_SEPARATOR_BENCHMARK_RIGHTS_APPROVED:\s*"YES"/);
-  assert.match(workflow, /Run one controlled separator benchmark/);
-  assert.match(workflow, /MUSIC_SEPARATOR_HUMAN_REVIEW=PENDING/);
-  assert.match(workflow, /MUSIC_SEPARATOR_PRODUCTION_ACTIVATION=false/);
+test("separator production remains local and exact-certification gated", () => {
+  assert.match(local, /AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED/);
+  assert.match(local, /AVANTIQO_MUSIC_SEPARATOR_ENGINE_NOT_CERTIFIED/);
+  assert.match(local, /demucs-htdemucs-ft/);
+  assert.match(local, /lane:"gpu"/);
+  assert.match(readiness, /AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED/);
+  assert.doesNotMatch(local, /RunPod|Modal|SAFE_LEASE/);
 });

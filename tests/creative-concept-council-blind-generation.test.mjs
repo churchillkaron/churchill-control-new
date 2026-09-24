@@ -11,7 +11,7 @@ test("blind concept generation excludes incumbent master-plan creative decisions
   assert.ok(start >= 0 && end > start);
   assert.doesNotMatch(block, /deliverables: plan\.deliverables/);
   assert.doesNotMatch(block, /production_constraints: plan\.production/);
-  assert.match(block, /mission_contract: positiveMissionContract\(input\)/);
+  assert.match(block, /mission_contract: positiveMissionContract\(input, \{ includeAvoidances: false \}\)/);
 });
 
 test("blind concept generation receives positive mission contract instead of rejected lineage", () => {

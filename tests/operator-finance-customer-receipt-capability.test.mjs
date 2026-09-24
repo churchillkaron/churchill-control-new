@@ -54,8 +54,8 @@ test("underlying customer payment runtime has UUID generation wired", () => {
 });
 
 test("live turn status does not falsely announce Deep planning before routing", () => {
-  assert.match(liveRoute, /REQUEST_ROUTING/);
   assert.doesNotMatch(liveRoute, /phase:\s*"COGNITIVE_PLANNING"/);
   assert.doesNotMatch(liveRoute, /Intelligence is building the execution brief/);
+  assert.doesNotMatch(liveRoute, /REQUEST_ROUTING/);
   assert.match(liveRoute, /paid_execution_running:\s*false/);
 });

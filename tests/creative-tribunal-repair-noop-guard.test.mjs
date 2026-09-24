@@ -15,7 +15,7 @@ test("repair prompt does not duplicate the entire tribunal payload", () => {
   const end = source.indexOf("async function runReviews", start);
   const repairPayload = source.slice(start, end);
   assert.doesNotMatch(repairPayload, /\n\s*tribunal,\n\s*plan,/);
-  assert.match(repairPayload, /context: tribunalRepairContextView\(context\)/);
-  assert.match(repairPayload, /plan: tribunalRepairPlanView\(plan, blocking\)/);
+  assert.match(repairPayload, /context: compactRepairContext\(context\)/);
+  assert.match(repairPayload, /plan: compactRepairPlan\(plan\)/);
   assert.doesNotMatch(repairPayload, /plan: canonicalReviewPlan\(plan\)/);
 });

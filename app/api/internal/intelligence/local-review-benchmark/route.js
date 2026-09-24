@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { ServiceExecutionRuntime } from "@/lib/platform/service-runtime/execution/ServiceExecutionRuntime";
+import { runCronRouteLocalFirst } from "@/lib/platform/service-runtime/policy/CronRouteComputePolicyRuntime";
 
 const ORGANIZATION_ID = "33336a72-acb5-474e-856b-8be0269360e2";
 const LOCAL_MODEL = "Qwen/Qwen3-4B-GGUF:Q4_K_M";
@@ -69,7 +70,7 @@ async function settle(execution, capability, executionLane) {
   throw new Error("LOCAL_REVIEW_BENCHMARK_TIMEOUT");
 }
 
-export async function GET(request) {
+async function handleCronGet(request) {
   if (!authorized(request)) {
     return Response.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
@@ -154,4 +155,8 @@ export async function GET(request) {
       { status: 500 },
     );
   }
+}
+
+export async function GET(request) {
+  return runCronRouteLocalFirst(() => handleCronGet(request), { source: "VERCEL_CRON" });
 }

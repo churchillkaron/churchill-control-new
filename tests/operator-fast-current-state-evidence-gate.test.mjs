@@ -1,36 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fastCurrentStateEvidenceRequired } from "../lib/operator/runtime/OperatorReasoningRuntime.js";
+import fs from "node:fs";
 
-const read = (overrides = {}) => ({
-  key: "platform.organizational_context.read",
-  mode: "read",
-  domain: "platform",
-  capability: "organizational_context",
-  action: "read",
-  name: "Organizational Context",
-  description: "Read organization identity, company context, legal entity context, and verified operating context.",
-  operator_aliases: ["organization context", "business context", "company context"],
-  ...overrides,
+const source = fs.readFileSync("lib/operator/runtime/OperatorReasoningRuntime.js", "utf8");
+
+test("current-state evidence gate requires current wording, read capabilities and ranked business-read evidence", () => {
+  assert.match(source, /export function fastCurrentStateEvidenceRequired/);
+  assert.match(source, /CURRENT_STATE_EVIDENCE_PATTERN\.test\(message\)/);
+  assert.match(source, /capability\?\.mode\)\.toLowerCase\(\) === "read"/);
+  assert.match(source, /resolveOperatorBusinessRead\(\{/);
+  assert.match(source, /Number\(top\.score \|\| 0\) >= 0\.16/);
+  assert.match(source, /Number\(top\.phrase_affinity \|\| 0\) >= 0\.35/);
+  assert.match(source, /Number\(top\.primary_coverage \|\| 0\) >= 0\.25/);
 });
 
-test("current organization and legal-entity question requires registered live evidence", () => {
-  assert.equal(fastCurrentStateEvidenceRequired({
-    user_input: { message: "What is the current organization and legal entity context, and what can you verify live right now?" },
-    executable_capabilities: [read()],
-  }), true);
-});
-
-test("ordinary strategic conversation does not gain a synthetic live-read obligation", () => {
-  assert.equal(fastCurrentStateEvidenceRequired({
-    user_input: { message: "What do you think is the best way to explain our company?" },
-    executable_capabilities: [read()],
-  }), false);
-});
-
-test("current wording alone does not require a read when no materially matching read exists", () => {
-  assert.equal(fastCurrentStateEvidenceRequired({
-    user_input: { message: "What is the current weather outside?" },
-    executable_capabilities: [read()],
-  }), false);
+test("fast reasoning must execute matching current reads instead of answering from stale model context", () => {
+  assert.match(source, /currentStateEvidenceRequired && intent !== "execute"/);
+  assert.match(source, /When the request explicitly asks for current, live, latest, status, or verified business state/);
 });

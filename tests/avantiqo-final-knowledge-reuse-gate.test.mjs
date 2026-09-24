@@ -44,7 +44,7 @@ test("legacy fallback cannot reuse pre-epistemic platform knowledge", () => {
 });
 
 test("successful explicit-release revalidation renews bounded validity only for the same cycle", () => {
-  assert.match(lifecycle, /AVANTIQO_RELEASED_KNOWLEDGE_LIFECYCLE_V1/);
+  assert.match(lifecycle, /AVANTIQO_RELEASED_KNOWLEDGE_LIFECYCLE_V2/);
   assert.match(lifecycle, /reconcileAvantiqoReleasedKnowledgeRevalidation/);
   assert.match(lifecycle, /revalidatedAt < startedAt/);
   assert.match(lifecycle, /release_status, 80\) !== "RELEASED_MONITORED"/);

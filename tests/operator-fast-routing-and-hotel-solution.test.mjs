@@ -52,7 +52,7 @@ test("Fast startup does not statically import heavy execution runtimes", () => {
   assert.doesNotMatch(source, /^import[\s\S]{0,180}AvantiqoIntelligenceReasoningRuntime/m);
   assert.doesNotMatch(source, /^import[\s\S]{0,220}OperatorOwnedIntelligenceServiceRuntime/m);
   assert.match(source, /Promise\.all\(\[\s*import\("\.\/OperatorIntelligenceToolBridgeRuntime"\)/);
-  assert.match(source, /import\("@\/lib\/platform\/service-runtime\/execution\/ServiceExecutionRuntime"\)/);
+  assert.match(source, /import\("@\/lib\/intelligence\/runtime\/AvantiqoIntelligenceReasoningRuntime"\)/);
 });
 
 

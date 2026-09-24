@@ -35,9 +35,9 @@ test('semantic material estimation is an owned governed vision capability',()=>{
   assert.match(modal,/AVANTIQO_MATERIAL_ESTIMATION_V1/);
   assert.match(modal,/roughness_estimate/);
   assert.match(modal,/metallic_estimate/);
-  assert.match(provider,/functionName: "estimate_materials"/);
   assert.match(provider,/creative\.materials\.estimate/);
+  assert.match(provider,/AvantiqoDocumentVisionLocalQueueProvider/);
   assert.match(registration,/"creative\.materials\.estimate"/);
-  assert.match(registration,/owned_material_estimation: true/);
+  assert.match(registration,/owned_material_estimation: capabilities\.includes\("creative\.materials\.estimate"\)/);
   assert.match(registry,/CREATIVE_TOOL_CAPABILITIES\.MATERIAL_ESTIMATE/);
 });

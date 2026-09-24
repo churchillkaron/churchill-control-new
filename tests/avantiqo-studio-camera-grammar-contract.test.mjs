@@ -47,7 +47,7 @@ assert.match(gate, /fail_closed:\s*true/);
 assert.match(coverage, /AVANTIQO_CINEMATIC_COVERAGE_V1/);
 assert.match(coverage, /axis breaks require explicit motivation/);
 assert.match(coverage, /edit-incompatible shots cannot dispatch/);
-assert.match(authoring, /AVANTIQO_CINEMATIC_COVERAGE_AUTHORING_V1/);
+assert.match(authoring, /AVANTIQO_CINEMATIC_COVERAGE_AUTHORING_V2/);
 assert.match(authoring, /Camera movement is craft, not the creative device/);
 assert.match(authoring, /Do not turn this into a Hollywood coverage template/);
 

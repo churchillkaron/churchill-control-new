@@ -36,9 +36,11 @@ test('normal live wrapper no longer publishes the misleading generic routing sta
   assert.match(live, /if \(codeInspection\)/);
 });
 
-test('front CPU cognition can resolve governed managed credentials and fails fast', () => {
-  assert.match(front, /resolveProviderCredential/);
+test('front CPU cognition stays on governed owned local Intelligence and fails closed', () => {
+  assert.match(front, /intelligenceLocalQueueConfigured/);
+  assert.match(front, /intelligenceLocalConfigured/);
+  assert.match(front, /executeIntelligenceLocalQueueAndWait/);
+  assert.match(front, /executeIntelligenceLocal/);
   assert.match(front, /provider: "avantiqo-intelligence"/);
-  assert.match(front, /OPERATOR_FRONT_COGNITION_CREDENTIAL_TIMEOUT/);
-  assert.match(front, /2500/);
+  assert.doesNotMatch(front, /resolveProviderCredential|Modal|RunPod/);
 });

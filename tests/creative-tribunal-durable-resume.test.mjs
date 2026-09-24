@@ -55,7 +55,9 @@ test("Tribunal replay preserves settled concept council lineage", () => {
   assert.match(workflow, /authoritativeCouncil\.council_hash[\s\S]*incomingCouncil\.council_hash[\s\S]*derivedCouncilHash/);
   assert.match(workflow, /independent_concept_council: mergedCouncil/);
   assert.match(workflow, /concept_council: mergedCouncil/);
-  assert.match(workflow, /if \(approvedCheckpoint\) return restoreTribunalLineage\(approvedCheckpoint, reviewInput\.master\)/);
+  assert.match(workflow, /const approvedPlanHash = CreativeDynamicTribunalRuntime\.reviewPlanHash\(approvedCheckpoint\.plan\)/);
+  assert.match(workflow, /if \(approvedPlanHash === currentPlanHash\) \{[\s\S]*return restoreTribunalLineage\(approvedCheckpoint, reviewInput\.master\)/);
+  assert.match(workflow, /await clearTribunalApprovedMaster\(context\)/);
 });
 
 test("successful Tribunal clears durable resume state", () => {

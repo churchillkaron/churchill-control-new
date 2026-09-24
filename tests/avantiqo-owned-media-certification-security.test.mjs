@@ -1,28 +1,18 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(here, "..");
-
-function source(relativePath) {
-  return fs.readFileSync(path.join(root, relativePath), "utf8");
-}
-
-test("owned media certification requires env-backed header or bearer token", () => {
-  for (const relativePath of [
+test("retired HTTP owned-media certification routes stay retired", () => {
+  for (const route of [
     "app/api/internal/avantiqo-owned-media-certification-v1/route.js",
     "app/api/internal/avantiqo-owned-media-capability-certification-v1/route.js",
-  ]) {
-    const route = source(relativePath);
-    assert.match(route, /process\.env\.AVANTIQO_OWNED_CERTIFICATION_TOKEN/);
-    assert.match(route, /AVANTIQO_OWNED_CERTIFICATION_TOKEN_REQUIRED/);
-    assert.match(route, /x-avantiqo-certification-token/);
-    assert.match(route, /authorization/);
-    assert.match(route, /CERTIFICATION_UNAUTHORIZED/);
-    assert.doesNotMatch(route, /AVANTIQO_OWNED_CERTIFICATION_TOKEN\s*\|\|\s*["']/);
-    assert.doesNotMatch(route, /[?&]token=/);
-  }
+  ]) assert.equal(fs.existsSync(route), false, route);
+});
+
+test("current local certification is CLI-only and cannot authorize production", () => {
+  const core=fs.readFileSync("scripts/certify-avantiqo-owned-media-core-local.mjs","utf8");
+  assert.match(core,/production_certified: false/);
+  assert.match(core,/production_activation_performed: false/);
+  assert.match(core,/production_deploy_performed: false/);
+  assert.match(core,/fail_closed: true/);
 });

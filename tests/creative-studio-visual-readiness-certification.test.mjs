@@ -170,5 +170,7 @@ test("visual generation master lock exists at task, common provider and direct o
     assert.match(source, /AVANTIQO_STUDIO_VISUAL_GENERATION_ENABLED/);
     assert.match(source, /STUDIO_VISUAL_GENERATION_MASTER_LOCKED/);
   }
-  assert.match(imageProvider, /capability !== "ai\.image\.analyze"/);
+  assert.match(imageProvider, /if \(capability === "ai\.image\.generate"\)/);
+  assert.match(imageProvider, /AVANTIQO_STUDIO_VISUAL_GENERATION_ENABLED/);
+  assert.match(imageProvider, /STUDIO_VISUAL_GENERATION_MASTER_LOCKED/);
 });

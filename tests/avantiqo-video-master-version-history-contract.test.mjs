@@ -26,7 +26,7 @@ test("Video master version history is governed and stale approvals fail closed",
   assert.match(history, /changed_fields/);
   assert.match(history, /preview_url/);
 
-  assert.match(packageRuntime, /CREATIVE_RELEASE_PACKAGE_V2/);
+  assert.match(packageRuntime, /CREATIVE_RELEASE_PACKAGE_V3/);
   assert.match(packageRuntime, /CURRENT_MASTER_RELEASE_READINESS_REQUIRED/);
   assert.match(packageRuntime, /currentCreativePrimaryMaster/);
 
@@ -45,10 +45,11 @@ test("Video master version history is governed and stale approvals fail closed",
 
   assert.match(route, /creative\.quality\.evaluate/);
   assert.match(ui, /Master versions/);
-  assert.match(ui, /Immutable release history/);
-  assert.match(ui, /Exact changes/);
+  assert.match(ui, /Immutable history/);
+  assert.match(ui, /metadata differences/);
+  assert.match(ui, /Browser playback is synchronized review tooling/);
   assert.match(ui, /old approval remains in history and cannot authorize this master/);
-  assert.match(router, /RenderWorkspaceV4/);
+  assert.match(router, /RenderWorkspaceV5/);
 });
 
 console.log("AVANTIQO_VIDEO_MASTER_VERSION_HISTORY_CONTRACT=PASS");

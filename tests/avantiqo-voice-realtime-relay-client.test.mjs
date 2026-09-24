@@ -108,15 +108,10 @@ test("owned realtime browser client supports partial and final transcripts", () 
   assert.match(source, /onTranscript/);
 });
 
-test("Operator is wired to owned realtime with governed async fallback while release certification stays closed", () => {
-  assert.match(source, /wired_to_operator:\s*true/);
+test("uncertified realtime remains isolated from Operator while recorded async Voice is active", () => {
   assert.match(source, /realtime_streaming_certified:\s*false/);
   assert.match(publicClient, /AVANTIQO_OWNED_REALTIME_STT_NOT_CERTIFIED/);
-  assert.match(operator, /OwnedRealtimeTranscriptionRelayClient/);
-  assert.match(operator, /startOwnedRealtimeRelayTranscription/);
-  assert.match(operator, /await session\.waitUntilReady\(\)/);
-  assert.match(operator, /if \(!session\.startCapture\(\)\)/);
+  assert.doesNotMatch(operator, /OwnedRealtimeTranscriptionRelayClient|startOwnedRealtimeRelayTranscription/);
   assert.match(operator, /transcribeRecordedAudio\(\{/);
-  assert.match(operator, /AVANTIQO_VOICE_REALTIME_COMMIT_FALLBACK/);
   assert.doesNotMatch(wake, /OwnedRealtimeTranscriptionRelayClient/);
 });

@@ -105,10 +105,12 @@ test("plan fingerprint includes both revision and timestamp freshness for editab
 test("scene-qualified shot ranges take precedence over project ordinals and fail closed", () => {
   assert.match(setRuntime, /function sceneRangeFromReference/);
   assert.match(setRuntime, /SCENE_SHOT_RANGE/);
-  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_SCENE_RANGE_SCENE_NOT_FOUND/);
-  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_SCENE_RANGE_SHOT_NOT_FOUND/);
-  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_SCENE_RANGE_SHOT_AMBIGUOUS/);
-  assert.match(setRuntime, /CREATIVE_CHAT_SHOT_SET_EXCLUDED_SCENE_RANGE_SHOT_NOT_FOUND/);
+  assert.match(setRuntime, /function sceneRangeShots\(projectShots, sceneRange, errorPrefix\)/);
+  assert.match(setRuntime, /`\$\{errorPrefix\}_SCENE_NOT_FOUND`/);
+  assert.match(setRuntime, /`\$\{errorPrefix\}_SHOT_NOT_FOUND`/);
+  assert.match(setRuntime, /`\$\{errorPrefix\}_SHOT_AMBIGUOUS`/);
+  assert.match(setRuntime, /"CREATIVE_CHAT_SHOT_SET_SCENE_RANGE"/);
+  assert.match(setRuntime, /"CREATIVE_CHAT_SHOT_SET_EXCLUDED_SCENE_RANGE"/);
   const sceneRangeIndex = setRuntime.indexOf("const sceneRange = sceneRangeFromReference(setReference)");
   const projectRangeIndex = setRuntime.indexOf("const range = rangeFromReference(setReference)");
   assert.ok(sceneRangeIndex >= 0, "scene-qualified range parser must exist");

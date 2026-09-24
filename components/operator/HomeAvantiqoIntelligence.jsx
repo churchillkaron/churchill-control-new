@@ -15,8 +15,6 @@ import {
 // Owned Intelligence is zero-idle and can cold-start. Keep the browser alive
 // for the governed backend lifecycle instead of abandoning a live Safe Lease at 30s.
 const OPERATOR_TURN_TIMEOUT_MS = 12 * 60 * 1000;
-const CODE_PREWARM_POLL_MS = 5000;
-const CODE_PREWARM_MAX_POLLS = 90;
 const INTELLIGENCE_PREWARM_TIMEOUT_MS = 30 * 1000;
 
 function text(value) {
@@ -154,19 +152,11 @@ function busyRequestStatus(liveExecution, elapsedSeconds, startedAt) {
   return "Working through the request…";
 }
 
-function thesisInterruptionSpeech(thesis) {
-  const reason = text(thesis?.interruption?.reason);
-  const summary = text(thesis?.summary);
-  const nextMove = text(thesis?.recommended_next_move);
-  const parts = [
-    "I need your attention.",
-    reason || summary,
-    nextMove ? `My recommended next move is ${nextMove}` : "",
-  ].filter(Boolean);
-  return parts.join(" ");
-}
-
-export default function HomeAvantiqoIntelligence({ organizationId: organizationIdProp }) {
+export default function HomeAvantiqoIntelligence({
+  organizationId: organizationIdProp,
+  prepareAttachmentSetForTurn,
+  completeAttachmentTurn,
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const businessContext = useBusinessContext();
@@ -175,6 +165,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
   const agreementStateRef = useRef({});
   const busyRef = useRef(false);
   const pendingTurnQueueRef = useRef([]);
+  const sendMessageRef = useRef(null);
 
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -282,36 +273,29 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     if (!organizationId) return undefined;
 
     const controller = new AbortController();
-    let timer = null;
-    let polls = 0;
+    const timer = window.setTimeout(
+      () => controller.abort(),
+      INTELLIGENCE_PREWARM_TIMEOUT_MS,
+    );
 
-    async function advanceCodePrewarm() {
-      if (controller.signal.aborted || polls >= CODE_PREWARM_MAX_POLLS) return;
-      polls += 1;
-      try {
-        const response = await fetch("/api/operator/code/prewarm", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          signal: controller.signal,
-          body: JSON.stringify({ organizationId }),
-        });
-        const result = await response.json().catch(() => ({}));
-        if (controller.signal.aborted) return;
-        if (response.ok && (result?.ready === true || result?.status === "disabled")) {
-          return;
-        }
-      } catch (prewarmError) {
-        if (prewarmError?.name === "AbortError") return;
-        console.debug("AVANTIQO_CODE_PREWARM_BACKGROUND_RETRY", prewarmError?.message || prewarmError);
+    fetch("/api/operator/code/prewarm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      signal: controller.signal,
+      body: JSON.stringify({ organizationId }),
+    }).catch((prewarmError) => {
+      if (prewarmError?.name !== "AbortError") {
+        console.debug(
+          "AVANTIQO_CODE_READINESS_ADVISORY_FAILURE",
+          prewarmError?.message || prewarmError,
+        );
       }
-      timer = window.setTimeout(advanceCodePrewarm, CODE_PREWARM_POLL_MS);
-    }
+    }).finally(() => window.clearTimeout(timer));
 
-    advanceCodePrewarm();
     return () => {
       controller.abort();
-      if (timer) window.clearTimeout(timer);
+      window.clearTimeout(timer);
     };
   }, [organizationId]);
 
@@ -408,6 +392,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
             organizationId,
             entityId,
             periodId,
+            passiveSnapshot: true,
           }),
         });
         const result = await response.json().catch(() => ({}));
@@ -416,42 +401,8 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         }
 
         const nextAttention = result?.attention || null;
-        const thesis = nextAttention?.business_thesis || null;
         setAttention(nextAttention);
         if (result?.project_state) setProjectState(result.project_state);
-
-        const interruption = thesis?.interruption || {};
-        const dedupeKey = text(interruption?.dedupe_key);
-        if (interruption?.should_interrupt === true && dedupeKey) {
-          const storageKey = `avantiqo:thesis-interruption:${organizationId}:${dedupeKey}`;
-          let alreadyDelivered = false;
-          try {
-            alreadyDelivered = window.sessionStorage.getItem(storageKey) === "1";
-          } catch {
-            alreadyDelivered = false;
-          }
-
-          if (!alreadyDelivered) {
-            try {
-              window.sessionStorage.setItem(storageKey, "1");
-            } catch {
-              // Browser storage is only dedupe assistance, never authority.
-            }
-            const speech = thesisInterruptionSpeech(thesis);
-            if (speech) {
-              window.dispatchEvent(
-                new CustomEvent("avantiqo:speak", {
-                  detail: {
-                    message: speech,
-                    source: "synthetic-intelligence-interruption",
-                    priority: "urgent",
-                    dedupe_key: dedupeKey,
-                  },
-                }),
-              );
-            }
-          }
-        }
       } catch (attentionError) {
         if (attentionError?.name === "AbortError") return;
         console.error("AVANTIQO_ATTENTION_LOAD_FAILED", attentionError);
@@ -494,12 +445,15 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         ].slice(-3);
       }
       setInput("");
-      fetch("/api/operator/live-execution", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ organizationId }),
-      }).catch(() => null);
+      const stopExecutionId = text(liveExecution?.stop_execution_id);
+      if (stopExecutionId) {
+        fetch("/api/operator/live-execution", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ organizationId, executionId: stopExecutionId }),
+        }).catch(() => null);
+      }
       return;
     }
 
@@ -511,6 +465,9 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     if (operatorReferenceNeedsDeviceLocation({ fieldKey: previousAssistant?.clarification?.field_key, value: message })) {
       deviceLocation = await browserLocation();
     }
+    const turnAttachmentSetId = typeof prepareAttachmentSetForTurn === "function"
+      ? text(await prepareAttachmentSetForTurn())
+      : "";
 
     setMessages((current) => [...current, createMessage("user", message)]);
     setInput("");
@@ -527,7 +484,12 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           "/api/operator/turn/live",
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(turnAttachmentSetId
+                ? { "x-avantiqo-attachment-set": turnAttachmentSetId }
+                : {}),
+            },
             credentials: "same-origin",
             body: JSON.stringify({
               organizationId,
@@ -597,6 +559,10 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         }),
       ]);
 
+      if (turnAttachmentSetId && typeof completeAttachmentTurn === "function") {
+        completeAttachmentTurn(turnAttachmentSetId);
+      }
+
       if (source === "voice") {
         speakResponse(responseText);
       }
@@ -623,11 +589,13 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     }
   }
 
+  sendMessageRef.current = sendMessage;
+
   useEffect(() => {
     function receiveVoiceCommand(event) {
       const message = text(event?.detail?.message);
       if (!message) return;
-      sendMessage(message, event?.detail?.source || "voice");
+      sendMessageRef.current?.(message, event?.detail?.source || "voice");
     }
 
     window.addEventListener("avantiqo:home-command", receiveVoiceCommand);
@@ -642,7 +610,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
     const nextQueuedTurn = pendingTurnQueueRef.current.shift();
     if (!nextQueuedTurn?.message) return;
 
-    sendMessage(nextQueuedTurn.message, nextQueuedTurn.source || "text");
+    sendMessageRef.current?.(nextQueuedTurn.message, nextQueuedTurn.source || "text");
   }, [busy, restoring, organizationId, entityId, periodId, pathname]);
 
   const attentionItems = Array.isArray(attention?.items) ? attention.items : [];
@@ -665,10 +633,10 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
       onCopy={(event) => event.stopPropagation()}
       onCut={(event) => event.stopPropagation()}
       onPaste={(event) => event.stopPropagation()}
-      className="flex min-h-[620px] flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-6"
+      className="flex min-h-[620px] flex-col rounded-[22px] border border-black/[0.08] bg-white p-6 text-[#191919] shadow-[0_14px_50px_rgba(31,27,20,0.07)]"
     >
       <div>
-        <div className="flex items-center gap-2 text-sm uppercase tracking-[0.2em] text-white/40">
+        <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.18em] text-[#8A867F]">
           <Sparkles size={14} className="text-[#D6A66A]" />
           Synthetic Intelligence
         </div>
@@ -677,7 +645,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           Your business partner
         </h2>
 
-        <p className="mt-3 max-w-xl text-sm leading-6 text-white/50">
+        <p className="mt-3 max-w-xl text-sm leading-6 text-[#6C6963]">
           Avantiqo maintains a live evidence-backed view of the business, remembers the goal,
           challenges assumptions, recommends the strongest next move and executes governed actions
           when you authorize them.
@@ -688,9 +656,9 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         {attentionLoading ? (
           <div
             data-avantiqo-attention-loading="true"
-            className="rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-3"
+            className="rounded-2xl border border-black/[0.07] bg-[#FBFAF8] px-4 py-3"
           >
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/40">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#8A867F]">
               <Loader2 size={12} className="animate-spin text-[#D6A66A]" />
               Updating the business thesis
             </div>
@@ -710,29 +678,29 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
               <div>
                 <div className={
                   thesisUrgent
-                    ? "flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-red-200/80"
+                    ? "flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-red-700"
                     : "flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#D6A66A]/80"
                 }>
                   {thesisUrgent ? <AlertTriangle size={12} /> : <Sparkles size={12} />}
                   Business thesis
                 </div>
                 {text(businessThesis?.summary) ? (
-                  <div className="mt-2 text-sm font-light leading-6 text-white/75">
+                  <div className="mt-2 text-sm leading-6 text-[#3F3B36]">
                     {businessThesis.summary}
                   </div>
                 ) : null}
               </div>
-              <div className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-white/45">
+              <div className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-[#8A867F]">
                 {thesisAttentionLabel(businessThesis?.attention_level)}
               </div>
             </div>
 
             {thesisChange?.material && text(thesisChange?.summary) ? (
-              <div className="mt-3 rounded-xl border border-white/[0.07] bg-black/20 px-3.5 py-3">
-                <div className="text-[9px] uppercase tracking-[0.16em] text-white/35">
+              <div className="mt-3 rounded-xl border border-black/[0.07] bg-[#FAF9F7] px-3.5 py-3">
+                <div className="text-[9px] uppercase tracking-[0.16em] text-[#99948C]">
                   What changed
                 </div>
-                <div className="mt-1.5 text-xs leading-5 text-white/55">
+                <div className="mt-1.5 text-xs leading-5 text-[#6C6963]">
                   {thesisChange.summary}
                 </div>
               </div>
@@ -743,12 +711,12 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
                 {thesisOutlook.map((item, index) => (
                   <div
                     key={`${item.horizon}-${index}`}
-                    className="rounded-xl border border-white/[0.06] bg-black/15 px-3.5 py-2.5"
+                    className="rounded-xl border border-black/[0.06] bg-[#FAF9F7] px-3.5 py-2.5"
                   >
-                    <div className="text-[9px] uppercase tracking-[0.14em] text-white/30">
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-[#AAA69E]">
                       Outlook · {text(item.horizon).replaceAll("_", " ")}
                     </div>
-                    <div className="mt-1 text-xs leading-5 text-white/50">
+                    <div className="mt-1 text-xs leading-5 text-[#79756E]">
                       {item.prediction}
                     </div>
                   </div>
@@ -776,21 +744,21 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         {!attentionLoading && attentionItems.length ? (
           <div
             data-avantiqo-attention-brief="true"
-            className="rounded-2xl border border-white/[0.08] bg-black/20 px-4 py-4"
+            className="rounded-2xl border border-black/[0.08] bg-[#FBFAF8] px-4 py-4"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/45">
+                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-[#8A867F]">
                   <Sparkles size={12} className="text-[#D6A66A]" />
                   Evidence signals
                 </div>
                 {text(attention?.summary) ? (
-                  <div className="mt-2 text-xs leading-5 text-white/45">
+                  <div className="mt-2 text-xs leading-5 text-[#79756E]">
                     {attention.summary}
                   </div>
                 ) : null}
               </div>
-              <div className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-white/40">
+              <div className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-[#8A867F]">
                 Evidence-backed
               </div>
             </div>
@@ -799,12 +767,12 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
               {attentionItems.map((item) => (
                 <div
                   key={`${item.rank}-${item.title}`}
-                  className="rounded-xl border border-white/[0.07] bg-black/20 px-3.5 py-3"
+                  className="rounded-xl border border-black/[0.07] bg-white px-3.5 py-3"
                 >
-                  <div className="text-sm font-light leading-5 text-white/85">
+                  <div className="text-sm font-medium leading-5 text-[#3E3A34]">
                     {item.title}
                   </div>
-                  <div className="mt-1.5 text-xs leading-5 text-white/45">
+                  <div className="mt-1.5 text-xs leading-5 text-[#79756E]">
                     {item.why_now}
                   </div>
                   {text(item?.recommended_next_step) ? (
@@ -825,7 +793,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
               ))}
             </div>
 
-            <div className="mt-3 text-[10px] leading-4 text-white/30">
+            <div className="mt-3 text-[10px] leading-4 text-[#99948C]">
               Recommendations are not approvals or authorization. Avantiqo still uses normal confirmation and approval governance before any business action.
             </div>
           </div>
@@ -837,15 +805,15 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
               <div className="text-[10px] uppercase tracking-[0.18em] text-[#D6A66A]/75">
                 Current goal
               </div>
-              <div className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-white/45">
+              <div className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-[#8A867F]">
                 {projectStatusLabel(projectState?.status)}
               </div>
             </div>
-            <div className="mt-2 text-sm font-light leading-6 text-white/80">
+            <div className="mt-2 text-sm leading-6 text-[#3F3B36]">
               {projectState.objective}
             </div>
             {text(projectState?.progress_summary || projectState?.next_step) ? (
-              <div className="mt-2 text-xs leading-5 text-white/45">
+              <div className="mt-2 text-xs leading-5 text-[#79756E]">
                 {projectState.progress_summary || `Next: ${projectState.next_step}`}
               </div>
             ) : null}
@@ -853,7 +821,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
         ) : null}
 
         {restoring ? (
-          <div className="mr-16 flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-black/25 px-4 py-3 text-xs text-white/45">
+          <div className="mr-16 flex items-center gap-3 rounded-2xl border border-black/[0.07] bg-[#FBFAF8] px-4 py-3 text-xs text-[#79756E]">
             <Loader2 size={14} className="animate-spin text-[#D6A66A]" />
             Restoring our conversation…
           </div>
@@ -869,9 +837,9 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
             }
           >
             {message.role === "assistant" ? (
-              <OperatorConversationText content={message.content} />
+              <OperatorConversationText content={message.content} tone="light" />
             ) : (
-              <div className="whitespace-pre-wrap text-sm font-light leading-6 text-white/80">
+              <div className="whitespace-pre-wrap text-sm leading-6 text-[#3F3B36]">
                 {message.content}
               </div>
             )}
@@ -885,16 +853,16 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
                 data-avantiqo-execution-state={message.governance.tone}
                 className={
                   message.governance.tone === "blocked"
-                    ? "mt-3 rounded-xl border border-red-400/25 bg-red-500/[0.06] px-3 py-2.5"
+                    ? "mt-3 rounded-xl border border-red-300 bg-red-50 px-3 py-2.5"
                     : message.governance.tone === "verified"
                       ? "mt-3 rounded-xl border border-[#D6A66A]/30 bg-[#D6A66A]/[0.07] px-3 py-2.5"
-                      : "mt-3 rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2.5"
+                      : "mt-3 rounded-xl border border-black/[0.08] bg-[#FAF9F7] px-3 py-2.5"
                 }
               >
-                <div className="text-[9px] uppercase tracking-[0.16em] text-white/45">
+                <div className="text-[9px] uppercase tracking-[0.16em] text-[#8A867F]">
                   {message.governance.label}
                 </div>
-                <div className="mt-1 text-[11px] leading-4 text-white/50">
+                <div className="mt-1 text-[11px] leading-4 text-[#6C6963]">
                   {message.governance.detail}
                 </div>
               </div>
@@ -908,7 +876,7 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
                     type="button"
                     disabled={busy}
                     onClick={() => sendMessage(option.label)}
-                    className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs text-white/65 transition hover:border-[#D6A66A]/35 hover:text-white disabled:opacity-40"
+                    className="rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-xs text-[#6C6963] transition hover:border-[#D6A66A]/45 hover:text-[#8E663D] disabled:opacity-40"
                   >
                     {option.label}
                   </button>
@@ -922,23 +890,23 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
           <div
             data-avantiqo-live-status="true"
             aria-live="polite"
-            className="mr-8 flex items-center gap-2 px-1 py-1 text-xs font-light text-white/35"
+            className="mr-8 flex items-center gap-2 px-1 py-1 text-xs text-[#8A867F]"
           >
-            <Loader2 size={12} className="animate-spin text-white/25" />
+            <Loader2 size={12} className="animate-spin text-[#AAA69E]" />
             <span>{busyRequestStatus(liveExecution, busyElapsedSeconds, activeRequestStartedAt)}</span>
             <span aria-label="elapsed time">· {busyElapsedSeconds}s</span>
           </div>
         ) : null}
       </div>
 
-      <div className="mt-5 border-t border-white/[0.07] pt-4">
+      <div className="mt-5 border-t border-black/[0.07] pt-4">
         {error ? (
-          <div className="mb-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-3 py-2 text-xs text-red-200/75">
+          <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
             {error}
           </div>
         ) : null}
 
-        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-black/25 p-2 focus-within:border-[#D6A66A]/35">
+        <div className="flex items-end gap-2 rounded-2xl border border-black/[0.09] bg-white p-2 shadow-[0_1px_2px_rgba(0,0,0,0.02)] focus-within:border-[#D6A66A]/45">
           <textarea
             data-avantiqo-home-input="true"
             value={input}
@@ -952,14 +920,14 @@ export default function HomeAvantiqoIntelligence({ organizationId: organizationI
               }
             }}
             placeholder={restoring ? "Restoring conversation…" : busy ? "Correct or redirect Avantiqo while it works…" : "Ask Avantiqo anything…"}
-            className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-sm leading-5 text-white outline-none placeholder:text-white/25 disabled:opacity-50"
+            className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-sm leading-5 text-[#2F2C28] outline-none placeholder:text-[#AAA69E] disabled:opacity-50"
           />
 
           <button
             type="button"
             onClick={() => sendMessage(input)}
             disabled={restoring || !text(input)}
-            className="flex h-11 items-center gap-2 rounded-xl bg-[#D6A66A] px-4 text-sm font-medium text-black transition hover:bg-[#E7C48E] disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex h-11 items-center gap-2 rounded-xl bg-[#2A2723] px-4 text-sm font-medium text-white transition hover:bg-[#423C35] disabled:cursor-not-allowed disabled:opacity-30"
           >
             <Send size={15} />
             {busy ? "Update" : "Send"}

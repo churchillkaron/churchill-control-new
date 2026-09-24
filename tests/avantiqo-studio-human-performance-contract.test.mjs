@@ -98,7 +98,8 @@ assert.ok(temporalIndex >= 0);
 assert.ok(planningIndex > temporalIndex);
 assert.ok(humanGateIndex > planningIndex);
 assert.ok(aerialIndex > humanGateIndex);
-assert.ok(cameraIndex > aerialIndex);
+assert.ok(cameraIndex > humanGateIndex);
+assert.ok(aerialIndex > cameraIndex);
 assert.ok(qualityIndex > cameraIndex);
 
 console.log("AVANTIQO_STUDIO_HUMAN_PERFORMANCE_CONTRACT=PASS");

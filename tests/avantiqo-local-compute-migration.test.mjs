@@ -14,7 +14,7 @@ test("owned intelligence prefers durable local queue before direct LAN or Modal"
   assert.match(provider, /isIntelligenceLocalQueueJob/);
   assert.match(provider, /getIntelligenceLocalQueueStatus/);
   assert.match(provider, /cancelIntelligenceLocalQueue/);
-  assert.ok(provider.indexOf("shouldUseLocalIntelligenceQueue(effectiveInput)") < provider.indexOf("shouldUseLocalIntelligence(effectiveInput)"));
+  assert.ok(provider.indexOf("shouldUseLocalIntelligenceQueue(input)") < provider.indexOf("shouldUseLocalIntelligence(input)"));
 });
 
 test("local queue runtime is pull-based and includes measured Deep on Node01", () => {
@@ -94,14 +94,14 @@ test("worker uses the measured 20480-token Qwen context", () => {
   const worker = source("scripts/local-node/avantiqo-node01-worker.ps1");
   const localRuntime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalRuntime.js");
   assert.match(worker, /\$ContextTokens = 20480/);
-  assert.match(worker, /num_ctx = \$ContextTokens/);
+  assert.match(worker, /num_ctx = \$\(if \(\$liveConversation\) \{ 2048 \} else \{ \$ContextTokens \}\)/);
   assert.match(localRuntime, /num_ctx: LOCAL_CONTEXT_TOKENS/);
 });
 
 
 test("reasoning service capability normalizes to the executable local text capability", () => {
   const runtime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceLocalQueueRuntime.js");
-  assert.match(runtime, /capability: isCodeConversationTask\(input, executionLane\) \? "ai\.code\.live-conversation" : "ai\.text\.generate"/);
+  assert.match(runtime, /capability: "ai\.text\.generate"/);
   assert.match(runtime, /service_capability: text\(input\.capability\) \|\| null/);
   assert.match(runtime, /capability: text\(input\.capability\)/);
 });
@@ -141,8 +141,8 @@ test("owned local Qwen pricing is selected before reservation only when local co
 test("local intelligence execution is resolved through the owned local model policy", () => {
   const provider = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderV2.js");
   const execution = source("lib/platform/service-runtime/execution/ServiceExecutionRuntime.js");
-  assert.match(provider, /shouldUseLocalIntelligenceQueue\(effectiveInput\)/);
-  assert.match(provider, /executeIntelligenceLocalQueue\(effectiveInput\)/);
+  assert.match(provider, /shouldUseLocalIntelligenceQueue\(input\)/);
+  assert.match(provider, /executeIntelligenceLocalQueue\(input\)/);
   assert.match(execution, /allowed_models: \[AVANTIQO_INTELLIGENCE_LOCAL_MODEL\]/);
   assert.match(execution, /local_owned_pricing_required: true/);
 });

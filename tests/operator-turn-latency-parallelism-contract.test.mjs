@@ -8,8 +8,8 @@ const route = fs.readFileSync(
 );
 
 test("continuity recovery and current-project memory recall run in parallel", () => {
-  assert.match(route, /const continuityPromise = recoverCrossConversationProject/);
-  assert.match(route, /const currentProjectMemoryPromise = recallIntelligenceMemory/);
+  assert.match(route, /const continuityPromise = skipHistoricalContext[\s\S]*recoverCrossConversationProject/);
+  assert.match(route, /const currentProjectMemoryPromise = skipHistoricalContext[\s\S]*recallIntelligenceMemory/);
   assert.match(route, /const \[continuity, currentProjectMemory\] = await Promise\.all/);
 });
 
@@ -20,7 +20,7 @@ test("recovered projects re-read memory against recovered project state", () => 
 });
 
 test("assistant persistence and durable project learning share the response critical path", () => {
-  assert.match(route, /const assistantPersistPromise = persistAssistantTurnAndConversationState/);
+  assert.match(route, /const assistantPersistPromise = supersededByNewerExecution[\s\S]*persistAssistantTurnAndConversationState/);
   assert.match(route, /const longTermLearnPromise = diagnosisResultPresent/);
   assert.match(route, /BUSINESS_DIAGNOSIS_NOT_MEMORY_PROMOTABLE/);
   assert.match(route, /: learnProjectStateMemories\(\{/);

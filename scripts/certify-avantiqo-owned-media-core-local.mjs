@@ -1,148 +1,35 @@
 import fs from "node:fs";
-import { spawnSync } from "node:child_process";
 
-const FIXTURE_PATH =
-  process.env.AVANTIQO_MEDIA_CERTIFICATION_FIXTURES ||
-  "/tmp/avantiqo-media-certification-fixtures.json";
-const imageReportPath =
-  process.env.AVANTIQO_IMAGE_BENCHMARK_OUTPUT ||
-  "/tmp/avantiqo-image-certification-benchmark.json";
-const cinemaReportPath =
-  process.env.AVANTIQO_CINEMA_BENCHMARK_OUTPUT ||
-  "/tmp/avantiqo-cinema-certification-benchmark.json";
+const required = [
+  "lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProvider.js",
+  "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js",
+  "lib/platform/service-runtime/providers/avantiqo-image/AvantiqoImageProviderRegistration.js",
+  "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderRegistration.js",
+  "scripts/local-node/avantiqo-node01-worker.ps1",
+];
 
-function text(value) {
-  return String(value ?? "").trim();
+const missing = required.filter((file) => !fs.existsSync(file));
+if (missing.length) {
+  throw new Error(`AVANTIQO_OWNED_MEDIA_LOCAL_RUNTIME_FILES_MISSING:${missing.join(",")}`);
 }
 
-function enabled(value) {
-  return ["1", "true", "yes", "on"].includes(text(value).toLowerCase());
-}
+const result = {
+  success: false,
+  contract: "AVANTIQO_OWNED_MEDIA_CORE_LOCAL_CERTIFICATION_V2",
+  status: "ENGINE_SPECIFIC_CERTIFICATION_REQUIRED",
+  local_runtime_files_present: true,
+  current_infrastructure: "AVANTIQO_LOCAL_NODE_V1",
+  retired_monolithic_benchmark_reused: false,
+  generation_performed: false,
+  quality_review_required: true,
+  economics_measurement_required: true,
+  image_engine_certification_required: true,
+  cinema_engine_certification_required: true,
+  production_certified: false,
+  production_activation_performed: false,
+  production_deploy_performed: false,
+  fail_closed: true,
+};
 
-function readJson(path) {
-  try {
-    return JSON.parse(fs.readFileSync(path, "utf8"));
-  } catch {
-    return null;
-  }
-}
-
-function runNode(args, env = {}) {
-  const result = spawnSync(process.execPath, args, {
-    cwd: process.cwd(),
-    stdio: "inherit",
-    env: { ...process.env, ...env },
-  });
-  if (result.status !== 0) process.exit(result.status || 1);
-}
-
-if (!fs.existsSync(".env.local")) {
-  throw new Error("AVANTIQO_MEDIA_CORE_ENV_LOCAL_REQUIRED");
-}
-
-const resumeRequested =
-  enabled(process.env.AVANTIQO_MEDIA_CORE_RESUME) ||
-  Boolean(text(process.env.AVANTIQO_CINEMA_RESUME_T2V_JOB_ID)) ||
-  Boolean(text(process.env.AVANTIQO_CINEMA_RESUME_I2V_JOB_ID));
-const existingImageReport = readJson(imageReportPath);
-const reuseImageReport =
-  resumeRequested &&
-  existingImageReport?.contract === "AVANTIQO_IMAGE_CERTIFICATION_BENCHMARK_V1" &&
-  existingImageReport?.summary?.passed === true;
-
-console.log("AVANTIQO_MEDIA_CORE_STAGE=PREFLIGHT");
-runNode(["--env-file=.env.local", "scripts/preflight-avantiqo-owned-media-local.mjs"]);
-
-console.log("AVANTIQO_MEDIA_CORE_STAGE=FIXTURES");
-runNode(
-  ["--env-file=.env.local", "scripts/prepare-avantiqo-owned-media-certification-fixtures.mjs"],
-  {
-    AVANTIQO_MEDIA_CERTIFICATION_FIXTURE_SCOPE: "CORE_IMAGE_CINEMA",
-  },
-);
-
-const fixtures = JSON.parse(fs.readFileSync(FIXTURE_PATH, "utf8"));
-if (
-  fixtures?.contract !== "AVANTIQO_OWNED_MEDIA_CERTIFICATION_FIXTURES_V1" ||
-  fixtures?.fixture_scope !== "CORE_IMAGE_CINEMA" ||
-  fixtures?.source_scope !== "BENCHMARK_ONLY"
-) {
-  throw new Error("AVANTIQO_MEDIA_CORE_FIXTURE_CONTRACT_INVALID");
-}
-
-const imageTarget = fixtures?.uploads?.["ai.image.generate"];
-const t2vTarget = fixtures?.uploads?.["ai.video.generate"];
-const i2vTarget = fixtures?.uploads?.["ai.video.image_to_video"];
-const i2vSource = text(fixtures?.video_first_frame_url);
-
-for (const [label, target] of Object.entries({ imageTarget, t2vTarget, i2vTarget })) {
-  if (!text(target?.signed_url) || !text(target?.storage_reference)) {
-    throw new Error(`AVANTIQO_MEDIA_CORE_OUTPUT_TARGET_INVALID:${label}`);
-  }
-}
-if (!i2vSource) {
-  throw new Error("AVANTIQO_MEDIA_CORE_I2V_SOURCE_REQUIRED");
-}
-
-if (reuseImageReport) {
-  console.log("AVANTIQO_MEDIA_CORE_STAGE=IMAGE_GENERATION_REUSED");
-  console.log(`AVANTIQO_IMAGE_BENCHMARK_REUSED=${imageReportPath}`);
-} else {
-  console.log("AVANTIQO_MEDIA_CORE_STAGE=IMAGE_GENERATION");
-  runNode(
-    ["--env-file=.env.local", "scripts/benchmark-avantiqo-image.mjs"],
-    {
-      AVANTIQO_IMAGE_BENCHMARK_UPLOAD_URL: imageTarget.signed_url,
-      AVANTIQO_IMAGE_BENCHMARK_STORAGE_REFERENCE: imageTarget.storage_reference,
-    },
-  );
-}
-
-console.log("AVANTIQO_MEDIA_CORE_STAGE=CINEMA_GENERATION");
-runNode(
-  ["--env-file=.env.local", "scripts/benchmark-avantiqo-cinema.mjs"],
-  {
-    AVANTIQO_CINEMA_BENCHMARK_T2V_UPLOAD_URL: t2vTarget.signed_url,
-    AVANTIQO_CINEMA_BENCHMARK_T2V_STORAGE_REFERENCE: t2vTarget.storage_reference,
-    AVANTIQO_CINEMA_BENCHMARK_I2V_UPLOAD_URL: i2vTarget.signed_url,
-    AVANTIQO_CINEMA_BENCHMARK_I2V_STORAGE_REFERENCE: i2vTarget.storage_reference,
-    AVANTIQO_CINEMA_BENCHMARK_I2V_SOURCE_URL: i2vSource,
-  },
-);
-
-const imageReport = JSON.parse(fs.readFileSync(imageReportPath, "utf8"));
-const cinemaReport = JSON.parse(fs.readFileSync(cinemaReportPath, "utf8"));
-
-const mechanicalPass =
-  imageReport?.summary?.passed === true &&
-  cinemaReport?.summary?.passed === true;
-
-console.log(
-  JSON.stringify(
-    {
-      success: mechanicalPass,
-      contract: "AVANTIQO_OWNED_MEDIA_CORE_LOCAL_CERTIFICATION_V1",
-      resumed: resumeRequested,
-      image_generation_reused: reuseImageReport,
-      image_generation_passed: imageReport?.summary?.passed === true,
-      cinema_generation_passed: cinemaReport?.summary?.passed === true,
-      cinema_t2v_passed: cinemaReport?.summary?.t2v_passed === true,
-      cinema_i2v_passed: cinemaReport?.summary?.i2v_passed === true,
-      image_report: imageReportPath,
-      cinema_report: cinemaReportPath,
-      cinema_state:
-        process.env.AVANTIQO_CINEMA_BENCHMARK_STATE ||
-        "/tmp/avantiqo-cinema-benchmark-state.json",
-      fixtures: FIXTURE_PATH,
-      quality_review_required: true,
-      economics_measurement_required: true,
-      production_certified: false,
-      production_activation_performed: false,
-      production_deploy_performed: false,
-    },
-    null,
-    2,
-  ),
-);
-
-if (!mechanicalPass) process.exit(2);
+console.log(JSON.stringify(result, null, 2));
+process.exitCode = 2;

@@ -36,16 +36,16 @@ test("restaurant item corrections are adapter-owned and fail closed until the at
   assert.match(restaurantAdapter, /itemCorrections:\s*RestaurantItemCorrectionAdapter/);
   assert.match(route, /resolved\.application\.adapter\?\.itemCorrections/);
   assert.match(route, /itemCorrections\.execute/);
-  assert.match(adapter, /assertPOSActionAllowed\(\{ access, action: "VOID_ORDER_ITEM" \}\)/);
-  assert.match(adapter, /correctionType !== "VOID"/);
-  assert.match(adapter, /Only VOID is governed for restaurant items at this stage/);
-  assert.match(adapter, /Void reason required/);
+  assert.match(adapter, /assertPOSActionAllowed\(\{ access, action: config\.action \}\)/);
+  assert.match(adapter, /CORRECTION_CONFIG\[correctionType\]/);
+  assert.match(adapter, /Only VOID and COMP are governed restaurant item corrections/);
+  assert.match(adapter, /Void.*reason required|reason required/);
   assert.match(adapter, /restaurant_void_order_item_atomic/);
   assert.match(adapter, /Restaurant item VOID lifecycle is not deployed in the database/);
-  assert.match(adapter, /pre_production_only:\s*true/);
+  assert.match(adapter, /pre_production_only:\s*config\.preProductionOnly/);
   assert.match(adapter, /unpaid_only:\s*true/);
   assert.match(adapter, /preserves_original_item:\s*true/);
-  assert.match(adapter, /comp_enabled:\s*false/);
+  assert.match(adapter, /comp_enabled:\s*config\.label === "COMP"/);
   assert.match(adapter, /discount_enabled:\s*false/);
 });
 
@@ -55,9 +55,9 @@ test("restaurant VOID migration preserves history and blocks unsafe financial or
   assert.match(migration, /create table if not exists public\.restaurant_order_item_corrections/);
   assert.match(migration, /alter table public\.restaurant_order_item_corrections enable row level security/);
   assert.match(migration, /revoke all on table public\.restaurant_order_item_corrections from public, anon, authenticated/);
-  assert.match(migration, /security definer/);
+  assert.match(migration, /security invoker/);
   assert.match(migration, /revoke all on function public\.restaurant_void_order_item_atomic/);
-  assert.match(migration, /Supervisor or owner role required for restaurant item VOID/);
+  assert.match(migration, /Supervisor or owner role required for restaurant item %/);
   assert.match(migration, /Paid or partially paid orders must use the payment correction or refund lifecycle/);
   assert.match(migration, /Only an unstarted restaurant item can be voided/);
   assert.match(migration, /Kitchen or bar production already started/);

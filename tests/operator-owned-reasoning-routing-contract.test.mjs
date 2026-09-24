@@ -21,7 +21,7 @@ test("Operator reasoning uses the complete-decision parser for fast and deep res
     runtime,
     /const fastParsed = parseOperatorReasoningResponse\(findText\(fastExecution\)\)/,
   );
-  assert.match(runtime, /const parsed = parseOperatorReasoningResponse\(rawText\)/);
+  assert.match(runtime, /let parsed = parseOperatorReasoningResponse\(rawText\)/);
 });
 
 test("deep Operator reasoning is owned-only in local development review scope", () => {

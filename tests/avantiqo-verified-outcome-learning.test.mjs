@@ -8,7 +8,9 @@ const conversation = fs.readFileSync("lib/operator/runtime/IntelligenceConversat
 
 test("verified outcome recorder resolves the canonical learning organization when env is absent", () => {
   assert.match(outcome, /resolveAvantiqoLearningOrganization/);
-  assert.match(outcome, /import \{ createHash, randomUUID \} from "node:crypto"/);
+  assert.match(outcome, /import \{ createHash \} from "node:crypto"/);
+  assert.match(outcome, /rollingOutcomeBucket/);
+  assert.doesNotMatch(outcome, /randomUUID/);
   assert.match(outcome, /allowDatabaseFallback: true/);
   assert.match(outcome, /await resolveLearningOrganizationId\(\)/);
 });

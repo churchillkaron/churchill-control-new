@@ -17,8 +17,9 @@ const runner = fs.readFileSync(
 
 test("authorized recovered story is restored before repair validation", () => {
   assert.match(master, /function preserveAuthorizedRecoveredStory/);
-  assert.match(master, /mergeCreativeRepairedPlan\(plan, safeRepair\)/);
-  assert.match(master, /preserveAuthorizedRecoveredStory\([\s\S]*mergeCreativeRepairedPlan/);
+  assert.match(master, /const merged = mergeCreativeRepairedPlan\(basePlan, repaired\)/);
+  assert.match(master, /plan = preserveAuthorizedRecoveredStory\(project, repair\.plan\)/);
+  assert.ok(master.indexOf("mergeCreativeRepairedPlan(basePlan, repaired)") < master.indexOf("preserveAuthorizedRecoveredStory(project, repair.plan)"));
   assert.match(master, /creative_story_lineage_recovery/);
   assert.match(master, /CREATIVE_STORY_LINEAGE_LOCK_V1/);
 });

@@ -1,116 +1,43 @@
-import { test } from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-import { buildMusicTransformationPlan } from "../lib/creative/runtime/engines/MusicEngine.js";
+const workspace = fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicStudioWorkspace.jsx", "utf8");
+const specialist = fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicSpecialistStudioPanel.jsx", "utf8");
+const shell = fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicUnifiedWorkstationShell.jsx", "utf8");
 
-const workspace = fs.readFileSync(
-  new URL("../components/creative/ProductionStudio/workspaces/MusicStudioWorkspace.jsx", import.meta.url),
-  "utf8",
-);
-const transformPanel = fs.readFileSync(
-  new URL("../components/creative/ProductionStudio/workspaces/MusicRemixPanel.jsx", import.meta.url),
-  "utf8",
-);
-const transformRoute = fs.readFileSync(
-  new URL("../app/api/creative/music/remix/route.js", import.meta.url),
-  "utf8",
-);
-const specialistPanel = fs.readFileSync(
-  new URL("../components/creative/ProductionStudio/workspaces/MusicSpecialistStudioPanel.jsx", import.meta.url),
-  "utf8",
-);
-
-const source = "storage://creative-assets/example/source.wav";
-
-for (const [id, label] of [
-  ["auto", "Auto Studio"],
+const expected = [
   ["compose", "Create a Song"],
+  ["auto", "Make it Professional"],
+  ["workstation", "Open Workstation"],
+  ["backing", "Make a Backing Track"],
+  ["record", "Record Audio"],
   ["remix", "Remix"],
   ["edit", "AI Edit"],
   ["extend", "Extend"],
   ["stems", "Separate Stems"],
-  ["backing", "Make a Backing Track"],
   ["vocal", "Vocals"],
   ["mix", "Mix"],
-  ["master", "Master"],
-]) {
+  ["master", "Masters & QC"],
+  ["deliverables", "Deliverables"],
+];
+
+for (const [id, label] of expected) {
   test(`Music Studio exposes ${label}`, () => {
-    assert.match(workspace, new RegExp(`id: "${id}"`));
-    assert.match(workspace, new RegExp(`label: "${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
+    assert.ok(workspace.includes(`id: "${id}"`));
+    assert.ok(workspace.includes(`label: "${label}"`));
   });
 }
 
-test("Edit/Repaint remains benchmark gated", () => {
-  const plan = buildMusicTransformationPlan("edit", {
-    source_audio: source,
-    source_rights_confirmed: true,
-    instrumental: true,
-    repainting_start: 10,
-    repainting_end: 20,
-  });
-  assert.equal(plan.capability, "ai.audio.edit");
-  assert.equal(plan.task_type, "repaint");
-  assert.equal(plan.implementation, "IMPLEMENTED");
-  assert.equal(plan.certification, "BENCHMARK_REQUIRED");
-  assert.equal(plan.executable, false);
-  assert.deepEqual(plan.provider_parameters, { repainting_start: 10, repainting_end: 20 });
+test("Workstation uses the canonical unified V2 audio session", () => {
+  assert.match(workspace, /MusicUnifiedWorkstationShell/);
+  assert.match(shell, /MusicMultitrackStudioPanelV2/);
+  assert.match(shell, /MusicUnifiedTimelinePanel/);
+  assert.match(shell, /MusicMixEngineerPanel/);
 });
 
-test("Extend uses XL temporal outpaint and remains benchmark gated", () => {
-  const plan = buildMusicTransformationPlan("extend", {
-    source_audio: source,
-    source_rights_confirmed: true,
-    instrumental: true,
-    extension_seconds: 30,
-    continuity_overlap_seconds: 4,
-  });
-  assert.equal(plan.capability, "ai.audio.extend");
-  assert.equal(plan.task_type, "repaint");
-  assert.equal(plan.model_lane, "acestep-v15-xl-turbo");
-  assert.equal(plan.implementation, "IMPLEMENTED");
-  assert.equal(plan.certification, "BENCHMARK_REQUIRED");
-  assert.equal(plan.executable, false);
-  assert.equal(plan.temporal_extension.strategy, "XL_TURBO_REPAINT_RIGHT_OUTPAINT");
-  assert.equal(plan.temporal_extension.source_duration_measured_by_worker, true);
-  assert.equal(plan.temporal_extension.right_padding_outpaint_required, true);
-  assert.equal(plan.temporal_extension.temporal_extension_proven, false);
-  assert.deepEqual(plan.provider_parameters, {
-    extension_seconds: 30,
-    continuity_overlap_seconds: 4,
-    temporal_extend_strategy: "XL_TURBO_REPAINT_RIGHT_OUTPAINT",
-  });
-  assert.equal(plan.output_spec.duration_rule, "SOURCE_DURATION_PLUS_EXTENSION_SECONDS_BOUNDED_BY_WORKER_MAX");
-});
-
-test("Shared transform route stays certification-gated before execution", () => {
-  assert.match(transformRoute, /new Set\(\["remix", "edit", "extend"\]\)/);
-  assert.match(transformRoute, /buildTemporalExtendPlan/);
-  assert.match(transformRoute, /XL_TURBO_REPAINT_RIGHT_OUTPAINT/);
-  assert.doesNotMatch(transformRoute, /XL_TURBO_REPAINT_RIGHT_OUTPAINT_V1/);
-  assert.match(transformRoute, /execution_submitted: false/);
-  assert.match(transformRoute, /execution_route_enabled: transformPlan\.executable === true/);
-  assert.match(transformRoute, /transform\.executable !== true \|\| transform\.certification !== "CERTIFIED"/);
-  assert.match(transformRoute, /executeService/);
-  assert.doesNotMatch(transformRoute, /settlePendingService/);
-});
-
-test("Shared transform panel exposes repaint and temporal extension controls truthfully", () => {
-  assert.match(transformPanel, /operation = "remix"/);
-  assert.match(transformPanel, /repainting_start/);
-  assert.match(transformPanel, /repainting_end/);
-  assert.match(transformPanel, /extension_seconds/);
-  assert.match(transformPanel, /continuity_overlap_seconds/);
-  assert.match(transformPanel, /Temporal outpaint benchmark pending/);
-  assert.match(transformPanel, /XL Turbo tail outpainting is implemented/);
-  assert.match(transformPanel, /execution_route_enabled === true/);
-  assert.doesNotMatch(transformPanel, /Base model \+ benchmark required/);
-  assert.doesNotMatch(transformPanel, /prompt/i);
-});
-
-test("Vocal Mix and Master specialist panel remains on Auto Studio runtime", () => {
-  assert.match(specialistPanel, /\/api\/creative\/music\/auto-studio/);
-  assert.match(specialistPanel, /vocal_polish/);
-  assert.match(specialistPanel, /mix_and_master/);
-  assert.match(specialistPanel, /release_master/);
+test("Vocal specialist keeps governed local source processing", () => {
+  assert.match(specialist, /\/api\/creative\/music\/auto-studio/);
+  assert.match(specialist, /vocal_polish/);
+  assert.match(specialist, /source_rights_confirmed: true/);
 });

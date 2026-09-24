@@ -23,15 +23,13 @@ const modalApp = fs.readFileSync(
   "utf8",
 );
 
-test("Voice Service Runtime loads direct-first V2 provider", () => {
+test("Voice Service Runtime loads local-only V2 provider", () => {
   assert.match(executor, /import\("\.\/avantiqo-voice\/AvantiqoVoiceProviderV2\.js"\)/);
   assert.match(executor, /module => module\.AvantiqoVoiceProviderV2/);
-  assert.match(provider, /voiceModalDirectConfigured\(\)/);
-  assert.match(provider, /executeVoiceModalDirect/);
-  assert.match(provider, /getVoiceModalDirectStatus/);
-  assert.match(provider, /AVANTIQO_VOICE_MODAL_DIRECT_CONFIGURATION_REQUIRED/);
+  assert.match(provider, /AvantiqoVoiceSttLocalQueueProvider/);
+  assert.match(provider, /AvantiqoVoiceTtsLocalQueueProvider/);
   assert.match(provider, /AVANTIQO_VOICE_LEGACY_JOB_TRANSPORT_RETIRED/);
-  assert.doesNotMatch(provider, /LegacyVoiceProvider/);
+  assert.doesNotMatch(provider, /voiceModalDirectConfigured|executeVoiceModalDirect|getVoiceModalDirectStatus/);
 });
 
 test("Voice primary lane uses direct Modal named functions with no CPU gateway", () => {
@@ -102,15 +100,12 @@ test("Voice direct provider preserves consented reference-voice governance", () 
   assert.match(provider, /organization_voice_library/);
 });
 
-test("Voice registration treats direct Modal credentials as primary readiness", () => {
-  assert.match(registration, /MODAL_TOKEN_ID \|\| process\.env\.AVANTIQO_MODAL_TOKEN_ID/);
-  assert.match(registration, /MODAL_TOKEN_SECRET \|\| process\.env\.AVANTIQO_MODAL_TOKEN_SECRET/);
-  assert.match(registration, /modal_direct_primary:\s*true/);
-  assert.match(registration, /modal_direct_transport:\s*"modal-js-sdk-function-call-v1"/);
-  assert.match(registration, /modal_gateway_required:\s*false/);
-  assert.match(registration, /direct_async_function_call:\s*true/);
-  assert.match(registration, /tts_final_artifact_persistence:\s*"AVANTIQO_SERVICE_RUNTIME"/);
-  assert.match(registration, /modal_only_execution:\s*false/);
-  assert.match(registration, /modal_fallback:\s*true/);
-  assert.doesNotMatch(registration, /RUNPOD_API_KEY|RUNPOD_MANAGEMENT_API_KEY|RUNPOD_SERVERLESS/);
+test("Voice registration readiness is local Node01 only", () => {
+  assert.match(registration, /localComputeConfigured/);
+  assert.match(registration, /runtimeAvailable = Boolean\([\s\S]*engineEnabled && localComputeConfigured/);
+  assert.match(registration, /infrastructure_provider: "AVANTIQO_LOCAL_NODE_V1"/);
+  assert.match(registration, /local_only_execution: true/);
+  assert.match(registration, /modal_fallback_when_local_unavailable: false/);
+  assert.match(registration, /tts_final_artifact_persistence: "AVANTIQO_SERVICE_RUNTIME"/);
+  assert.doesNotMatch(registration, /MODAL_TOKEN_ID|RUNPOD_API_KEY|RUNPOD_MANAGEMENT_API_KEY/);
 });

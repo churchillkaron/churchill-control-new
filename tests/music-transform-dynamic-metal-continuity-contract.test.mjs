@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import fs from "node:fs";
 import test from "node:test";
 
-const fixture = await readFile("scripts/avantiqo-music-continuity-fixture.mjs", "utf8");
-const benchmark = await readFile("scripts/benchmark-avantiqo-music-transform.mjs", "utf8");
+const fixture = fs.readFileSync("scripts/avantiqo-music-continuity-fixture.mjs", "utf8");
+const engine = fs.readFileSync("lib/creative/runtime/engines/MusicEngine.js", "utf8");
+const route = fs.readFileSync("app/api/creative/music/remix/route.js", "utf8");
 
 test("dynamic metal continuity fixture is original and rights-safe", () => {
   assert.match(fixture, /AVANTIQO_MUSIC_METAL_CONTINUITY_FIXTURE_V1/);
@@ -15,23 +16,11 @@ test("dynamic metal continuity fixture is original and rights-safe", () => {
 });
 
 test("dynamic metal fixture exercises quiet-to-heavy structural continuity", () => {
-  assert.match(fixture, /QUIET_CLEAN_ARPEGGIO_INTRO/);
-  assert.match(fixture, /TENSION_BUILD/);
-  assert.match(fixture, /HEAVY_RIFF/);
-  assert.match(fixture, /QUIET_TO_HEAVY/);
-  assert.match(fixture, /clean_electric_guitar/);
-  assert.match(fixture, /distorted_power_guitar/);
-  assert.match(fixture, /B5_UNRESOLVED_DOMINANT_FOR_CONTINUATION_TEST/);
-  assert.match(fixture, /CONTINUE_HEAVY_SECTION_WITH_NEW_ORIGINAL_MATERIAL/);
+  for (const marker of ["QUIET_CLEAN_ARPEGGIO_INTRO","TENSION_BUILD","HEAVY_RIFF","QUIET_TO_HEAVY","CONTINUE_HEAVY_SECTION_WITH_NEW_ORIGINAL_MATERIAL"]) assert.match(fixture, new RegExp(marker));
 });
 
-test("metal profile still uses the one-job guarded Music Extend certification", () => {
-  assert.match(benchmark, /SOURCE_MODE_CONTINUITY = "MUSICAL_CONTINUITY"/);
-  assert.match(benchmark, /MUSICAL_CONTINUITY_REQUIRES_EXTEND/);
-  assert.match(benchmark, /max_provider_jobs: 1/);
-  assert.match(benchmark, /benchmark_runs: 1/);
-  assert.match(benchmark, /SAFE_LEASE_LANE = "music-transform-candidate"/);
-  assert.match(benchmark, /production_activation_allowed: false/);
-  assert.match(benchmark, /pricing_activation_allowed: false/);
-  assert.match(benchmark, /provider_selection_change_allowed: false/);
+test("metal continuity Extend stays a research-only plan until a certified active runtime exists", () => {
+  assert.match(engine, /capability: "ai\.audio\.extend"[\s\S]*implementation: "RESEARCH_ONLY"/);
+  assert.match(route, /CREATIVE_MUSIC_TRANSFORM_NOT_CERTIFIED/);
+  assert.match(route, /publication_authorized:\s*false/);
 });

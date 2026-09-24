@@ -6,7 +6,6 @@ function runCertification() {
   return spawnSync(
     process.execPath,
     [
-      "--experimental-default-type=module",
       "--loader",
       "./scripts/next-alias-loader.mjs",
       "scripts/creative-design-engine-certification.mjs",

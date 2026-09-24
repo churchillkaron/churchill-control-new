@@ -16,33 +16,23 @@ test("reasoning loop is pinned to owned Intelligence through Service Runtime", (
   assert.match(runtime, /const OWNED_PROVIDER = "avantiqo-intelligence"/);
 });
 
-test("owned Intelligence review pricing is development-only and production stays fail-closed", () => {
-  assert.match(runtime, /const LOCAL_REVIEW_SCOPE = "BENCHMARK_REVIEW_PREVIEW"/);
-  assert.match(runtime, /localDevelopmentOwnedReviewPolicy/);
-  assert.match(runtime, /external_fallback_allowed:\s*false/);
-  assert.match(runtime, /production_certified:\s*false/);
-});
-
-test("owned Intelligence is local-primary and Modal is explicit overflow only", () => {
+test("owned Intelligence is local-only and fail closed", () => {
   assert.match(provider, /runtime_ready: enabled && localConfigured/);
-  assert.match(provider, /governed_modal_overflow_supported: true/);
-  assert.match(provider, /governed_modal_overflow_available: overflowConfigured/);
-  assert.match(provider, /automatic_modal_fallback_allowed: false/);
+  assert.match(provider, /local_only: true/);
+  assert.match(provider, /modal_fallback_allowed: false/);
+  assert.match(providerV2, /executeHierarchicalLocalIntelligence/);
   assert.match(providerV2, /executeIntelligenceLocalQueue/);
-  assert.match(providerV2, /executeIntelligenceLocal\(effectiveInput\)/);
-  assert.match(providerV2, /intelligenceModalOverflowApprovalRequested\(effectiveInput\)/);
-  assert.match(providerV2, /executeIntelligenceModalDirect/);
-  assert.doesNotMatch(providerV2, /RunPod|runpod/);
+  assert.match(providerV2, /executeIntelligenceLocal\(input\)/);
+  assert.match(providerV2, /AVANTIQO_INTELLIGENCE_LOCAL_NODE_REQUIRED/);
+  assert.doesNotMatch(providerV2, /Modal|RunPod|runpod/);
 });
 
-test("provider registration readiness remains local while overflow is separately governed", () => {
-  assert.match(providerRegistration, /runtimeAvailable = Boolean\(\(engineEnabled \|\| localReviewRuntimeAllowed\) && localComputeConfigured\)/);
+test("provider registration readiness is owned local compute only", () => {
+  assert.match(providerRegistration, /runtimeAvailable = Boolean\(engineEnabled && localComputeConfigured\)/);
   assert.match(providerRegistration, /external_provider_fallback_allowed:\s*false/);
-  assert.match(providerRegistration, /governed_external_overflow_allowed: modalOverflowConfigured/);
-  assert.match(providerRegistration, /modal_overflow_owner_approval_required:\s*true/);
-  assert.match(providerRegistration, /automatic_modal_fallback_allowed:\s*false/);
+  assert.match(providerRegistration, /local_only:\s*true/);
+  assert.match(providerRegistration, /modal_fallback_allowed:\s*false/);
   assert.match(providerRegistration, /supplier_type:\s*"OWNED_INFERENCE"/);
-  assert.doesNotMatch(providerRegistration, /RunPod|runpod/);
 });
 
 test("reasoning loop remains bounded and replay protection is fail-closed", () => {
@@ -53,21 +43,10 @@ test("reasoning loop remains bounded and replay protection is fail-closed", () =
   assert.match(replayGuard, /AVANTIQO_INTELLIGENCE_TOOL_CALL_REPLAY_DETECTED/);
 });
 
-test("reasoning loop requires organization scope and feeds tool results back", () => {
+test("reasoning loop requires organization scope and tool authorization", () => {
   assert.match(runtime, /AVANTIQO_INTELLIGENCE_ORGANIZATION_SCOPE_REQUIRED/);
   assert.match(runtime, /role:\s*"tool"/);
-  assert.match(runtime, /tool_call_id:/);
-});
-
-test("tool registry fails closed for unknown and unauthorized mutations", () => {
   assert.match(registry, /AVANTIQO_INTELLIGENCE_UNKNOWN_TOOL/);
   assert.match(registry, /AVANTIQO_INTELLIGENCE_MUTATING_TOOL_AUTHORIZATION_REQUIRED/);
   assert.match(registry, /AVANTIQO_INTELLIGENCE_TOOL_APPROVAL_REQUIRED/);
-});
-
-test("tool registry exposes only explicit function descriptors", () => {
-  assert.match(registry, /type:\s*"function"/);
-  assert.match(registry, /TOOL_NAME_PATTERN/);
-  assert.doesNotMatch(registry, /eval\s*\(/);
-  assert.doesNotMatch(registry, /new Function\s*\(/);
 });

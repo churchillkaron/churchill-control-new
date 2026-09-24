@@ -7,7 +7,11 @@ import { requireOrganizationAccess } from "@/lib/platform/security/requireOrgani
 import { getServiceSupabase } from "@/lib/shared/supabase/service";
 import { PROVIDER_REGISTRY } from "@/lib/platform/service-runtime/providers/ProviderRegistry";
 import "@/lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProviderRegistration";
-import { AvantiqoMusicLocalNodeProvider } from "@/lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicLocalNodeProvider.js";
+import { AvantiqoMusicGenerationLocalQueueProvider } from "@/lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicGenerationLocalQueueProvider.js";
+import { AvantiqoSfxLocalQueueProvider } from "@/lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoSfxLocalQueueProvider.js";
+import { AvantiqoMusicSeparatorLocalQueueProvider } from "@/lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicSeparatorLocalQueueProvider.js";
+import { AvantiqoMusicElasticLocalQueueProvider } from "@/lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicElasticLocalQueueProvider.js";
+import { AvantiqoMusicVocalCorrectionLocalQueueProvider } from "@/lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoMusicVocalCorrectionLocalQueueProvider.js";
 import { buildMusicPreUiAcceptance } from "@/lib/creative/music/runtime/CreativeMusicPreUiAcceptanceRuntime.js";
 
 const EXECUTION_PERMISSIONS = Object.freeze([
@@ -19,14 +23,15 @@ const EXECUTION_PERMISSIONS = Object.freeze([
 const MUSIC_RUNTIME_CONTRACT = Object.freeze({
   provider: "avantiqo-audio",
   foundation_model: "ACE-Step/Ace-Step1.5",
-  model_variant: "acestep-v15-xl-turbo",
-  quality_profile: "ACE_STEP_1_5_XL_TURBO_1_7B_LM_V1",
-  ace_step_lm_model: "acestep-5Hz-lm-1.7B",
-  ace_step_lm_backend: "vllm",
+  generation_runtime: "ACE_STEP_1_5_CPU_FLOAT32_LOCAL_V1",
+  generation_resource: "LOCAL_CPU_FLOAT32",
 });
 
 function text(value) {
   return String(value ?? "").trim();
+}
+function flagEnabled(value) {
+  return ["1", "true", "yes", "on"].includes(text(value).toLowerCase());
 }
 
 async function requireAccess(request, organizationId) {
@@ -65,26 +70,35 @@ async function musicRuntimeHealth() {
   const configuration = provider?.metadata?.runtime_configuration || {};
   const certifiedCapabilities = Array.isArray(provider.capabilities) ? provider.capabilities : [];
 
+  const [music, sfx, stems, elastic, vocalCorrection] = await Promise.all([
+    AvantiqoMusicGenerationLocalQueueProvider.available(),
+    AvantiqoSfxLocalQueueProvider.available(),
+    AvantiqoMusicSeparatorLocalQueueProvider.available(),
+    AvantiqoMusicElasticLocalQueueProvider.available(),
+    AvantiqoMusicVocalCorrectionLocalQueueProvider.available(),
+  ]);
+
   const checks = {
     engine_enabled: configuration.enabled === true,
-    foundation_model_configured: configuration.foundation_model_configured === true,
-    model_variant_configured: configuration.model_variant_configured === true,
-    lm_enabled: configuration.lm_enabled === true,
-    lm_model_configured: configuration.lm_model_configured === true,
-    lm_backend_configured: configuration.lm_backend_configured === true,
+    local_compute_configured: configuration.local_compute_configured === true,
+    local_only: configuration.local_only === true,
     music_capability_configured: certifiedCapabilities.includes("ai.music.generate"),
   };
-
-  const modalRuntimeReady = configuration.primary_audio_runtime_available === true && Object.values(checks).every(Boolean);
-  const localNodeRuntimeReady = await AvantiqoMusicLocalNodeProvider.available("ai.music.generate");
-  const primaryAudioRuntimeAvailable = modalRuntimeReady || localNodeRuntimeReady;
+  const capabilityRuntimeAvailable = {
+    music,
+    sfx,
+    stems,
+    elastic,
+    vocal_correction: vocalCorrection,
+  };
+  const primaryAudioRuntimeAvailable = music === true && Object.values(checks).every(Boolean);
 
   return {
     ready: primaryAudioRuntimeAvailable,
     primary_audio_runtime_available: primaryAudioRuntimeAvailable,
-    local_node_runtime_available: localNodeRuntimeReady,
-    modal_runtime_available: modalRuntimeReady,
-    preferred_execution_surface: localNodeRuntimeReady ? "AVANTIQO_LOCAL_NODE_V1" : (modalRuntimeReady ? "MODAL_DIRECT_A10G_ASYNC_V1" : null),
+    local_node_runtime_available: music === true,
+    capability_runtime_available: capabilityRuntimeAvailable,
+    preferred_execution_surface: music === true ? "AVANTIQO_LOCAL_NODE_V1" : null,
     checks,
     contract: MUSIC_RUNTIME_CONTRACT,
     secrets_exposed: false,
@@ -142,17 +156,15 @@ export async function POST(request) {
       entry.active === true
     ));
     const runtimeHealth = await musicRuntimeHealth();
-    const providerSeparatorRuntime = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider]?.metadata?.separator_runtime || {};
-    const separatorRuntimeReady = providerSeparatorRuntime.production_routing_allowed === true;
+    const separatorRuntimeReady = runtimeHealth.capability_runtime_available?.stems === true
+      && flagEnabled(process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED);
     const stemsReady = stems.ready === true && separatorRuntimeReady;
-    const providerElasticRuntime = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider]?.metadata?.elastic_audio_runtime || {};
-    const elasticRuntimeReady = providerElasticRuntime.production_routing_allowed === true;
+    const elasticRuntimeReady = runtimeHealth.capability_runtime_available?.elastic === true;
     const elasticReady = elastic.ready === true && elasticRuntimeReady;
-    const providerVocalCorrectionRuntime = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider]?.metadata?.vocal_correction_runtime || {};
-    const vocalCorrectionRuntimeReady = providerVocalCorrectionRuntime.production_routing_allowed === true;
+    const vocalCorrectionRuntimeReady = runtimeHealth.capability_runtime_available?.vocal_correction === true
+      && flagEnabled(process.env.AVANTIQO_MUSIC_VOCAL_CORRECTION_ENGINE_CERTIFIED);
     const vocalCorrectionReady = vocalCorrection.ready === true && vocalCorrectionRuntimeReady;
-    const providerSfxRuntime = PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider]?.metadata?.sfx_runtime || {};
-    const sfxRuntimeReady = providerSfxRuntime.production_routing_allowed === true;
+    const sfxRuntimeReady = runtimeHealth.capability_runtime_available?.sfx === true;
     const sfxReady = sfx.ready === true && sfxRuntimeReady;
     const preUiAcceptance = buildMusicPreUiAcceptance({
       provider: PROVIDER_REGISTRY[MUSIC_RUNTIME_CONTRACT.provider] || {},
@@ -179,7 +191,7 @@ export async function POST(request) {
         remix: { ...remix, status: remix.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
         edit: { ...edit, status: edit.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
         extend: { ...extend, status: extend.ready ? "CERTIFIED" : "BENCHMARK_REQUIRED" },
-        stems: { ...stems, ready: stemsReady, status: stemsReady ? "CERTIFIED" : (separatorRuntimeReady ? "BENCHMARK_AND_HUMAN_REVIEW_REQUIRED" : "CERTIFICATION_OR_CONFIGURATION_REQUIRED"), runtime_ready: separatorRuntimeReady, certification_ready: stems.ready === true, runtime_status: text(providerSeparatorRuntime.runtime_status) || null, model: text(providerSeparatorRuntime.model) || null, quality_profile: text(providerSeparatorRuntime.quality_profile) || null },
+        stems: { ...stems, ready: stemsReady, status: stemsReady ? "CERTIFIED" : (separatorRuntimeReady ? "BENCHMARK_AND_HUMAN_REVIEW_REQUIRED" : "CERTIFICATION_OR_CONFIGURATION_REQUIRED"), runtime_ready: separatorRuntimeReady, certification_ready: stems.ready === true, runtime_status: separatorRuntimeReady ? "LOCAL_CERTIFIED_RUNTIME_AVAILABLE" : "CERTIFICATION_OR_CONFIGURATION_REQUIRED", model: "demucs-htdemucs-ft", quality_profile: "DEMUCS_HTDEMUCS_FT_4STEM_V1" },
         elastic: {
           ...elastic,
           ready: elasticReady,
@@ -187,9 +199,9 @@ export async function POST(request) {
           runtime_ready: elasticRuntimeReady,
           database_certification_ready: elastic.ready === true,
           stale_database_certification_ignored: elastic.ready === true && !elasticRuntimeReady,
-          runtime_status: text(providerElasticRuntime.runtime_status) || null,
-          model: text(providerElasticRuntime.model) || null,
-          quality_profile: text(providerElasticRuntime.quality_profile) || null,
+          runtime_status: elasticRuntimeReady ? "LOCAL_RUNTIME_AVAILABLE" : "LOCAL_RUNTIME_UNAVAILABLE",
+          model: "signalsmith-stretch",
+          quality_profile: "SIGNALSMITH_STRETCH_APPROVED_WARP_V1",
         },
         vocal_correction: {
           ...vocalCorrection,
@@ -198,9 +210,9 @@ export async function POST(request) {
           runtime_ready: vocalCorrectionRuntimeReady,
           database_certification_ready: vocalCorrection.ready === true,
           stale_database_certification_ignored: vocalCorrection.ready === true && !vocalCorrectionRuntimeReady,
-          runtime_status: text(providerVocalCorrectionRuntime.runtime_status) || null,
-          model: text(providerVocalCorrectionRuntime.model) || null,
-          quality_profile: text(providerVocalCorrectionRuntime.quality_profile) || null,
+          runtime_status: vocalCorrectionRuntimeReady ? "LOCAL_CERTIFIED_RUNTIME_AVAILABLE" : "CERTIFICATION_OR_CONFIGURATION_REQUIRED",
+          model: "torchcrepe-full",
+          quality_profile: "TORCHCREPE_SIGNALSMITH_VOCAL_CORRECTION_V2",
         },
         sfx: {
           ...sfx,
@@ -212,9 +224,9 @@ export async function POST(request) {
               : "CERTIFICATION_OR_CONFIGURATION_REQUIRED"),
           runtime_ready: sfxRuntimeReady,
           certification_ready: sfx.ready === true,
-          runtime_status: text(providerSfxRuntime.runtime_status) || null,
-          foundation_model: text(providerSfxRuntime.foundation_model) || null,
-          quality_profile: text(providerSfxRuntime.quality_profile) || null,
+          runtime_status: sfxRuntimeReady ? "LOCAL_RUNTIME_AVAILABLE" : "LOCAL_RUNTIME_UNAVAILABLE",
+          foundation_model: "OpenMOSS-Team/MOSS-SoundEffect-v2.0",
+          quality_profile: "OPENMOSS_SFX_LOCAL_CPU_V1",
           external_fallback_enabled: sfxService?.fallback_enabled === true,
           external_provider_active: externalSfxActive,
         },

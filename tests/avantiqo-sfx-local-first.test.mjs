@@ -1,20 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-const provider = await readFile(new URL("../lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProvider.js", import.meta.url), "utf8");
-const local = await readFile(new URL("../lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoSfxLocalQueueProvider.js", import.meta.url), "utf8");
-const worker = await readFile(new URL("../scripts/local-node/avantiqo-node01-worker.ps1", import.meta.url), "utf8");
-const runner = await readFile(new URL("../scripts/local-node/avantiqo-node01-sfx-runner.py", import.meta.url), "utf8");
-const route = await readFile(new URL("../app/api/creative/music/sfx/route.js", import.meta.url), "utf8");
-test("SFX uses local CPU only for explicit batch work and Modal for interactive work", () => {
-  assert.match(provider, /useLocalSfx/);
-  assert.match(provider, /background/);
-  assert.match(provider, /local_batch/);
-  assert.match(provider, /useLocalSfx\(input\).*AvantiqoSfxLocalQueueProvider\.available/s);
-  assert.match(route, /execution_class/);
-  assert.match(route, /interactive/);
-  assert.match(route, /local_batch/);
-  assert.match(provider, /AVANTIQO_SFX_LOCAL_FALLBACK_MODAL/);
+import fs from "node:fs";
+
+const provider = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProvider.js", "utf8");
+const local = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoSfxLocalQueueProvider.js", "utf8");
+const worker = fs.readFileSync("scripts/local-node/avantiqo-node01-worker.ps1", "utf8");
+const runner = fs.readFileSync("scripts/local-node/avantiqo-node01-sfx-runner.py", "utf8");
+
+test("SFX uses the owned local CPU lane for all production work", () => {
+  assert.match(provider, /capability === "ai\.sfx\.generate"/);
+  assert.match(provider, /AvantiqoSfxLocalQueueProvider/);
+  assert.doesNotMatch(provider, /Modal|RunPod/);
   assert.match(local, /lane: "cpu"/);
   assert.match(local, /workload: "sfx_generate"/);
   assert.match(worker, /'ai\.sfx\.generate'/);

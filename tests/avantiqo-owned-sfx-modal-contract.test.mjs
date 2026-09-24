@@ -1,44 +1,23 @@
-import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
 
-const files = {
-  registration: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProviderRegistration.js",
-  provider: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoSfxModalProvider.js",
-  audio: "lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProvider.js",
-  certification: "lib/platform/service-runtime/providers/AvantiqoOwnedCertificationPolicy.js",
-  modal: "services/avantiqo-sfx-modal/modal_app.py",
-};
+const audio = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProvider.js", "utf8");
+const local = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoSfxLocalQueueProvider.js", "utf8");
+const policy = fs.readFileSync("lib/platform/service-runtime/providers/AvantiqoOwnedCertificationPolicy.js", "utf8");
 
-const source = Object.fromEntries(await Promise.all(Object.entries(files).map(async ([key, file]) => [key, await readFile(file, "utf8")])));
-
-test("owned SFX remains certified with Modal interactive and optional local batch routing", () => {
-  assert.match(source.registration, /AVANTIQO_SFX_ENGINE_CERTIFIED/);
-  assert.match(source.registration, /AVANTIQO_SFX_CERTIFICATION_EVIDENCE_SHA256/);
-  assert.match(source.registration, /sfxCertificationEvidenceBound/);
-  assert.match(source.registration, /modal_direct_configured: modalConfigured/);
-  assert.match(source.registration, /MODAL_INTERACTIVE_LOCAL_BATCH_OPTIONAL/);
-  assert.doesNotMatch(source.registration, /AVANTIQO_SFX_MODAL_ENDPOINT_URL/);
-  assert.doesNotMatch(source.provider, /RUNPOD/);
-  assert.doesNotMatch(source.provider, /fal-ai|FAL_/i);
+test("owned SFX production routing is local-only", () => {
+  assert.match(audio, /AvantiqoSfxLocalQueueProvider/);
+  assert.match(audio, /AVANTIQO_SFX_LOCAL_NODE_UNAVAILABLE/);
+  assert.match(local, /CAPABILITY = "ai\.sfx\.generate"/);
+  assert.match(local, /OpenMOSS-Team\/MOSS-SoundEffect-v2\.0/);
+  assert.match(local, /lane: "cpu"/);
+  assert.match(local, /workload: "sfx_generate"/);
+  assert.match(local, /AVANTIQO_SFX_ENGINE_V1/);
+  assert.doesNotMatch(audio, /AvantiqoSfxModalProvider|createAvantiqoOwnedModalWorker|RunPod|fal-ai|FAL_/i);
 });
 
-test("ai.sfx.generate routes through dedicated owned SFX provider", () => {
-  assert.match(source.audio, /isSfxCapability/);
-  assert.match(source.audio, /AvantiqoSfxModalProvider\.execute/);
-  assert.match(source.provider, /ai\.sfx\.generate/);
-  assert.match(source.provider, /createAvantiqoOwnedModalWorker/);
-  assert.match(source.provider, /transportMode: "direct-sdk"/);
-  assert.match(source.provider, /APP_NAME = "avantiqo-sfx-owned"/);
-  assert.match(source.provider, /FUNCTION_NAME = "generate"/);
-});
-
-test("MOSS SFX model is governed and canonical", () => {
-  assert.match(source.certification, /OpenMOSS-Team\/MOSS-SoundEffect-v2\.0/);
-  assert.match(source.certification, /apache-2\.0/);
-  assert.match(source.certification, /48000/);
-  assert.match(source.modal, /MossSoundEffectPipeline/);
-  assert.match(source.modal, /MAX_SECONDS = 30\.0/);
-  assert.match(source.modal, /MODAL_A10G_ASYNC_V1/);
-  assert.match(source.modal, /def generate\(data: dict\[str, Any\]\)/);
+test("MOSS SFX model remains governed", () => {
+  assert.match(policy, /OpenMOSS-Team\/MOSS-SoundEffect-v2\.0/);
+  assert.match(policy, /apache-2\.0/);
 });

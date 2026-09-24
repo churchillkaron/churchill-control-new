@@ -22,7 +22,7 @@ test("Product repository assessment retries only the invalid evidence-backed obj
   );
   assert.match(
     source,
-    /const repaired = await assessAvantiqoCurrentRepository\(\{/,
+    /const repaired = await assessWithDeveloperResources\(repairedInput\)/,
   );
 });
 

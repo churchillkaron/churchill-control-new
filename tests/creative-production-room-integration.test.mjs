@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { register } from "node:module";
+import { pathToFileURL } from "node:url";
 
-import { creativeAssetEligibleForMaster } from "../lib/creative/post-production/runtime/CreativePostProductionRuntime.js";
-import { buildDepartmentBreakdown } from "../lib/creative/production-room/runtime/CreativeDepartmentBreakdownRuntime.js";
+register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
+const { creativeAssetEligibleForMaster } = await import("../lib/creative/post-production/runtime/CreativePostProductionRuntime.js");
+const { buildDepartmentBreakdown } = await import("../lib/creative/production-room/runtime/CreativeDepartmentBreakdownRuntime.js");
 
 function governedAsset(overrides = {}) {
   return {
@@ -81,9 +84,9 @@ test("department breakdown rejects unlimited take plans", () => {
   assert.ok(report.failures.includes("DEPARTMENT_BREAKDOWN_TAKE_LIMIT_REQUIRED"));
 });
 
-import { bindTaskTakeExecutionIntent } from "../lib/creative/production-room/runtime/CreativeProductionUnitExecutionRuntime.js";
-import { createProductionRoomPlan } from "../lib/creative/production-room/runtime/CreativeProductionRoomRuntime.js";
-import { buildProductionGraph } from "../lib/creative/production-graph/planner/ProductionGraphPlanner.js";
+const { bindTaskTakeExecutionIntent } = await import("../lib/creative/production-room/runtime/CreativeProductionUnitExecutionRuntime.js");
+const { createProductionRoomPlan } = await import("../lib/creative/production-room/runtime/CreativeProductionRoomRuntime.js");
+const { buildProductionGraph } = await import("../lib/creative/production-graph/planner/ProductionGraphPlanner.js");
 
 test("take selection binds only a planned take after virtual rehearsal", () => {
   const task = {
@@ -139,7 +142,18 @@ test("production graph materializes unit ownership and planned takes", () => {
     shots: [{
       id: "shot-a", scene_id: "scene-a", title: "Approach", purpose: "Track the same helicopter toward the same offshore platform and preserve the editorial approach geography.",
       subject: "Heavy offshore helicopter", action: "helicopter flight approach over open sea", duration_seconds: 4,
-      continuity_invariants: ["same helicopter", "same platform"], generation: { required: false },
+      continuity_invariants: ["same helicopter", "same platform"],
+      production_design: {
+        architecture: "offshore platform superstructure and open sea approach corridor",
+        materials: "painted aircraft skin, steel platform, ocean water",
+        surface_age: "operational weathering appropriate to offshore use",
+        wear_dirt: "salt exposure and restrained service wear",
+        reflections: "physically plausible aircraft, steel and water reflections",
+        practical_lights: "operational aircraft and platform practicals only",
+        background_activity: "credible offshore operations without staged extras",
+        prop_hierarchy: "helicopter primary, platform secondary, sea tertiary",
+      },
+      generation: { required: false },
     }],
     creative_plan: {
       workflow_kind: "TEMPORAL",

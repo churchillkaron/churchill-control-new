@@ -4,10 +4,10 @@ import assert from "node:assert/strict";
 import { auditProductionWorkstreamDependencies } from "../lib/creative/production-room/runtime/CreativeProductionDependencyAuditRuntime.js";
 import { dependenciesForProductionWorkstream } from "../lib/creative/production-room/runtime/CreativeProductionWorkOrderRuntime.js";
 
-test("all fifteen production rooms have a deadlock-free specialist dependency schedule", () => {
+test("all seventeen production rooms have a deadlock-free specialist dependency schedule", () => {
   const result = auditProductionWorkstreamDependencies();
   assert.equal(result.passed, true, result.failures.join(","));
-  assert.equal(result.stages.length, 15);
+  assert.equal(result.stages.length, 17);
   assert.equal(result.stages.every((stage) => stage.passed), true);
   assert.equal(result.stages.every((stage) => stage.unresolved_requirements.length === 0), true);
   assert.equal(result.zero_media_generation, true);

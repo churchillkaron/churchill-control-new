@@ -28,11 +28,11 @@ assert.match(finalMastering, /provider_calls_executed:\s*0/);
 
 assert.match(channelDelivery, /CreativeFinalMasteringRuntime\.certify/);
 assert.match(channelDelivery, /FINAL_MASTERING_CERTIFICATION_REQUIRED/);
-assert.match(channelDelivery, /release_derivative:\s*true/);
+assert.match(channelDelivery, /derivative_created_from_certified_master/);
 assert.match(channelDelivery, /source_final_master_checksum/);
 assert.match(channelDelivery, /source_final_mastering_seal_hash/);
-assert.match(channelDelivery, /derivatives_bound_to_exact_master_checksum:\s*true/);
-assert.match(channelDelivery, /CREATIVE_TEMPORAL_CHANNEL_DELIVERY_V3/);
+assert.match(channelDelivery, /derivatives_bound_to_exact_master_checksum:\s*exactLineage/);
+assert.match(channelDelivery, /CREATIVE_TEMPORAL_CHANNEL_DELIVERY_V4/);
 
 assert.match(releasePackage, /CREATIVE_RELEASE_PACKAGE_V3/);
 assert.match(releasePackage, /CURRENT_MASTER_FINAL_MASTERING_SEAL_REQUIRED/);

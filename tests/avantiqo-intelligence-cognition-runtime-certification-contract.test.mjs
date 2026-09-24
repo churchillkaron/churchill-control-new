@@ -11,12 +11,13 @@ const migration = fs.readFileSync("supabase/migrations/20260919193000_intelligen
 const modal = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js", "utf8");
 const reasoning = fs.readFileSync("lib/intelligence/runtime/AvantiqoIntelligenceReasoningRuntime.js", "utf8");
 
-test("controlled cognition uses local-first owned Intelligence", () => {
-  const queue = provider.indexOf("executeIntelligenceLocalQueue(effectiveInput)");
-  const direct = provider.indexOf("executeIntelligenceLocal(effectiveInput)");
-  const modalCall = provider.indexOf("executeIntelligenceModalDirect({");
-  assert.ok(queue >= 0 && direct >= 0 && modalCall > queue && modalCall > direct);
-  assert.match(provider, /AVANTIQO_INTELLIGENCE_LOCAL_RUNTIME_REQUIRED/);
+test("controlled cognition uses owned local Intelligence only", () => {
+  const hierarchy = provider.indexOf("executeHierarchicalLocalIntelligence(input)");
+  const queue = provider.indexOf("executeIntelligenceLocalQueue(input)");
+  const direct = provider.indexOf("executeIntelligenceLocal(input)");
+  assert.ok(hierarchy >= 0 && queue > hierarchy && direct > queue);
+  assert.match(provider, /AVANTIQO_INTELLIGENCE_LOCAL_NODE_REQUIRED/);
+  assert.doesNotMatch(provider, /executeIntelligenceModalDirect|RunPod|runpod/);
 });
 
 test("paid overflow requires immutable proposal owner approval and bounded spend", () => {

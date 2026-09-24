@@ -13,11 +13,12 @@ test("concept council recovers latest settled director output before new inferen
   const start = source.indexOf("async function generateIndependentConcepts");
   const end = source.indexOf("const strategicResearch", start);
   const block = source.slice(start, end);
-  assert.ok(block.indexOf("recoverSettledConceptDirector") < block.indexOf("return reason({"));
+  assert.ok(block.indexOf("recoverSettledConceptDirector") < block.indexOf("await reason({"));
 });
 
 test("settled director recovery is scoped to current project and mission", () => {
   assert.match(source, /metadata\.creative_project_id/);
   assert.match(source, /metadata\.creative_mission_id/);
-  assert.match(source, /directionApprovalOperations: list\(project\.metadata\?\.paid_direction_approval\?\.operations\)/);
+  assert.match(source, /const approvalOperations = list\(project\.metadata\?\.paid_direction_approval\?\.operations\)/);
+  assert.match(source, /directionApprovalOperations: lineageOperations/);
 });

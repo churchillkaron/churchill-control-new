@@ -47,13 +47,13 @@ test("consumed or uncertain approved jobs are never blindly retried", () => {
   assert.match(turn, /I will not retry it blindly/);
 });
 
-test("proposal request fingerprint binds approval to the exact stable Business Partner request identity", () => {
+test("retired Modal approval evidence stays exact-request bound while active provider remains local-only", () => {
   assert.match(fingerprint, /intelligenceModalOverflowRequestFingerprint/);
   assert.match(fingerprint, /EXPLICIT_SERVER_REQUEST_IDENTITY/);
-  assert.match(provider, /APPROVED_REQUEST_FINGERPRINT_MISMATCH/);
-  assert.match(provider, /intelligenceModalOverflowRequestFingerprint/);
   assert.match(migration, /request_fingerprint text not null/);
   assert.match(migration, /INTELLIGENCE_MODAL_OVERFLOW_REQUEST_FINGERPRINT_MISMATCH/);
+  assert.match(provider, /AVANTIQO_INTELLIGENCE_LOCAL_NODE_REQUIRED/);
+  assert.doesNotMatch(provider, /Modal|modal_overflow|APPROVED_REQUEST_FINGERPRINT_MISMATCH/);
 });
 
 test("proposal approval derives lane reason and ceiling from immutable server proposal", () => {

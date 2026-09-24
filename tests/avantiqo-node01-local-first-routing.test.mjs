@@ -8,28 +8,35 @@ const image=fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-ima
 const audio=fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-audio/AvantiqoAudioProvider.js","utf8");
 const worker=fs.readFileSync("scripts/local-node/avantiqo-node01-worker.ps1","utf8");
 
-test("all intelligence lanes can choose Node01 first when the local model fits",()=>{
+test("all intelligence lanes can choose Node01 when the local model fits",()=>{
   assert.match(intelligence,/new Set\(\["front", "fast", "deep"\]\)/);
   assert.match(service,/\["front", "fast", "deep"\]\.includes\(intelligenceExecutionLane\)/);
   assert.match(service,/\["front", "fast", "deep"\]\.includes\(intelligenceLane\)/);
 });
 
-test("Image Studio sends analysis materials and upscale to Node01 first",()=>{
-  assert.match(image,/AvantiqoDocumentVisionLocalQueueProvider\.available\(capability\)/);
-  assert.match(image,/AvantiqoImageUpscaleLocalQueueProvider\.available/);
+test("Image Studio routes analysis generation and upscale through Node01 local providers",()=>{
+  assert.match(image,/AvantiqoDocumentVisionLocalQueueProvider/);
+  assert.match(image,/AvantiqoImageGenerateLocalQueueProvider/);
+  assert.match(image,/AvantiqoImageUpscaleLocalQueueProvider/);
   assert.match(worker,/ai\.image\.analyze/);
-  assert.match(worker,/creative\.materials\.estimate/);
+  assert.match(worker,/ai\.image\.generate/);
   assert.match(worker,/ai\.image\.upscale/);
+  assert.doesNotMatch(image,/Modal|modal/);
 });
 
-test("Audio Studio sends SFX and elastic processing to Node01 first",()=>{
-  assert.match(audio,/AvantiqoSfxLocalQueueProvider\.available/);
-  assert.match(audio,/AvantiqoMusicElasticLocalQueueProvider\.available/);
-  assert.match(audio,/AVANTIQO_SFX_LOCAL_FALLBACK_MODAL/);
-  assert.match(audio,/AVANTIQO_MUSIC_ELASTIC_LOCAL_FALLBACK_MODAL/);
+test("Audio Studio routes SFX music and elastic processing through Node01",()=>{
+  assert.match(audio,/AvantiqoMusicGenerationLocalQueueProvider/);
+  assert.match(audio,/AvantiqoSfxLocalQueueProvider/);
+  assert.match(audio,/AvantiqoMusicElasticLocalQueueProvider/);
+  assert.match(worker,/ai\.music\.generate/);
+  assert.match(worker,/ai\.sfx\.generate/);
+  assert.match(worker,/ai\.audio\.elastic-warp/);
+  assert.doesNotMatch(audio,/Modal|modal|RunPod|SAFE_LEASE/);
 });
 
-test("GPU-heavy generation stays off Node01 unless Node01 actually advertises it",()=>{
-  assert.doesNotMatch(worker,/['"]ai\.image\.generate['"]/);
-  assert.doesNotMatch(worker,/['"]ai\.video\.generate['"]/);
+test("Node01 explicitly owns current GPU-heavy image and video generation",()=>{
+  assert.match(worker,/ai\.image\.generate/);
+  assert.match(worker,/RunImageGenerateJob/);
+  assert.match(worker,/ai\.video\.generate/);
+  assert.match(worker,/RunVideoLtx25Job/);
 });

@@ -38,7 +38,7 @@ test("strict delivery master QC is exposed and enforced before final approval", 
   assert.match(approval, /CreativeDeliveryMasterConformanceRuntime\.inspect/);
   assert.match(workspace, /Run conformance/);
   assert.match(workspace, /Exact-file export-profile conformance/);
-  assert.match(router, /RenderWorkspaceV3/);
+  assert.match(router, /RenderWorkspaceV5/);
 });
 
 console.log("AVANTIQO_VIDEO_DELIVERY_MASTER_CONTRACT=PASS");

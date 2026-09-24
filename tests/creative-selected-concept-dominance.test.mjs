@@ -8,7 +8,8 @@ test("selected concept deterministically replaces stale incumbent creative choic
   assert.match(source, /function selectedConceptDominance/);
   assert.match(source, /source: "INDEPENDENT_CREATIVE_CONCEPT_COUNCIL_V1"/);
   assert.match(source, /selected_signature_device/);
-  assert.match(source, /anti_cliche_rules: list\(selected\.anti_cliche_rules\)/);
+  assert.match(source, /anti_cliche_rules: selectedUnderRepair/);
+  assert.match(source, /\.\.\.list\(plan\.anti_cliche_rules\), \.\.\.list\(selected\.anti_cliche_rules\)/);
   assert.match(source, /visual_system: \{/);
 });
 
@@ -18,6 +19,11 @@ test("system governance and registry role decisions survive selected-concept dom
   assert.match(source, /text\(current\.status\)\.toUpperCase\(\) !== "ACTIVE"/);
 });
 
-test("approved council resume reapplies selected-concept dominance before validation", () => {
-  assert.match(source, /plan: selectedConceptDominance\(approvedPlan, approvedCouncil\)/);
+test("approved council resume validates the already-dominated durable plan without reopening creative mutation", () => {
+  assert.match(source, /A durable Council checkpoint is written only after the selected concept has/);
+  assert.match(source, /CreativeMasterPlanRuntime\.validateExistingPlan/);
+  const resumeStart = source.indexOf("async function resumeApprovedCouncilPlan");
+  const resumeEnd = source.indexOf("async function runCouncil", resumeStart);
+  const resume = source.slice(resumeStart, resumeEnd);
+  assert.doesNotMatch(resume, /selectedConceptDominance\(/);
 });

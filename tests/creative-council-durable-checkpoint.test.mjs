@@ -23,8 +23,11 @@ test("stored Council checkpoint is scope-bound", () => {
   assert.match(workflow, /state\.creative_mission_id !== context\.creative_mission_id/);
 });
 
-test("successful Tribunal clears Council and Tribunal checkpoints", () => {
-  const wrapper = workflow.match(/async function reviewWithDurableResume[\s\S]*?\n}\n/)?.[0] || "";
-  assert.match(wrapper, /await clearTribunalResume\(context\)/);
-  assert.match(wrapper, /await clearCouncilCheckpoint\(context\)/);
+test("successful downstream direction clears all durable recovery checkpoints", () => {
+  const helper = workflow.match(/async function clearResolvedDirectionCheckpoints[\s\S]*?\n}\n/)?.[0] || "";
+  assert.match(helper, /await clearTribunalResume\(context\)/);
+  assert.match(helper, /await clearTribunalApprovedMaster\(context\)/);
+  assert.match(helper, /await clearCouncilCheckpoint\(context\)/);
+  assert.match(helper, /await clearPostRepairMasterCheckpoint\(context\)/);
+  assert.match(workflow, /await clearResolvedDirectionCheckpoints\(context\)/);
 });

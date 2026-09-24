@@ -8,16 +8,15 @@ const registration = fs.readFileSync("lib/platform/service-runtime/providers/ava
 const worker = fs.readFileSync("scripts/local-node/avantiqo-node01-worker.ps1", "utf8");
 const runner = fs.readFileSync("scripts/local-node/avantiqo-node01-image-generate-runner.py", "utf8");
 
-test("ai.image.generate is Supabase-queued to Node01 before Modal", () => {
+test("ai.image.generate is Supabase-queued to Node01 only", () => {
   assert.match(provider, /CAPABILITY = "ai\.image\.generate"/);
   assert.match(provider, /avantiqo_local_compute_jobs/);
   assert.match(provider, /workload: "image_generate"/);
   assert.match(provider, /creative-assets/);
-  assert.match(provider, /Q3_K/);
-  assert.match(imageProvider, /AvantiqoImageGenerateLocalQueueProvider/);
   assert.match(imageProvider, /capability === "ai\.image\.generate"/);
-  assert.match(imageProvider, /AVANTIQO_IMAGE_GENERATE_LOCAL_FALLBACK_MODAL/);
-  assert.ok(imageProvider.indexOf('capability === "ai.image.generate"') < imageProvider.indexOf("ownedImageWorker.execute"));
+  assert.match(imageProvider, /AvantiqoImageGenerateLocalQueueProvider/);
+  assert.match(imageProvider, /STUDIO_VISUAL_GENERATION_MASTER_LOCKED/);
+  assert.doesNotMatch(imageProvider, /Modal|RunPod|runpod/);
   assert.match(registration, /stable-diffusion\.cpp-cuda12/);
   assert.match(registration, /local_generation_quantization:\s*"Q3_K"/);
   assert.match(registration, /SUPABASE_PRIVATE_CREATIVE_ASSETS/);
@@ -31,7 +30,6 @@ test("Node01 worker owns a dedicated exclusive image generation lane", () => {
   assert.match(worker, /UnloadOllamaModel/);
   assert.match(worker, /AVANTIQO_NODE01_Z_IMAGE_TURBO_GGUF_WARM_V2/);
   assert.match(worker, /sdcpp\/v1\/img_gen/);
-  assert.match(worker, /AVANTIQO_LOCAL_GPU_OLLAMA_UNLOAD_TIMEOUT_18S/);
 });
 
 test("Node01 image runner uses the low-VRAM Z-Image Turbo GGUF bundle", () => {

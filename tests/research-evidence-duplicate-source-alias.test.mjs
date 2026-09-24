@@ -1,7 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { register } from "node:module";
+import { pathToFileURL } from "node:url";
 
-import { normalizeAndValidateResearch } from "../lib/creative/research/runtime/ResearchEvidenceContractRuntime.js";
+process.env.NEXT_PUBLIC_SUPABASE_URL ||= "https://audit.invalid";
+process.env.SUPABASE_SERVICE_ROLE_KEY ||= "audit-service-role-key";
+register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
+
+const { normalizeAndValidateResearch } = await import("../lib/creative/research/runtime/ResearchEvidenceContractRuntime.js");
 
 test("duplicate research URLs preserve source-id aliases for strategic evidence validation", () => {
   const report = normalizeAndValidateResearch({

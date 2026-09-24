@@ -97,14 +97,13 @@ test("Explicit delivery style can override stored identity style without replaci
   assert.match(resolver, /voiceReference: librarySelection\?\.voice_reference \|\| null/);
 });
 
-test("Voice provider uses Modal-direct transport and rejects retired legacy jobs", async () => {
+test("Voice provider uses local queues and rejects retired legacy jobs", async () => {
   const source = await readFile(providerPath, "utf8");
-  assert.match(source, /voiceModalDirectConfigured/);
-  assert.match(source, /executeVoiceModalDirect/);
-  assert.match(source, /getVoiceModalDirectStatus/);
-  assert.match(source, /AVANTIQO_VOICE_MODAL_DIRECT_CONFIGURATION_REQUIRED/);
+  assert.match(source, /AvantiqoVoiceSttLocalQueueProvider/);
+  assert.match(source, /AvantiqoVoiceTtsLocalQueueProvider/);
+  assert.match(source, /AVANTIQO_VOICE_LOCAL_NODE_UNAVAILABLE/);
   assert.match(source, /AVANTIQO_VOICE_LEGACY_JOB_TRANSPORT_RETIRED/);
-  assert.doesNotMatch(source, /runpodRequest\(/);
+  assert.doesNotMatch(source, /executeVoiceModalDirect|runpodRequest\(/);
 });
 
 test("Voice worker supports recorded identity separately from delivery style", async () => {

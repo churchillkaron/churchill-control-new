@@ -18,7 +18,7 @@ test("dynamic tribunal repair prompt uses structural scene and shot patches", ()
 });
 
 test("dynamic tribunal repair output is capped below legacy 20k ceiling", () => {
-  const repairCall = source.slice(source.indexOf('operation: "CREATIVE_DYNAMIC_TRIBUNAL_REPAIR_V1"'), source.indexOf('repairUsage = repair.result.usage'));
-  assert.match(repairCall, /max_output_tokens: 3500/);
+  const repairCall = source.slice(source.indexOf('operation: conceptReplacement'), source.indexOf('repairUsage = repair.result.usage'));
+  assert.match(repairCall, /max_output_tokens: conceptReplacement \? 6000 : 3500/);
   assert.doesNotMatch(repairCall, /max_output_tokens: 20000/);
 });

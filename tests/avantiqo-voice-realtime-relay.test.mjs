@@ -1,178 +1,35 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import fs from "node:fs";
 import test from "node:test";
 
-const relay = await readFile(
-  new URL("../supabase/functions/avantiqo-voice-realtime-relay/index.ts", import.meta.url),
-  "utf8",
-);
+const relay = fs.readFileSync("supabase/functions/avantiqo-voice-realtime-relay/index.ts", "utf8");
+const publicClient = fs.readFileSync("lib/operator/voice/RealtimeTranscriptionClient.js", "utf8");
+const operator = fs.readFileSync("components/operator/AvantiqoOperator.jsx", "utf8");
+const session = fs.readFileSync("app/api/operator/transcribe/realtime/session/route.js", "utf8");
+const settle = fs.readFileSync("app/api/operator/transcribe/realtime/settle/route.js", "utf8");
 
-const safeLease = await readFile(
-  new URL("../supabase/functions/_shared/avantiqo-voice-realtime-safe-lease.ts", import.meta.url),
-  "utf8",
-);
-
-const relaySafeLeasePatcher = await readFile(
-  new URL("../scripts/patch-avantiqo-voice-realtime-relay-safe-lease-local.mjs", import.meta.url),
-  "utf8",
-);
-
-const realtimeClient = await readFile(
-  new URL("../lib/operator/voice/RealtimeTranscriptionClient.js", import.meta.url),
-  "utf8",
-);
-
-const sessionRoute = await readFile(
-  new URL("../app/api/operator/transcribe/realtime/session/route.js", import.meta.url),
-  "utf8",
-);
-
-const settleRoute = await readFile(
-  new URL("../app/api/operator/transcribe/realtime/settle/route.js", import.meta.url),
-  "utf8",
-);
-
-test("Voice realtime relay is first-party authenticated, lean and release-gated", () => {
-  assert.match(relay, /AVANTIQO_VOICE_REALTIME_RELAY_V1/);
-  assert.match(relay, /AVANTIQO_VOICE_STT_REALTIME_V1/);
-  assert.match(relay, /CLIENT_PROTOCOL = "avantiqo-voice-realtime-v1"/);
-  assert.match(relay, /JWT_PROTOCOL_PREFIX = "jwt\."/);
-  assert.match(relay, /`${baseUrl}\/auth\/v1\/user`/);
-  assert.match(relay, /`${baseUrl}\/rest\/v1\/staff_accounts`/);
-  assert.match(relay, /`${baseUrl}\/rest\/v1\/organization_users`/);
-  assert.match(relay, /function supabaseAdminHeaders\(key: string\)/);
-  assert.match(relay, /headers: supabaseAdminHeaders\(secretKey\)/);
-  assert.doesNotMatch(relay, /npm:@supabase\/supabase-js/);
-  assert.doesNotMatch(relay, /createClient\(/);
-  assert.match(relay, /AVANTIQO_VOICE_REALTIME_RELAY_ENABLED/);
-  assert.match(relay, /AVANTIQO_VOICE_REALTIME_ENGINE_CERTIFIED/);
-  assert.match(relay, /AVANTIQO_VOICE_REALTIME_RELEASE_APPROVED/);
+test("realtime relay itself is a first-party fail-closed stub until certification", () => {
+  assert.match(relay, /AVANTIQO_VOICE_REALTIME_RELAY_V2/);
+  assert.match(relay, /AVANTIQO_VOICE_REALTIME_MODAL_RUNTIME_NOT_CERTIFIED/);
+  assert.match(relay, /realtime_available: false/);
+  assert.match(relay, /fallback_to_batch_transcription_required: true/);
+  assert.match(relay, /external_provider_fallback_allowed: false/);
+  assert.match(relay, /status: 503/);
+  assert.doesNotMatch(relay, /NEXT_PUBLIC_.*RUNPOD|WebSocket|Authorization:/i);
 });
 
-test("Voice realtime relay confines RunPod credentials and signs exact worker sessions", () => {
-  assert.match(relay, /AVANTIQO_VOICE_REALTIME_RUNPOD_API_KEY/);
-  assert.match(relay, /Authorization:\s*`Bearer \$\{runpodKey\}`/);
-  assert.match(relay, /AVANTIQO_VOICE_REALTIME_RELAY_SECRET/);
-  assert.match(relay, /crypto\.subtle\.importKey/);
-  assert.match(relay, /name: "HMAC", hash: "SHA-256"/);
-  assert.match(relay, /expiresAt = Math\.floor\(Date\.now\(\) \/ 1000\) \+ SESSION_TTL_SECONDS/);
-  assert.match(relay, /organization_id: organizationId/);
-  assert.doesNotMatch(relay, /NEXT_PUBLIC_.*RUNPOD/i);
-  assert.doesNotMatch(relay, /client\.send\([^)]*runpodKey/i);
+test("release Operator does not activate uncertified realtime", () => {
+  assert.match(publicClient, /AVANTIQO_OWNED_REALTIME_STT_NOT_CERTIFIED/);
+  assert.match(publicClient, /realtime_streaming_certified:\s*false/);
+  assert.doesNotMatch(operator, /OwnedRealtimeTranscriptionRelayClient|startOwnedRealtimeRelayTranscription/);
+  assert.match(operator, /AsyncRecordedTranscriptionClient/);
+  assert.match(operator, /transcribeRecordedAudio/);
 });
 
-test("Voice realtime relay forwards only bounded audio lifecycle events", () => {
-  assert.match(relay, /MAX_CLIENT_EVENT_CHARS = 100_000/);
-  assert.match(relay, /MAX_TOTAL_AUDIO_BASE64_CHARS = 1_400_000/);
-  for (const event of [
-    "audio.append",
-    "audio.commit",
-    "session.cancel",
-    "session.ping",
-  ]) {
-    assert.match(relay, new RegExp(event.replace(".", "\\.")));
+test("public realtime session and settlement routes fail closed", () => {
+  for (const source of [session, settle]) {
+    assert.match(source, /AVANTIQO_OWNED_REALTIME_STT_NOT_CERTIFIED/);
+    assert.match(source, /realtime_streaming_certified:\s*false/);
+    assert.match(source, /status: 410/);
   }
-  assert.match(relay, /AVANTIQO_VOICE_REALTIME_CLIENT_EVENT_FORBIDDEN/);
-  assert.match(relay, /AVANTIQO_VOICE_REALTIME_UPSTREAM_EVENT_TOO_LARGE/);
-  assert.match(relay, /SESSION_HARD_TIMEOUT_MS = 90_000/);
-});
-
-test("Voice realtime load-balanced endpoint has a v2 Safe Lease controller", () => {
-  assert.match(safeLease, /AVANTIQO_VOICE_REALTIME_SAFE_LEASE_V1/);
-  assert.match(safeLease, /AVANTIQO_RUNPOD_SAFE_LEASE_V2/);
-  assert.match(safeLease, /CANONICAL_ENDPOINT_NAME = "avantiqo-voice-stt-realtime-v1"/);
-  assert.match(safeLease, /CANONICAL_ENDPOINT_TYPE = "LOAD_BALANCER"/);
-  assert.match(safeLease, /CANONICAL_GPU_POOL = "AMPERE_16"/);
-  assert.match(safeLease, /REST_BASE = "https:\/\/api\.runpod\.io\/v2"/);
-  assert.match(safeLease, /endpointWorkersUrl\(endpointId: string\)/);
-  assert.match(safeLease, /`\$\{endpointUrl\(endpointId\)\}\/workers`/);
-  assert.match(safeLease, /body:\s*\{\s*workers:\s*\{\s*min:\s*0,\s*max:\s*workersMax,/s);
-  assert.match(safeLease, /endpoint_type: CANONICAL_ENDPOINT_TYPE/);
-  assert.match(safeLease, /runpod_control_api: "v2"/);
-  assert.match(safeLease, /worker_inventory_api: "\/v2\/serverless\/\{id\}\/workers"/);
-  assert.match(safeLease, /scaler_type: "REQUEST_COUNT"/);
-  assert.match(safeLease, /resting_workers_min:\s*0/);
-  assert.match(safeLease, /resting_workers_max:\s*0/);
-  assert.match(safeLease, /leased_workers_min:\s*0/);
-  assert.match(safeLease, /leased_workers_max:\s*1/);
-  assert.match(safeLease, /max_active_workers:\s*1/);
-  assert.match(safeLease, /acquire_avantiqo_voice_runpod_lease_v2/);
-  assert.match(safeLease, /refresh_avantiqo_voice_runpod_lease_v2/);
-  assert.match(safeLease, /release_avantiqo_voice_runpod_lease_v2/);
-  assert.match(safeLease, /patchEndpointWorkers\(resolvedEndpointId, 1\)/);
-  assert.match(safeLease, /parkAndVerify\(resolvedEndpointId\)/);
-  assert.match(safeLease, /queue_api_allowed:\s*false/);
-  assert.match(safeLease, /purge_queue_allowed:\s*false/);
-  assert.match(safeLease, /direct_run_allowed:\s*false/);
-  assert.doesNotMatch(safeLease, /rest\.runpod\.io\/v1/);
-  assert.doesNotMatch(safeLease, /includeWorkers/);
-  assert.doesNotMatch(safeLease, /body:\s*\{\s*workersMin\s*:/s);
-  assert.doesNotMatch(safeLease, /body:\s*\{\s*workersMax\s*:/s);
-  assert.doesNotMatch(safeLease, /body:\s*\{\s*workersMax\s*[,}]/s);
-  assert.doesNotMatch(safeLease, /\/run\b/);
-  assert.doesNotMatch(safeLease, /\/health\b/);
-  assert.doesNotMatch(safeLease, /purge-queue/);
-});
-
-test("Voice realtime Safe Lease validates v2 load-balancer identity before scaling", () => {
-  assert.match(safeLease, /text\(endpoint\.type\) !== CANONICAL_ENDPOINT_TYPE/);
-  assert.match(safeLease, /text\(scaling\.type\) !== "REQUEST_COUNT"/);
-  assert.match(safeLease, /pools\.length !== 1/);
-  assert.match(safeLease, /pools\[0\] !== CANONICAL_GPU_POOL/);
-  assert.match(safeLease, /finite\(gpu\.count, -1\) !== CANONICAL_GPU_COUNT/);
-  assert.match(safeLease, /activeWorkers\(state\.workerInventory\)\.length !== 0/);
-  assert.match(safeLease, /activeWorkers\(state\.workerInventory\)\.length > 1/);
-});
-
-test("Voice realtime Safe Lease uses current Supabase secret-key header semantics", () => {
-  assert.match(safeLease, /function isLegacyJwtKey\(value: string\)/);
-  assert.match(safeLease, /function supabaseRpcHeaders\(key: string\)/);
-  assert.match(safeLease, /apikey: key/);
-  assert.match(safeLease, /isLegacyJwtKey\(key\) \? \{ Authorization: `Bearer \$\{key\}` \} : \{\}/);
-  assert.match(safeLease, /headers: supabaseRpcHeaders\(key\)/);
-});
-
-test("Voice realtime relay Safe Lease patcher is guarded, local-only and queue-free", () => {
-  assert.match(relaySafeLeasePatcher, /AVANTIQO_VOICE_REALTIME_RELAY_SAFE_LEASE_PATCH_V1/);
-  assert.match(relaySafeLeasePatcher, /IMPORT_ANCHOR_CHANGED/);
-  assert.match(relaySafeLeasePatcher, /SETUP_ANCHOR_CHANGED/);
-  assert.match(relaySafeLeasePatcher, /FINISH_ANCHOR_CHANGED/);
-  assert.match(relaySafeLeasePatcher, /acquireVoiceRealtimeSafeLease/);
-  assert.match(relaySafeLeasePatcher, /realtimeEndpointIdFromWebSocketUrl\(runpodUrl\)/);
-  assert.match(relaySafeLeasePatcher, /lease\.refresh\(\)/);
-  assert.match(relaySafeLeasePatcher, /await lease\.release\(reason\)/);
-  assert.match(relaySafeLeasePatcher, /await lease\.fail\(reason\)/);
-  assert.match(relaySafeLeasePatcher, /if \(finishPromise\) return finishPromise/);
-  assert.match(relaySafeLeasePatcher, /production_deploy_performed:\s*false/);
-  assert.match(relaySafeLeasePatcher, /production_migration_applied:\s*false/);
-  assert.match(relaySafeLeasePatcher, /production_function_deployed:\s*false/);
-  assert.doesNotMatch(relaySafeLeasePatcher, /supabase\s+functions\s+deploy/i);
-  assert.doesNotMatch(relaySafeLeasePatcher, /vercel\s+(?:--prod|deploy|build)/i);
-});
-
-test("Voice realtime relay on main is bound to the load-balanced Safe Lease", () => {
-  assert.match(relay, /from "\.\.\/_shared\/avantiqo-voice-realtime-safe-lease\.ts"/);
-  assert.match(relay, /realtimeLease = await acquireVoiceRealtimeSafeLease\(/);
-  assert.match(relay, /endpointId: realtimeEndpointIdFromWebSocketUrl\(runpodUrl\)/);
-  assert.match(relay, /ttlSeconds: 120/);
-  assert.match(relay, /leaseRefreshTimer = setInterval/);
-  assert.match(relay, /lease\.refresh\(\)/);
-  assert.match(relay, /await lease\.release\(reason\)/);
-  assert.match(relay, /await lease\.fail\(reason\)/);
-  assert.match(relay, /await failedLease\.fail\("relay setup failed"\)/);
-  assert.match(relay, /if \(finishPromise\) return finishPromise/);
-  assert.match(relay, /edgeRuntime\?\.waitUntil\?\.\(closedPromise\)/);
-  assert.doesNotMatch(relay, /\/run\b/);
-  assert.doesNotMatch(relay, /\/health\b/);
-  assert.doesNotMatch(relay, /purge-queue/);
-});
-
-test("uncertified public realtime session routes remain fail-closed while the Operator uses the owned relay client", () => {
-  assert.match(realtimeClient, /AVANTIQO_OWNED_REALTIME_STT_NOT_CERTIFIED/);
-  assert.match(realtimeClient, /realtime_streaming_certified:\s*false/);
-  assert.match(sessionRoute, /AVANTIQO_OWNED_REALTIME_STT_NOT_CERTIFIED/);
-  assert.match(settleRoute, /AVANTIQO_OWNED_REALTIME_STT_NOT_CERTIFIED/);
-  assert.doesNotMatch(realtimeClient, /new WebSocket\(/);
-  assert.doesNotMatch(sessionRoute, /client_secret/);
-  assert.doesNotMatch(settleRoute, /provider:\s*"openai"/);
 });

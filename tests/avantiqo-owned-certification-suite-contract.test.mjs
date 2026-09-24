@@ -2,32 +2,30 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
 
-const suite = fs.readFileSync(
-  new URL("../scripts/benchmark-avantiqo-owned-engines.mjs", import.meta.url),
-  "utf8",
-);
-
-for (const engine of ["intelligence", "image", "cinema", "voice", "music", "code"]) {
-  test(`unified suite includes ${engine} benchmark`, () => {
-    assert.match(suite, new RegExp(`id:\\s*\\?"${engine}\\?"`));
-    assert.match(suite, new RegExp(`benchmark-avantiqo-${engine}\\.mjs`));
-  });
-}
-
-test("intelligence uses dedicated non-queue certification contract", () => {
-  assert.match(suite, /AVANTIQO_INTELLIGENCE_NON_QUEUE_CERTIFICATION_V1/);
-  assert.doesNotMatch(suite, /DEDICATED_NON_QUEUE_CONTAMINATING_CERTIFICATION_PROBE_REQUIRED/);
+test("retired monolithic owned-engine benchmark stays retired", () => {
+  assert.equal(fs.existsSync("scripts/benchmark-avantiqo-owned-engines.mjs"), false);
 });
 
-test("suite cannot activate pricing or provider selection", () => {
-  assert.match(suite, /activation_allowed:false/);
-  assert.match(suite, /pricing_activation_performed:false/);
-  assert.match(suite, /provider_selection_changed:false/);
-  assert.match(suite, /automatic_activation_forbidden:true/);
+test("current owned media certification is explicit local core certification", () => {
+  const suite = fs.readFileSync("scripts/certify-avantiqo-owned-media-core-local.mjs", "utf8");
+  assert.match(suite, /AVANTIQO_OWNED_MEDIA_CORE_LOCAL_CERTIFICATION_V2/);
+  assert.match(suite, /ENGINE_SPECIFIC_CERTIFICATION_REQUIRED/);
+  assert.match(suite, /generation_performed: false/);
+  assert.match(suite, /quality_review_required: true/);
+  assert.match(suite, /economics_measurement_required: true/);
+  assert.match(suite, /production_certified: false/);
+  assert.match(suite, /production_activation_performed: false/);
+  assert.match(suite, /production_deploy_performed: false/);
+  assert.match(suite, /fail_closed: true/);
 });
 
-test("production certification always requires benchmark and economics evidence", () => {
-  assert.match(suite, /benchmark_required:true/);
-  assert.match(suite, /economics_required:true/);
-  assert.match(suite, /pricing_status_required:"PRODUCTION_CERTIFIED"/);
+test("other owned engines retain dedicated certification entrypoints", () => {
+  for (const file of [
+    "scripts/avantiqo-intelligence-benchmark.mjs",
+    "scripts/run-avantiqo-voice-stt-local-certification.mjs",
+    "scripts/certify-avantiqo-music-local.sh",
+    "scripts/certify-avantiqo-code-sandbox-local.mjs",
+  ]) {
+    assert.equal(fs.existsSync(file), true, file);
+  }
 });

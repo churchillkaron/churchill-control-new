@@ -29,9 +29,9 @@ test('deterministic verifier does not replace unrelated capability verification'
 
 test('affirmative pending action executes before general reasoning', () => {
   const core = readFileSync('lib/operator/runtime/OperatorTurnRuntimeCore.js', 'utf8');
-  const pendingBranch = core.indexOf('if (pending && (isAffirmative(message) || resumeFromApproval || resumeMission))');
+  const pendingBranch = core.indexOf('if (pending && (isAffirmative(message) || resumeFromApproval || resumeMission || resumeImplementationRepair || resumeBusinessPartnerRecovery))');
   const pendingExecute = core.indexOf('payload: pending.payload', pendingBranch);
-  const generalReasoning = core.indexOf('const reasoning = await reasonAboutOperatorTurn({', pendingBranch);
+  const generalReasoning = core.indexOf('const reasoning = deterministicPreparation || semanticPreparation || semanticMutationFailClosed || await reasonAboutOperatorTurn({', pendingBranch);
   assert.ok(pendingBranch >= 0);
   assert.ok(pendingExecute > pendingBranch);
   assert.ok(generalReasoning > pendingExecute);
@@ -39,9 +39,8 @@ test('affirmative pending action executes before general reasoning', () => {
 
 test('bank statement confirmed action bypasses paid generic verification', () => {
   const core = readFileSync('lib/operator/runtime/OperatorTurnRuntimeCore.js', 'utf8');
-  const deterministic = core.indexOf('const deterministicVerification = deterministicFinanceExecutionVerification({');
-  const branch = core.indexOf('if (deterministicVerification)', deterministic);
-  const generic = core.indexOf('await verifyOperatorExecution({', branch);
-  assert.ok(deterministic >= 0 && branch > deterministic && generic > branch);
-  assert.match(core.slice(branch, generic), /else\s*\{/);
+  const deterministic = core.indexOf('const deterministicVerification = costFollowUp ? null : deterministicFinanceExecutionVerification({');
+  assert.ok(deterministic >= 0);
+  const segment = core.slice(deterministic, deterministic + 1800);
+  assert.match(segment, /else if \(deterministicVerification\) \{[\s\S]*responseText = deterministicVerification\.response_text[\s\S]*\} else \{[\s\S]*await verifyOperatorExecution\(\{/);
 });

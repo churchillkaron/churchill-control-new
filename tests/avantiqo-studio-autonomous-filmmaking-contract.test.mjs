@@ -12,7 +12,7 @@ const audienceBootstrap = read("lib/creative/director/runtime/CreativeAudienceVe
 const videoDispatch = read("lib/creative/video/runtime/CreativeVideoProductionDispatchBootstrap.js");
 const instrumentation = read("instrumentation.js");
 
-assert.match(escalation, /AVANTIQO_STORY_ESCALATION_V1/);
+assert.match(escalation, /AVANTIQO_STORY_ESCALATION_V2/);
 assert.match(escalation, /causal_state_change_required_for_every_scene: true/);
 assert.match(escalation, /unique_story_information_required_for_every_shot: true/);
 assert.match(escalation, /fixed_act_template_required: false/);

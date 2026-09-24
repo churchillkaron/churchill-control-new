@@ -108,7 +108,7 @@ export default function TableSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-10">
+    <div className="avantiqo-backoffice-light min-h-screen bg-black text-white p-10">
       <div className="max-w-5xl mx-auto space-y-8">
         <div>
           <div className="text-sm uppercase tracking-[0.3em] text-zinc-500 mb-3">

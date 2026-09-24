@@ -5,8 +5,9 @@ import test from "node:test";
 const source = await readFile(new URL("../lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js", import.meta.url), "utf8");
 
 test("tribunal retries one malformed reviewer contract before failing closed", () => {
-  assert.match(source, /previous_attempt_rejected: `The previous response did not return the required reviewer contract/);
-  assert.match(source, /reviewer_id exactly .*reviewer\.id/);
-  assert.match(source, /Do not return a plan or repair envelope/);
-  assert.match(source, /if \(text\(output\.reviewer_id\) !== text\(reviewer\.id\)\) \{/);
+  assert.match(source, /for \(let schemaAttempt = 1; schemaAttempt <= 2; schemaAttempt \+= 1\)/);
+  assert.match(source, /compactReviewSchemaRetryPayload/);
+  assert.match(source, /creative_review_schema_attempt: schemaAttempt/);
+  assert.match(source, /if \(schemaAttempt === 1\) continue/);
+  assert.match(source, /CREATIVE_TRIBUNAL_REVIEW_SCHEMA_INVALID/);
 });

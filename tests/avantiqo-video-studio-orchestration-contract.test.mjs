@@ -30,7 +30,7 @@ assert.match(route, /force-dynamic/);
 assert.match(route, /runtime = "nodejs"/);
 assert.match(route, /requireOrganizationAccess/);
 assert.match(route, /creative\.quality\.evaluate/);
-assert.match(route, /CreativeVideoStudioOrchestrationRuntime\.inspect/);
+assert.match(route, /CreativeVideoStudioReviewOrchestrationRuntime\.inspect/);
 
 assert.match(shell, /useCreativeOrchestration/);
 assert.match(shell, /orchestrationRuntime: orchestration/);
@@ -39,7 +39,7 @@ assert.match(shell, /orchestration\.refresh/);
 assert.match(header, /nextAction\.workspace/);
 assert.match(header, /editor\.setActiveWorkspace\(nextAction\.workspace\)/);
 assert.match(header, /film flow complete/);
-assert.match(header, /currentPhase\.detail/);
+assert.match(header, /currentPhase\?\.detail/);
 
 assert.match(sidebar, /timeline: \{ label: "Edit"/);
 assert.match(sidebar, /render: \{ label: "Mastering"/);

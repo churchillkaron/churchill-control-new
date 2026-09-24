@@ -82,8 +82,10 @@ function verifiedExecution() {
       key: "platform.code_ai_autonomous.execute",
       mode: "write",
     },
+    business_effect_verified: true,
     post_action_verification: {
       status: "completed",
+      business_effect_verified: true,
     },
   };
 }

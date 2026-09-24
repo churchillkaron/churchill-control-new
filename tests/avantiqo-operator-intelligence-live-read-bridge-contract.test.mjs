@@ -11,6 +11,7 @@ async function autoRun() {
   const bridge = await source("lib/operator/runtime/OperatorIntelligenceToolBridgeRuntime.js");
   const synthetic = await source("lib/operator/runtime/SyntheticIntelligenceTurnRuntime.js");
   const repair = await source("lib/operator/runtime/OperatorRepairSupervisionRuntime.js");
+  const planning = await source("lib/operator/runtime/OperatorIntelligencePlanningToolRuntime.js");
 
   assert.match(bridge, /AVANTIQO_OPERATOR_INTELLIGENCE_READ_TOOL_BRIDGE_V1/);
   assert.match(bridge, /mode !== "read"/);
@@ -23,13 +24,14 @@ async function autoRun() {
   assert.match(bridge, /RECURSIVE_CONTROL_CAPABILITIES/);
   assert.doesNotMatch(bridge, /allow_mutating_tools:\s*true/);
 
-  assert.match(synthetic, /OperatorIntelligenceToolBridgeRuntime\.createReadTools/);
+  assert.match(planning, /OperatorIntelligenceToolBridgeRuntime\.createReadTools/);
+  assert.match(synthetic, /OperatorIntelligencePlanningToolRuntime\.createTools/);
   assert.match(synthetic, /tools,/);
   assert.match(synthetic, /allow_mutating_tools: false/);
   assert.match(synthetic, /observed_evidence/);
   assert.match(synthetic, /execution_governance_bypassed: false/);
 
-  assert.match(repair, /OperatorIntelligenceToolBridgeRuntime\.createReadTools/);
+  assert.match(repair, /OperatorIntelligencePlanningToolRuntime\.createTools/);
   assert.match(repair, /allow_mutating_tools: false/);
   assert.match(repair, /observed_evidence/);
   assert.match(repair, /Do not retry or execute writes/);

@@ -22,10 +22,12 @@ test("owned execution providers cannot fall back to retired provider runtimes", 
   const code = read("lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProviderV2.js");
   const voice = read("lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProviderV2.js");
   const video = read("lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderV2.js");
-  assert.match(code, /AVANTIQO_CODE_MODAL_CONFIGURATION_REQUIRED/);
-  assert.doesNotMatch(code, /RunpodCodeProvider|AvantiqoCodeProvider\.js/);
-  assert.match(voice, /AVANTIQO_VOICE_MODAL_DIRECT_CONFIGURATION_REQUIRED/);
-  assert.doesNotMatch(voice, /LegacyVoiceProvider/);
+  assert.match(code, /AVANTIQO_CODE_LOCAL_NODE_UNAVAILABLE/);
+  assert.match(code, /AvantiqoCodeLocalQueueProvider/);
+  assert.doesNotMatch(code, /RunpodCodeProvider|AvantiqoCodeProvider\.js|Modal/);
+  assert.match(voice, /AVANTIQO_VOICE_LOCAL_NODE_UNAVAILABLE/);
+  assert.match(voice, /AvantiqoVoiceTtsLocalQueueProvider/);
+  assert.doesNotMatch(voice, /LegacyVoiceProvider|RunPod/);
   assert.match(video, /AVANTIQO_VIDEO_LEGACY_JOB_TRANSPORT_RETIRED/);
   assert.doesNotMatch(video, /AvantiqoOwnedRunpodWorker|AvantiqoVideoProvider\.js/);
 });

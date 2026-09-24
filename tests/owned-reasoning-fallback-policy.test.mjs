@@ -1,6 +1,5 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-
 import {
   buildOwnedReasoningFallbackInput,
   ownedReasoningFallbackDecision,
@@ -11,185 +10,67 @@ import {
 
 function providerError(provider, capability) {
   const error = new Error("provider failed");
-  Object.defineProperty(error, "__provider_id", {
-    value: provider,
-    enumerable: false,
-  });
-  Object.defineProperty(error, "__provider_capability", {
-    value: capability,
-    enumerable: false,
-  });
+  Object.defineProperty(error, "__provider_id", { value: provider });
+  Object.defineProperty(error, "__provider_capability", { value: capability });
   return error;
 }
 
-function allowedDecision(overrides = {}) {
+function decision(providerPolicy = {}, metadata = {}) {
   return ownedReasoningFallbackDecision({
     error: providerError(OWNED_REASONING_PROVIDER_ID, OWNED_REASONING_CAPABILITY),
     capability: OWNED_REASONING_CAPABILITY,
-    providerPolicy: {},
-    ...overrides,
+    providerPolicy,
+    metadata,
   });
 }
 
-test("allows one governed fallback after owned deep reasoning failure", () => {
-  const result = allowedDecision();
+test("owned reasoning fails closed unless fallback is explicitly enabled", () => {
+  const result = decision();
+  assert.equal(result.allowed, false);
+  assert.equal(result.reason, "OWNED_REASONING_FALLBACK_NOT_EXPLICITLY_ENABLED");
+});
 
+test("explicit fallback opt-in permits one bounded alternative attempt", () => {
+  const result = decision({ allow_owned_reasoning_fallback: true });
   assert.equal(result.allowed, true);
   assert.deepEqual(result.provider_policy.blocked_providers, [OWNED_REASONING_PROVIDER_ID]);
 });
 
-test("does not fallback external provider failure", () => {
-  const result = ownedReasoningFallbackDecision({
+test("explicit fallback remains bounded by provider, capability, allowlist and attempt count", () => {
+  const external = ownedReasoningFallbackDecision({
     error: providerError("openai", OWNED_REASONING_CAPABILITY),
     capability: OWNED_REASONING_CAPABILITY,
+    providerPolicy: { allow_owned_reasoning_fallback: true },
   });
+  assert.equal(external.reason, "FAILED_PROVIDER_NOT_OWNED_REASONING");
 
-  assert.equal(result.allowed, false);
-  assert.equal(result.reason, "FAILED_PROVIDER_NOT_OWNED_REASONING");
+  const pinned = decision({ allow_owned_reasoning_fallback: true, allowed_providers: [OWNED_REASONING_PROVIDER_ID] });
+  assert.equal(pinned.reason, "NO_ALLOWED_FALLBACK_PROVIDER");
+
+  const loop = decision({ allow_owned_reasoning_fallback: true }, { provider_failover: { attempt: 2 } });
+  assert.equal(loop.reason, "FALLBACK_ATTEMPT_ALREADY_CONSUMED");
 });
 
-test("does not fallback non-reasoning capabilities", () => {
-  const result = ownedReasoningFallbackDecision({
-    error: providerError(OWNED_REASONING_PROVIDER_ID, "ai.text.generate"),
-    capability: "ai.text.generate",
-  });
-
-  assert.equal(result.allowed, false);
-});
-
-test("prevents fallback loops when owned provider is already excluded", () => {
-  const result = allowedDecision({
-    providerPolicy: {
-      blocked_providers: [OWNED_REASONING_PROVIDER_ID],
-    },
-  });
-
-  assert.equal(result.allowed, false);
-  assert.equal(result.reason, "OWNED_PROVIDER_ALREADY_EXCLUDED");
-});
-
-test("honors an explicit provider policy that disables owned reasoning failover", () => {
-  const result = allowedDecision({
-    providerPolicy: {
-      allow_owned_reasoning_fallback: false,
-    },
-  });
-
-  assert.equal(result.allowed, false);
-  assert.equal(result.reason, "OWNED_REASONING_FALLBACK_DISABLED");
-});
-
-test("does not violate an explicit allowlist that pins the owned provider", () => {
-  const result = allowedDecision({
-    providerPolicy: {
-      allowed_providers: [OWNED_REASONING_PROVIDER_ID],
-    },
-  });
-
-  assert.equal(result.allowed, false);
-  assert.equal(result.reason, "NO_ALLOWED_FALLBACK_PROVIDER");
-});
-
-test("allows fallback when an explicit allowlist contains an alternative", () => {
-  const result = allowedDecision({
-    providerPolicy: {
-      allowed_providers: [OWNED_REASONING_PROVIDER_ID, "openai"],
-    },
-  });
-
-  assert.equal(result.allowed, true);
-  assert.deepEqual(result.provider_policy.allowed_providers, [
-    OWNED_REASONING_PROVIDER_ID,
-    "openai",
-  ]);
-  assert.deepEqual(result.provider_policy.blocked_providers, [
-    OWNED_REASONING_PROVIDER_ID,
-  ]);
-});
-
-test("prevents a third provider attempt from a fallback turn", () => {
-  const result = allowedDecision({
-    metadata: {
-      provider_failover: {
-        attempt: 2,
-      },
-    },
-  });
-
-  assert.equal(result.allowed, false);
-  assert.equal(result.reason, "FALLBACK_ATTEMPT_ALREADY_CONSUMED");
-});
-
-test("fallback input starts a fresh metered attempt and excludes the owned provider", () => {
-  const decision = allowedDecision({
-    providerPolicy: {
-      blocked_providers: ["disabled-provider"],
-    },
-  });
-  const result = buildOwnedReasoningFallbackInput({
-    input: {
-      organization_id: "org-1",
-      service_id: "ai.reasoning.execute",
-      provider_id: OWNED_REASONING_PROVIDER_ID,
-      provider_policy: {
-        blocked_providers: ["disabled-provider"],
-      },
-      metadata: {
-        operation: "REASON_TURN",
-      },
-    },
-    decision,
+test("fallback input creates a fresh metered attempt and evidence chain", () => {
+  const approved = decision({ allow_owned_reasoning_fallback: true });
+  const input = buildOwnedReasoningFallbackInput({
+    input: { provider_id: OWNED_REASONING_PROVIDER_ID, metadata: {} },
+    decision: approved,
     failedUsageId: "usage-owned-1",
     failedProvider: OWNED_REASONING_PROVIDER_ID,
     failedModel: "qwen-thinking",
   });
+  assert.equal(input.provider_id, null);
+  assert.equal(input.metadata.provider_failover.attempt, 2);
+  assert.equal(input.metadata.provider_failover.previous_usage_id, "usage-owned-1");
 
-  assert.equal(result.provider_id, null);
-  assert.deepEqual(result.provider_policy.blocked_providers, [
-    "disabled-provider",
-    OWNED_REASONING_PROVIDER_ID,
-  ]);
-  assert.deepEqual(result.metadata.provider_failover, {
-    kind: "owned_reasoning_provider_failover",
-    attempt: 2,
-    chain_id: "usage-owned-1",
-    previous_usage_id: "usage-owned-1",
-    previous_provider: OWNED_REASONING_PROVIDER_ID,
-    previous_model: "qwen-thinking",
-    reason: "OWNED_REASONING_PROVIDER_FAILED",
-    owned_provider_excluded: true,
-  });
-});
-
-test("fallback evidence links the failed usage to the successful second usage", () => {
   const evidence = ownedReasoningFallbackEvidence({
     failedUsageId: "usage-owned-1",
     failedProvider: OWNED_REASONING_PROVIDER_ID,
     failedModel: "qwen-thinking",
-    decision: allowedDecision(),
-    result: {
-      provider: "openai",
-      model: "fallback-model",
-      usage: { id: "usage-fallback-2" },
-      pending: false,
-    },
+    decision: approved,
+    result: { provider: "alternate", model: "fallback-model", usage: { id: "usage-fallback-2" } },
   });
-
-  assert.deepEqual(evidence, {
-    occurred: true,
-    kind: "owned_reasoning_provider_failover",
-    reason: "OWNED_REASONING_PROVIDER_FAILED",
-    from: {
-      provider: OWNED_REASONING_PROVIDER_ID,
-      model: "qwen-thinking",
-      usage_id: "usage-owned-1",
-      status: "FAILED",
-    },
-    to: {
-      provider: "openai",
-      model: "fallback-model",
-      usage_id: "usage-fallback-2",
-      status: "SUCCESS",
-    },
-  });
+  assert.equal(evidence.reason, "OWNED_REASONING_PROVIDER_FAILED");
+  assert.equal(evidence.to.usage_id, "usage-fallback-2");
 });

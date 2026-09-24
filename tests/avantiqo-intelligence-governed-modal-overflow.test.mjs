@@ -11,17 +11,13 @@ const route = fs.readFileSync("app/api/platform/admin/intelligence-modal-overflo
 const worker = fs.readFileSync("services/avantiqo-intelligence-modal/modal_app.py", "utf8");
 const deployWorkflow = fs.readFileSync(".github/workflows/avantiqo-intelligence-modal-deploy.yml", "utf8");
 
-test("Intelligence always attempts owned local compute before governed Modal overflow", () => {
-  const queue = provider.indexOf("executeIntelligenceLocalQueue(effectiveInput)");
-  const direct = provider.indexOf("executeIntelligenceLocal(effectiveInput)");
-  const overflowCall = provider.indexOf("executeIntelligenceModalDirect({");
-  assert.ok(queue >= 0);
-  assert.ok(direct >= 0);
-  assert.ok(overflowCall > queue);
-  assert.ok(overflowCall > direct);
-  assert.match(provider, /intelligenceModalOverflowApprovalRequested\(effectiveInput\)/);
-  assert.match(provider, /executionLane === "front"/);
-  assert.match(provider, /AVANTIQO_INTELLIGENCE_LOCAL_RUNTIME_REQUIRED/);
+test("active Intelligence stays on owned local compute and cannot reach retired Modal overflow", () => {
+  const hierarchy = provider.indexOf("executeHierarchicalLocalIntelligence(input)");
+  const queue = provider.indexOf("executeIntelligenceLocalQueue(input)");
+  const direct = provider.indexOf("executeIntelligenceLocal(input)");
+  assert.ok(hierarchy >= 0 && queue > hierarchy && direct > queue);
+  assert.match(provider, /AVANTIQO_INTELLIGENCE_LOCAL_NODE_REQUIRED/);
+  assert.doesNotMatch(provider, /executeIntelligenceModalDirect|intelligenceModalOverflowApprovalRequested|RunPod|runpod/);
 });
 
 test("Modal overflow requires explicit approval, positive cost reservation and local insufficiency proof", () => {
@@ -110,23 +106,18 @@ test("Modal Fast and Deep workers remain scale-to-zero single-H100 functions", (
   assert.match(worker, /startup_timeout=DEEP_STARTUP_TIMEOUT_SECONDS/);
 });
 
-test("Fast/Deep Modal deployment is manual-only and cannot deploy Front cognition", () => {
+test("retired Fast/Deep Modal deployment remains manual-only and outside active routing", () => {
   assert.match(deployWorkflow, /workflow_dispatch:/);
-  assert.match(deployWorkflow, /approve_deploy:/);
-  assert.match(deployWorkflow, /if: \$\{\{ inputs\.approve_deploy == true \}\}/);
   assert.match(deployWorkflow, /modal deploy --strategy recreate modal_app\.py/);
-  assert.match(deployWorkflow, /INFERENCE_JOB_SUBMITTED=false/);
-  assert.match(deployWorkflow, /AUTOMATIC_FALLBACK_ENABLED=false/);
-  assert.match(deployWorkflow, /AVANTIQO_INTELLIGENCE_MODAL_FRONT_DEPLOYED=false/);
   assert.doesNotMatch(deployWorkflow, /^  push:/m);
   assert.doesNotMatch(deployWorkflow, /^  schedule:/m);
+  assert.doesNotMatch(provider, /executeIntelligenceModalDirect/);
 });
 
 
-test("development runtime hard-disables paid Intelligence Modal", () => {
+test("active provider hard-disables paid Intelligence Modal in every environment", () => {
   assert.match(overflow, /process\.env\.VERCEL_ENV === "production"/);
   assert.match(overflow, /AVANTIQO_INTELLIGENCE_MODAL_PAID_EXECUTION_DISABLED_OUTSIDE_PRODUCTION/);
-  assert.match(overflow, /intelligenceModalPaidExecutionAllowed\(\) && Boolean\(approvalId\(input\)\)/);
-  assert.match(provider, /proposalId && !intelligenceModalOverflowProposalWorkflowEnabled\(\)/);
-  assert.match(provider, /modal_overflow_available_with_approval =[\s\S]*intelligenceModalOverflowProposalWorkflowEnabled\(\)/);
+  assert.match(provider, /AVANTIQO_INTELLIGENCE_LOCAL_NODE_REQUIRED/);
+  assert.doesNotMatch(provider, /Modal|modal_overflow|proposalId/);
 });

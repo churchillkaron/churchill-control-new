@@ -18,7 +18,7 @@ test('Tribunal rejects exact brand claims without authoritative brand truth', ()
 test('Tribunal rejects quoted reviewer evidence absent from current scoped evidence', () => {
   assert.match(source, /UNSUPPORTED_QUOTED_EVIDENCE/);
   assert.match(source, /review\.evidence_used/);
-  assert.match(source, /scopedEvidenceText\.includes/);
+  assert.match(source, /evidenceFragmentSupported\(fragment, scopedEvidenceText, planText, reviewerAuthorityText, reviewPolicyText\)/);
 });
 
 test('Production Workflow reviewers receive production-specific evidence authority', () => {
@@ -29,7 +29,7 @@ test('Production Workflow reviewers receive production-specific evidence authori
 
 
 test('canonical plan may ground quoted evidence outside narrow reviewer scope',()=>{
-  assert.match(source,/!scopedEvidenceText\.includes\(fragment\.toLowerCase\(\)\) && !planText\.includes\(fragment\.toLowerCase\(\)\)/);
+  assert.match(source,/evidenceFragmentSupported\(fragment, scopedEvidenceText, planText, reviewerAuthorityText, reviewPolicyText\)/);
 });
 
 

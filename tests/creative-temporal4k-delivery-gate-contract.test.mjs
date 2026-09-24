@@ -1,34 +1,32 @@
-import fs from 'node:fs';
-import assert from 'node:assert/strict';
-import test from 'node:test';
+import fs from "node:fs";
+import assert from "node:assert/strict";
+import test from "node:test";
 
-const delivery=fs.readFileSync('lib/creative/upscale/runtime/CreativeTemporal4KDeliveryTaskRuntime.js','utf8');
-const review=fs.readFileSync('lib/creative/upscale/runtime/CreativeTemporal4KReviewTaskRuntime.js','utf8');
-const mastering=fs.readFileSync('lib/creative/post-production/runtime/CreativeGovernedVideoMasteringRuntime.js','utf8');
+const delivery=fs.readFileSync("lib/creative/upscale/runtime/CreativeTemporal4KDeliveryTaskRuntime.js","utf8");
+const review=fs.readFileSync("lib/creative/upscale/runtime/CreativeTemporal4KReviewTaskRuntime.js","utf8");
+const mastering=fs.readFileSync("lib/creative/post-production/runtime/CreativeGovernedVideoMasteringRuntime.js","utf8");
 
-test('sub-4K locked master materializes a governed temporal upscale task',()=>{
-  assert.match(delivery,/capability:"ai\.video\.upscale"/);
-  assert.match(delivery,/temporal_4k_plan:plan/);
-  assert.match(delivery,/per_frame_independent_sr_forbidden:true/);
-  assert.match(delivery,/delivery_width:3840/);
-  assert.match(delivery,/delivery_height:2160/);
+test("sub-4K master fails closed while temporal upscale capability is uncertified",()=>{
+  assert.match(delivery,/CreativeVideoProductionCertificationRuntime\.status\("ai\.video\.upscale"\)/);
+  assert.match(delivery,/TEMPORAL_4K_UPSCALE_CAPABILITY_NOT_CERTIFIED/);
+  const gateIndex=delivery.indexOf("upscaleCertification");
+  const createIndex=delivery.indexOf("ProductionTaskRuntime.create");
+  assert.ok(gateIndex>=0&&createIndex>gateIndex);
 });
 
-test('existing native 4K master bypasses upscale safely',()=>{
+test("existing native 4K master bypasses upscale safely",()=>{
   assert.match(delivery,/if\(is4k\(source_render\)\)return\{contract:CREATIVE_TEMPORAL_4K_DELIVERY_TASK_CONTRACT,status:"READY_4K"/);
 });
 
-test('completed FlashVSR task requires perceptual validation before release',()=>{
-  assert.match(delivery,/prior\.metadata\?\.automated_perceptual_validation_passed===true/);
-  assert.match(delivery,/status:"AWAITING_4K_QC"/);
+test("retained 4K review contract uses stronger perceptual thresholds",()=>{
   assert.match(review,/GENERATED_MEDIA_PERCEPTUAL_REVIEW_V1/);
-  assert.match(review,/minimum_continuity_score:94/);
-  assert.match(review,/minimum_artifact_score:94/);
+  assert.match(review,/minimum_overall_score:94/);
+  assert.match(review,/minimum_continuity_score:96/);
+  assert.match(review,/minimum_artifact_score:96/);
 });
 
-test('governed mastering blocks final approval until verified 4K exists',()=>{
+test("governed mastering blocks final approval until verified 4K exists",()=>{
   assert.match(mastering,/CreativeTemporal4KDeliveryTaskRuntime\.ensure/);
-  assert.match(mastering,/CreativeTemporal4KReviewTaskRuntime\.ensure/);
   assert.match(mastering,/if \(delivery\.status !== "READY_4K"\)/);
   assert.match(mastering,/final_4k_verified: false/);
   assert.match(mastering,/final_4k_verified: true/);

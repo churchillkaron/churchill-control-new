@@ -44,7 +44,7 @@ const ownedCertification = fs.readFileSync(
 );
 
 test("Creative Cinema routing delegates vendor selection to Service Runtime", () => {
-  assert.match(router, /CREATIVE_VIDEO_EXECUTION_ROUTE_V4/);
+  assert.match(router, /CREATIVE_VIDEO_EXECUTION_ROUTE_V5/);
   assert.match(router, /SERVICE_RUNTIME_AVANTIQO_OWNED_ONLY_CAPABILITY_SELECTION/);
   assert.match(router, /provider_selection_boundary:\s*"SERVICE_RUNTIME_ONLY"/);
   assert.match(router, /owned_first_required:\s*true/);
@@ -100,18 +100,10 @@ test("shared Creative ProductionRuntime installs the canonical Cinema boundary",
     /ProductionQueueRuntime\.dispatchAll/,
   );
 
-  assert.match(
-    productionQueueRoute,
-    /CreativeVideoProductionDispatchBootstrap/,
-  );
-  assert.match(
-    productionQueueRoute,
-    /CreativeShotCandidateQualityGateBootstrap/,
-  );
-  assert.match(
-    productionQueueRoute,
-    /ProductionQueueRuntime\.dispatchAll/,
-  );
+  assert.match(productionQueueRoute, /ProductionRuntime/);
+  assert.match(productionRuntime, /CreativeVideoProductionDispatchBootstrap/);
+  assert.match(productionRuntime, /CreativeShotCandidateQualityGateBootstrap/);
+  assert.match(productionQueueRoute, /ProductionRuntime\.runProduction/);
 });
 
 test("Cinema boundary resolves Studio shot identity before dispatch", () => {
@@ -121,7 +113,7 @@ test("Cinema boundary resolves Studio shot identity before dispatch", () => {
   assert.match(dispatch, /task\.input\?\.shot_id/);
   assert.match(dispatch, /ShotRepository\.get\(shotId\)/);
   assert.match(dispatch, /shot_id:\s*shotId/);
-  assert.match(dispatch, /task:\s*\{\s*\.\.\.task,\s*shot_id:\s*shotId\s*\}/);
+  assert.match(dispatch, /const scopedTask = \{ \.\.\.task, shot_id: shotId \}/);
 });
 
 test("temporal film shots materialize canonical ai.video production tasks", () => {
@@ -169,7 +161,7 @@ test("owned provider policy owns all ai.video capabilities", () => {
     /key\.startsWith\("ai\.video\."\)\) return "avantiqo-video"/,
   );
   assert.match(ownedPolicy, /selection_boundary:\s*"SERVICE_RUNTIME_ONLY"/);
-  assert.match(ownedPolicy, /external_providers:\s*"OPTIONAL_FALLBACK_ONLY"/);
+  assert.match(ownedPolicy, /external_providers:\s*"DISABLED_EXCEPT_EXPLICIT_LTX_MODAL_TEMPORARY_EXCEPTION"/);
 });
 
 test("Cinema requirements are filtered before owned-first ranking", () => {

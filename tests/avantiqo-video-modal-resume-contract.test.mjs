@@ -117,10 +117,8 @@ test("Service settlement preserves the same provider job identity into Video get
   assert.match(providerStatus, /provider_job_id:\s*job_id/);
   assert.match(providerStatus, /return statusFunction\.call\(runtime, \{/);
 
-  assert.match(videoProvider, /if \(modalVideoJob\(suppliedJobId\)\)/);
-  assert.match(videoProvider, /return modalVideoWorker\.getStatus\(\{/);
-  assert.match(videoProvider, /job_id:\s*suppliedJobId/);
-  assert.match(videoProvider, /provider_job_id:\s*suppliedJobId/);
+  assert.match(videoProvider, /if \(isVideoLtx25LocalJob\(suppliedJobId\)\) return AvantiqoVideoLocalQueueProvider\.getStatus\(input\)/);
+  assert.match(videoProvider, /AVANTIQO_VIDEO_LEGACY_JOB_TRANSPORT_RETIRED/);
 });
 
 test("completed Video polling materializes the canonical asset without another provider call", () => {

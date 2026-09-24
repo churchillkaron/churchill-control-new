@@ -16,6 +16,9 @@ function harness({ score = 95, settled = false } = {}) {
     selectorPrompt: () => "test", text: value => String(value ?? "").trim(),
     list: value => Array.isArray(value) ? value : [],
     finite: Number, clamp: value => value,
+    compactCouncilEvidence: value => value,
+    conceptCriticSnapshot: value => value,
+    hash: () => "selection-hash",
     rejectedLineageCollision: () => null, premiumFlagshipStoryCollision: () => null,
   });
   return { run: () => select({}, {}, [{ id: "a" }], [], [{ concept_id: "a", all_critics_passed: true, weighted_score: score }]), calls: () => calls };

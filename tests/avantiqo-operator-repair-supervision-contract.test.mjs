@@ -12,16 +12,16 @@ const synthetic = fs.readFileSync(
 );
 
 test("technical failures receive owned critique and repair supervision", () => {
-  assert.match(repair, /AVANTIQO_OPERATOR_REPAIR_SUPERVISION_V1/);
+  assert.match(repair, /AVANTIQO_OPERATOR_REPAIR_SUPERVISION_V4/);
   assert.match(repair, /AvantiqoStructuredIntelligenceSupervisorRuntime\.run/);
   assert.match(repair, /safe_reinspect_then_retry/);
   assert.match(repair, /replan_required/);
 });
 
 test("repair supervision never retries or bypasses governance itself", () => {
-  assert.match(repair, /Do not retry or execute anything in this phase/);
+  assert.match(repair, /Do not claim the issue is fixed\. Do not retry or execute writes in this phase/);
   assert.match(repair, /Never recommend bypassing permissions, confirmation, approval, wallet, entity scope, verification/);
-  assert.match(repair, /HUMAN_GOVERNANCE_GATE/);
+  assert.match(repair, /HUMAN_GATE requires the human\/governance path/);
 });
 
 test("synthetic intelligence turn attaches repair evidence after governed execution", () => {

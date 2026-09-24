@@ -28,7 +28,8 @@ function row({
     content,
     importance,
     confidence,
-    source: "verified_continuous_owned_web_evidence",
+    source: "avantiqo_canonical_product_knowledge",
+    memory_scope: "platform_knowledge",
     active: true,
     valid_until: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
     superseded_by: null,
@@ -58,6 +59,7 @@ const officialSource = [{
 test("supplier wording semantically retrieves vendor knowledge", () => {
   const result = rankAvantiqoKnowledgeRows({
     query: "What information should we keep for suppliers and supplier bills?",
+    include_internal: true,
     rows: [
       row({
         id: "vendor-management",
@@ -82,6 +84,7 @@ test("supplier wording semantically retrieves vendor knowledge", () => {
 test("receivables wording bridges to accounts receivable knowledge", () => {
   const result = rankAvantiqoKnowledgeRows({
     query: "How should we manage customer receivables and overdue balances?",
+    include_internal: true,
     rows: [
       row({
         id: "ar-core",
@@ -100,6 +103,7 @@ test("receivables wording bridges to accounts receivable knowledge", () => {
 test("stock wording bridges to inventory knowledge", () => {
   const result = rankAvantiqoKnowledgeRows({
     query: "What controls do we need for stock on hand and warehouse movements?",
+    include_internal: true,
     rows: [
       row({
         id: "inventory-core",
@@ -119,6 +123,7 @@ test("current questions reject stale knowledge during ranking", () => {
   const stale = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const result = rankAvantiqoKnowledgeRows({
     query: "What is the current API standard requirement?",
+    include_internal: true,
     rows: [
       row({
         id: "old-api-standard",
@@ -137,6 +142,7 @@ test("current questions reject stale knowledge during ranking", () => {
 test("low-confidence knowledge cannot become a retrieval result", () => {
   const result = rankAvantiqoKnowledgeRows({
     query: "How should vendor bills be approved?",
+    include_internal: true,
     rows: [
       row({
         id: "weak-vendor-bill",

@@ -77,10 +77,10 @@ function SpecialistHeader({ mode, runtime }) {
     ? videoStageIndex(runtime.stateRuntime?.current?.stage)
     : isImage
       ? imageOperating.active_stage_index
-      : -1;
+      : 0;
   const stageLabels = isImage ? imageOperating.stages.map((stage) => stage.label) : meta.stages;
 
-  if (isVideo || isImage) {
+  if (["video", "image", "music", "voice"].includes(mode)) {
     return (
       <header className="shrink-0 border-b border-black/[0.07] bg-[#FBF8F3] text-[#2A2723]">
         <div className="px-4 py-3 sm:px-5 lg:px-6">
@@ -198,7 +198,7 @@ export default function CreativeSpecialistStudio({ runtime, mode }) {
   const showVideoDock = mode === "video";
 
   return (
-    <main className={`flex h-[calc(100vh-112px)] min-h-[640px] flex-col overflow-hidden ${showVideoDock ? "bg-[#F6F3EE] text-[#2A2723]" : "bg-[#050505] text-white"}`}>
+    <main className="flex h-[calc(100vh-112px)] min-h-[640px] flex-col overflow-hidden bg-[#F5F1EA] text-[#2A2723]">
       <SpecialistHeader mode={mode} runtime={liveRuntime} />
       <section className="min-h-0 flex-1 overflow-hidden">
         {showVideoDock ? (

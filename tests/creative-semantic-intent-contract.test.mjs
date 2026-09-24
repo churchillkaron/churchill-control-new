@@ -33,11 +33,13 @@ test("organization scope comes from Business Context, not language matching", ()
   assert.doesNotMatch(command, /CREATIVE_ORGANIZATION_AMBIGUOUS/);
 });
 
-test("Council carries semantic mission meaning into resumed and fresh plans", () => {
-  assert.match(council, /function withSemanticMissionContract/);
-  assert.match(council, /semantic_mission_contract: positiveMissionContract\(input\)/);
-  assert.match(council, /withSemanticMissionContract\(\s*selectedConceptDominance/);
-  assert.match(council, /withSemanticMissionContract\(mergedPlan, input\)/);
+test("Council carries semantic mission meaning into fresh planning and validates resumed plans without re-dominance", () => {
+  assert.match(council, /const missionContract = positiveMissionContract/);
+  assert.match(council, /masterStoryRequirement = missionContract\.master_story_required === true/);
+  assert.match(council, /selectedConceptDominance\(mergedPlan, council\)/);
+  const resume = council.slice(council.indexOf("async function resumeApprovedCouncilPlan"));
+  assert.match(resume, /CreativeMasterPlanRuntime\.validateExistingPlan/);
+  assert.doesNotMatch(resume, /selectedConceptDominance/);
 });
 
 test("master story requirement fails closed before production planning", () => {
@@ -68,8 +70,8 @@ const workflowResolutionSource = fs.readFileSync(
 );
 
 test("stale temporal checkpoints cannot bypass a newly required master story", () => {
-  assert.match(workflowResolutionSource, /masterStoryRequired\(context\) && !completeMasterStory\(master\.plan\)/);
-  assert.match(workflowResolutionSource, /story_architecture/);
+  assert.match(workflowResolutionSource, /temporalCheckpoint &&[\s\S]*masterStoryRequired\(context\) &&[\s\S]*!completeMasterStory\(temporalCheckpoint\.plan\)/);
+  assert.match(workflowResolutionSource, /temporalCheckpoint = null/);
 });
 
 test("Tribunal-approved checkpoints are reusable only for the identical master plan hash", () => {
@@ -81,12 +83,12 @@ test("Tribunal-approved checkpoints are reusable only for the identical master p
 });
 
 test("semantic structure upgrades do not replay obsolete master-plan repair receipts", () => {
-  const start = workflowResolutionSource.indexOf("const councilCheckpoint = storedCouncilCheckpoint");
+  const start = workflowResolutionSource.indexOf("const councilCheckpoint = forceDirectionRestart");
   const end = workflowResolutionSource.indexOf("const declared = CreativeWorkflowRegistry.resolveDeclared", start);
   const block = workflowResolutionSource.slice(start, end);
   assert.match(block, /semanticStructureUpgrade/);
   assert.match(block, /masterStoryRequired\(context\) && !completeMasterStory\(councilCheckpoint\.plan\)/);
-  assert.match(block, /semanticStructureUpgrade\s*\? \[\]\s*:\s*await recoverSettledPostCouncilRepairs/);
+  assert.match(block, /semanticStructureUpgrade[\s\S]*\? \[\][\s\S]*recoverSettledPostCouncilRepairs/);
 });
 
 const masterPlanRuntime = fs.readFileSync(
@@ -119,9 +121,11 @@ test("contract repair has a dedicated strict full-work master-story channel", ()
   assert.match(masterPlanRuntime, /master_story: separateMasterStory/);
 });
 
-test("paid repair replay can preserve full-work story separately from excerpt scenes", () => {
+test("paid repair replay preserves full-work story separately from excerpt scenes", () => {
   assert.match(masterPlanRuntime, /master_story describes the complete work while top-level scenes remain the current generation excerpt/);
-  assert.match(masterPlanRuntime, /mergeCreativeRepairedPlan\(plan, safeRepair\)/);
+  assert.match(masterPlanRuntime, /const separateMasterStory = object\(parsed\?\.master_story\)/);
+  assert.match(masterPlanRuntime, /master_story: separateMasterStory/);
+  assert.match(masterPlanRuntime, /mergeCreativeRepairedPlan\(basePlan, repaired\)/);
 });
 test("empty weakest-link is derived only from existing substantive review evidence", () => {
   const start = masterPlanRuntime.indexOf("function normalizeLegacyCreativeReviewContract");
@@ -133,8 +137,8 @@ test("empty weakest-link is derived only from existing substantive review eviden
   assert.match(block, /weakest_link_derived_from_existing_review: true/);
 });
 test("validated post-repair master resumes before the older Council checkpoint", () => {
-  const postRepairIndex = workflowResolutionSource.indexOf("const postRepairCheckpoint = storedPostRepairMasterCheckpoint");
-  const councilIndex = workflowResolutionSource.indexOf("const councilCheckpoint = storedCouncilCheckpoint", postRepairIndex);
+  const postRepairIndex = workflowResolutionSource.indexOf("const postRepairCheckpoint = forceDirectionRestart");
+  const councilIndex = workflowResolutionSource.indexOf("const councilCheckpoint = forceDirectionRestart", postRepairIndex);
   assert.ok(postRepairIndex >= 0);
   assert.ok(councilIndex > postRepairIndex);
   const block = workflowResolutionSource.slice(postRepairIndex, councilIndex);
@@ -144,15 +148,16 @@ test("validated post-repair master resumes before the older Council checkpoint",
 });
 test("post-repair Creative masters are not re-dominated before validation", () => {
   const block = council.slice(council.indexOf("async function resumeApprovedCouncilPlan"));
-  assert.match(block, /CREATIVE_POST_REPAIR_MASTER_CHECKPOINT_V1/);
-  assert.match(block, /postRepairCheckpoint\s*\? withSemanticMissionContract\(approvedPlan, input\)/);
+  assert.match(block, /CreativeMasterPlanRuntime\.validateExistingPlan/);
+  assert.match(block, /plan: approvedPlan/);
+  assert.doesNotMatch(block, /selectedConceptDominance/);
 });
 test("Tribunal repairs act only on blocking reviewers", () => {
   const tribunal = fs.readFileSync("lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js", "utf8");
+  assert.match(tribunal, /blockingReviewerBrief\(tribunal\)/);
   assert.match(tribunal, /passed_reviewers_to_preserve/);
-  assert.match(tribunal, /blockingTribunal/);
-  assert.match(tribunal, /Passed-reviewer feedback is preservation evidence, not repair authority/);
-  assert.match(tribunal, /physically plausible formulation/);
+  assert.match(tribunal, /Do not implement suggestions from reviewers that already passed unless a blocking reviewer independently requires the same change/);
+  assert.match(tribunal, /Repair their exact evidence and preserve passed siblings/);
 });
 
 test("Tribunal recovery replays paid repairs and preserves only unchanged reviewer evidence", () => {
@@ -160,9 +165,10 @@ test("Tribunal recovery replays paid repairs and preserves only unchanged review
   const tribunalSource = fs.readFileSync("lib/creative/director/runtime/CreativeDynamicTribunalRuntime.js", "utf8");
   assert.match(block, /CREATIVE_DYNAMIC_TRIBUNAL_REPAIR_V1/);
   assert.match(block, /replaySettledRepair/);
-  assert.match(block, /passingByReviewer\.delete/);
+  assert.match(block, /settledByReviewer\.delete/);
+  assert.match(block, /reviewEvidenceHash/);
   assert.match(block, /replayed_plan: replayPlan/);
-  assert.match(block, /recoveredTribunalResume,\s*input\.tribunal_resume_package/);
+  assert.match(workflowResolutionSource, /recoveredTribunalResume,[\s\S]*input\.tribunal_resume_package/);
   assert.match(tribunalSource, /creative_review_evidence_hash/);
 });
 
@@ -179,7 +185,7 @@ test("narrative review reuse tracks causal story rather than cosmetic scene labe
   assert.doesNotMatch(returnBlock, /scene\.emotion/);
 });
 
-test("Tribunal-approved temporal masters continue without rebuilding Direction", () => {
+test("Tribunal-approved temporal masters continue without rebuilding paid Direction", () => {
   const orchestrator = fs.readFileSync(
     "lib/creative/director/orchestrator/CreativePipelineOrchestrator.js",
     "utf8",
@@ -189,9 +195,8 @@ test("Tribunal-approved temporal masters continue without rebuilding Direction",
     /durableTemporalMaster \|\| tribunalApprovedMaster \|\| await CreativeUniversalTemporalDirectionRuntime\.create/,
   );
   assert.match(orchestrator, /approved_master: null/);
-  assert.match(orchestrator, /sealedTribunalApprovedWorldClassDirection/);
-  assert.match(orchestrator, /sealedWorldClassGate\.passed === true/);
-  assert.match(orchestrator, /if \(!sealedTribunalApprovedWorldClassDirection\) \{\s*resolvedMaster = CreativeWorldClassConceptIntelligenceRuntime\.enforce/);
+  assert.match(orchestrator, /preserveApprovedTemporalGovernance\(resolvedMaster, tribunalApprovedMaster\)/);
+  assert.match(orchestrator, /CreativeWorldClassConceptIntelligenceRuntime\.enforce\(resolvedMaster\)/);
 });
 
 test("Creative recovery checkpoints clear only after downstream pipeline handoff", () => {
@@ -219,10 +224,11 @@ test("settled Creative ledger replays in chronological authority order", () => {
     "lib/creative/director/runtime/CreativeConceptCouncilRuntime.js",
     "utf8",
   );
-  assert.match(workflow, /const councilRevisionIndex = operations/);
-  assert.match(workflow, /slice\(baseIndex \+ 1, Number\.isInteger\(councilRevisionIndex\)/);
+  assert.match(workflow, /const baseIndexes = operations/);
+  assert.match(workflow, /operations\.slice\(baseIndex \+ 1\)/);
+  assert.match(workflow, /latestRepairEntries = repairEntries\.slice\(-2\)/);
   assert.match(councilSource, /async function recoverSettledPostRevisionRepairs/);
-  assert.match(councilSource, /repair_results: await recoverSettledPostRevisionRepairs\(context, revisionOperation\)/);
+  assert.match(councilSource, /const latestEntries = entries\.slice\(-2\)/);
 });
 
 
@@ -291,13 +297,13 @@ test("anonymous humans do not inherit arbitrary identity profiles", () => {
   assert.doesNotMatch(block, /actor\?\.role/);
 });
 
-test("production identity gates apply only to explicitly bound identities", () => {
+test("production identity gates require durable identity evidence for named human shots", () => {
   const graph = fs.readFileSync("lib/creative/production-graph/runtime/ProductionGraphRuntime.js", "utf8");
-  assert.match(graph, /function identityBoundHumanShot/);
-  assert.match(graph, /identity_profile_id/);
-  assert.match(graph, /identity_lock_required === true/);
-  assert.match(graph, /identityBoundHumanShots\.filter/);
-  assert.doesNotMatch(graph, /function namedHumanShot/);
+  assert.match(graph, /function namedHumanShot/);
+  assert.match(graph, /const namedHumanShots = list\(shots\)\.filter\(namedHumanShot\)/);
+  assert.match(graph, /UNIVERSAL_IDENTITY_REFERENCES_REQUIRED/);
+  assert.match(graph, /IDENTITY_ATLAS_REQUIRED/);
+  assert.match(graph, /IDENTITY_STORY_KEYFRAME_REQUIRED/);
 });
 
 
@@ -325,8 +331,9 @@ test("premium benchmark floors become explicit Research targets", () => {
 
 test("Research policy requires and validates Benchmark Lab when benchmark floors exist", () => {
   const evidence = fs.readFileSync("lib/creative/research/runtime/ResearchEvidenceContractRuntime.js", "utf8");
-  assert.match(evidence, /require_benchmark_lab: requireBenchmarkLab/);
-  assert.match(evidence, /evaluateBenchmarkStudy/);
-  assert.match(evidence, /CREATIVE_BENCHMARK_LAB_REQUIRED/);
-  assert.match(evidence, /if \(policy\?\.require_benchmark_lab === true\)/);
+  assert.match(evidence, /const requireBenchmarkLab =[\s\S]*benchmarkFloor\.length > 0/);
+  assert.match(evidence, /const benchmarkStudy = policy\.require_benchmark_lab[\s\S]*evaluateBenchmarkStudy/);
+  assert.match(evidence, /benchmark_lab_required: policy\.require_benchmark_lab === true/);
+  assert.match(evidence, /benchmark_lab_passed: benchmarkStudy\?\.passed/);
+  assert.match(evidence, /if \(!validation\.passed\)/);
 });

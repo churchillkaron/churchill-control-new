@@ -67,7 +67,7 @@ test("places owned provider before external preferences", () => {
 });
 
 test("keeps external providers as fallback policy only", () => {
-  assert.equal(AVANTIQO_OWNED_PROVIDER_POLICY.external_providers, "OPTIONAL_FALLBACK_ONLY");
+  assert.equal(AVANTIQO_OWNED_PROVIDER_POLICY.external_providers, "DISABLED_EXCEPT_EXPLICIT_LTX_MODAL_TEMPORARY_EXCEPTION");
   assert.equal(AVANTIQO_OWNED_PROVIDER_POLICY.selection_boundary, "SERVICE_RUNTIME_ONLY");
   assert.equal(AVANTIQO_OWNED_PROVIDER_POLICY.user_provider_selection, false);
 });

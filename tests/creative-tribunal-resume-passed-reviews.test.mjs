@@ -11,7 +11,8 @@ test("Tribunal strips transport and historical audit mirrors from active reviewe
   assert.match(source,/plan: reviewerPlanEvidence\(reviewer, plan\)/);
 });
 test("Tribunal resumes any settled reviewer result for the exact same evidence",()=>{
-  assert.match(source,/finite\(settled\.review\.score\) !== null/);
+  assert.match(source,/const exactScopedEvidenceMatch/);
+  assert.match(source,/exactScopedEvidenceMatch \|\| legacyScopedMigrationMatch \|\| verifiedLegacyPass/);
   assert.match(source,/reused: true/);
   assert.match(source,/reused: false/);
 });

@@ -9,5 +9,7 @@ test('explicit creative rejection can bypass settled master-plan recovery withou
   assert.match(source, /force_direction_restart/);
   assert.match(source, /forceDirectionRestart/);
   assert.match(source, /forceDirectionRestart\s*\?\s*null/);
-  assert.match(source, /preserves the same mission, research evidence, spend/);
+  assert.match(source, /creative_fresh_direction_rejection_memory/);
+  assert.match(source, /Do not rename, reskin, hybridize or reuse/);
+  assert.match(source, /force_research: false/);
 });

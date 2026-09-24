@@ -38,9 +38,9 @@ test("restaurant table closure is legal-entity bound", () => {
 });
 
 test("only governed COMP evidence can close a zero-due unpaid check", () => {
-  assert.match(migration, /coalesce\(o\.total_amount, o\.total, 0\) <= 0\.01/);
-  assert.match(migration, /coalesce\(o\.amount_paid, 0\) <= 0\.01/);
-  assert.match(migration, /upper\(coalesce\(o\.payment_status, 'UNPAID'\)\) = 'UNPAID'/);
+  assert.match(migration, /coalesce\(o\.total_amount,\s*o\.total,\s*0\)\s*<=\s*0\.01/);
+  assert.match(migration, /coalesce\(o\.amount_paid,\s*0\)\s*<=\s*0\.01/);
+  assert.match(migration, /upper\(coalesce\(o\.payment_status,\s*'UNPAID'\)\)\s*=\s*'UNPAID'/);
   assert.match(migration, /upper\(c\.correction_type\) = 'COMP'/);
   assert.match(migration, /set status = 'CLOSED'/);
   assert.doesNotMatch(migration, /set[\s\S]{0,120}payment_status = 'PAID'/);

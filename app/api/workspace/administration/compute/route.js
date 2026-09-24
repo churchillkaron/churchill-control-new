@@ -225,7 +225,7 @@ export async function GET(request) {
         routing_reason: classifyModalRouting(row).reason,
         modal_gpu: text(row.metadata?.provider_result?.modal_gpu || row.metadata?.provider_result?.output?.modal_gpu) || null,
         infrastructure_provider: text(row.metadata?.provider_result?.infrastructure_provider || row.metadata?.provider_result?.output?.infrastructure_provider || row.metadata?.reservation_pricing?.pricing_metadata?.infrastructure_provider) || "MODAL",
-        execution_resource: "LOCAL_GPU",
+        execution_resource: "MODAL_GPU",
         execution_path: `MODAL → ${requestPath}`,
       };
     });

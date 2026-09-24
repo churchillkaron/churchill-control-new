@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 const handler = fs.readFileSync('services/avantiqo-voice-tts/handler.py','utf8');
-const provider = fs.readFileSync('lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProvider.js','utf8');
+const provider = fs.readFileSync('lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProviderV2.js','utf8');
 
 test('owned voice exposes certified cinematic storyteller profile', () => {
   assert.match(handler, /"avantiqo-storyteller-v1"/);

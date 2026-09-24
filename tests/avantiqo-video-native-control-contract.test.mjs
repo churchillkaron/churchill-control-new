@@ -40,11 +40,11 @@ test("Video dispatch applies native controls before Service Runtime routing", ()
   assert.match(dispatch, /creative_video_native_control_contract/);
 });
 
-test("owned Video provider masters first-last-frame generation on direct Modal", () => {
+test("first-last native controls remain authored but active provider fails closed until local execution exists", () => {
   assert.match(provider, /"ai\.video\.first_last_frame_to_video"/);
   assert.match(provider, /ROUTED_MASTERED_CAPABILITIES\.has\(capability\)/);
-  assert.match(provider, /transportMode:\s*"direct-sdk"/);
-  assert.match(provider, /functionName:\s*MODAL_VIDEO_FUNCTION_NAME/);
+  assert.match(provider, /AVANTIQO_VIDEO_LOCAL_ENGINE_NOT_IMPLEMENTED/);
+  assert.doesNotMatch(provider, /transportMode:\s*"direct-sdk"|MODAL_VIDEO_FUNCTION_NAME/);
 });
 
 test("CPU job adapter stages governed ordered reference conditions and uses one GPU generation", () => {

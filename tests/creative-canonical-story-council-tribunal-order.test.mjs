@@ -11,12 +11,15 @@ const council = fs.readFileSync(
   "utf8",
 );
 
-test("story master enters Concept Council before Tribunal", () => {
-  const story = resolver.indexOf("CreativeMasterPlanRuntime.create");
-  const conceptCouncil = resolver.indexOf("CreativeConceptCouncilRuntime.run");
-  const tribunal = resolver.indexOf("CreativeDynamicTribunalRuntime.review");
+test("story master enters Concept Council before durable Tribunal review", () => {
+  const flowStart = resolver.indexOf("initialMaster = await CreativeMasterPlanRuntime.create");
+  const flowEnd = resolver.indexOf("const resolved = await bootstrapResolvedProductionRooms", flowStart);
+  const flow = resolver.slice(flowStart, flowEnd);
+  const story = flow.indexOf("CreativeMasterPlanRuntime.create");
+  const conceptCouncil = flow.indexOf("CreativeConceptCouncilRuntime.run");
+  const tribunal = flow.indexOf("reviewWithDurableResume");
   assert.ok(story >= 0 && conceptCouncil > story && tribunal > conceptCouncil);
-  assert.match(resolver, /master:\s*councilMaster/);
+  assert.match(flow, /master:\s*tribunalMaster/);
 });
 
 test("pre-tribunal council revises story without directing shots", () => {

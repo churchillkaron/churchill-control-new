@@ -135,7 +135,7 @@ function buildTemporalExtendPlan(body) {
     service_id: extension.capability,
     capability: extension.capability,
     task_type: extension.task_type,
-    implementation: "IMPLEMENTED",
+    implementation: "RESEARCH_ONLY",
     certification: "BENCHMARK_REQUIRED",
     executable: false,
     temporal_extension: extension,

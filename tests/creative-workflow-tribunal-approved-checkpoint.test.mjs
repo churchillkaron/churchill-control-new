@@ -5,8 +5,8 @@ const source=await readFile(new URL('../lib/creative/director/runtime/CreativeWo
 test('passed tribunal is durable until downstream preproduction succeeds',()=>{
   assert.match(source,/creative_tribunal_approved_checkpoint/);
   assert.match(source,/CREATIVE_TRIBUNAL_APPROVED_CHECKPOINT_V1/);
-  assert.match(source,/if \(approvedCheckpoint\) return approvedCheckpoint/);
+  assert.match(source,/if \(approvedPlanHash === currentPlanHash\) \{[\s\S]*return restoreTribunalLineage\(approvedCheckpoint, reviewInput\.master\)/);
   assert.match(source,/await persistTribunalApprovedMaster\(context, master\)/);
-  assert.match(source,/await clearResolvedDirectionCheckpoints\(context\)/);
+  assert.match(source,/async finalizeResolvedHandoff[\s\S]*await clearResolvedDirectionCheckpoints\(context\)/);
   assert.doesNotMatch(source,/const master = await CreativeDynamicTribunalRuntime\.review\(reviewInput\);\s*await clearTribunalResume/);
 });

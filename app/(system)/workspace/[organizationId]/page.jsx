@@ -14,6 +14,8 @@ import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAlertBridge";
 import { getOwnedWorkspaceDomainIds, hasExactProductOwnership } from "@/lib/platform/entitlements/productWorkspaceVisibility";
 import HomeAvantiqoIntelligenceDock from "@/components/operator/HomeAvantiqoIntelligenceDock";
+import BusinessPartnerActiveCodeMissionPanel from "@/components/operator/BusinessPartnerActiveCodeMissionPanel";
+import CodeProgressFeedProvider from "@/components/operator/CodeProgressFeedProvider";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 import { listOperatorNavigationTargets } from "@/lib/operator/runtime/OperatorNavigationCatalog";
 
@@ -254,20 +256,22 @@ export default function OrganizationWorkspacePage() {
           </div>
 
           <aside className="min-w-0 xl:sticky xl:top-[78px]">
-            <div className="overflow-hidden rounded-[22px] border border-black/[0.08] bg-white shadow-[0_14px_50px_rgba(31,27,20,0.07)]">
-              <div className="border-b border-black/[0.07] px-5 py-4">
-                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-[#9A744B]">
-                  <Sparkles size={13} />
-                  Business Partner
+            <CodeProgressFeedProvider organizationId={organizationId}>
+              <div className="overflow-hidden rounded-[22px] border border-black/[0.08] bg-white shadow-[0_14px_50px_rgba(31,27,20,0.07)]">
+                <div className="border-b border-black/[0.07] px-5 py-4">
+                  <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-[#9A744B]">
+                    <Sparkles size={13} />
+                    Business Partner
+                  </div>
+                  <div className="mt-1.5 text-[11px] leading-5 text-[#8B8881]">
+                    Ask about this business, make a decision, or tell Avantiqo what to do.
+                  </div>
                 </div>
-                <div className="mt-1.5 text-[11px] leading-5 text-[#8B8881]">
-                  Ask about this business, make a decision, or tell Avantiqo what to do.
-                </div>
+
+                <BusinessPartnerActiveCodeMissionPanel organizationId={organizationId} />
+                <HomeAvantiqoIntelligenceDock organizationId={organizationId} />
               </div>
-
-              <HomeAvantiqoIntelligenceDock organizationId={organizationId} />
-            </div>
-
+            </CodeProgressFeedProvider>
           </aside>
         </div>
       </div>

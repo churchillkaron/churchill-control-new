@@ -30,6 +30,7 @@ test("approved Council workflow consumes Tribunal resume package directly", () =
   assert.match(workflow, /tribunalResume\.settled_reviews/);
   assert.match(workflow, /tribunalResume\.settled_review_plan_hash/);
   assert.match(workflow, /tribunalResume\.settled_review_source_plan/);
-  assert.match(workflow, /tribunalResume\.repaired_plan/);
+  assert.match(workflow, /recoveredTribunalResume\?\.replayed_plan/);
+  assert.match(workflow, /storedPlan = object\(storedResume\.repaired_plan\)/);
   assert.match(workflow, /master: tribunalMaster/);
 });

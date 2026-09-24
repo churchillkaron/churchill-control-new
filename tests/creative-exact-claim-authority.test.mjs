@@ -43,7 +43,8 @@ test('preserves exact values from authoritative brand truth', () => {
   assert.match(body, /Helvetica/);
 });
 
-test('grounds both Tribunal entry paths before review', () => {
+test('grounds recovered plans and both Tribunal entry paths before review', () => {
   const source = fs.readFileSync(new URL('../lib/creative/director/runtime/CreativeWorkflowResolutionRuntime.js', import.meta.url), 'utf8');
-  assert.equal((source.match(/CreativeExactClaimAuthorityRuntime\.ground\(/g) || []).length, 2);
+  assert.equal((source.match(/CreativeExactClaimAuthorityRuntime\.ground\(/g) || []).length, 3);
+  assert.match(source, /function normalizeRecoveredTribunalPlan/);
 });

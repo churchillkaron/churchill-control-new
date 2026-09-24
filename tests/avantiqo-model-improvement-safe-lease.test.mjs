@@ -45,9 +45,9 @@ test("training benchmark and candidate paths contain no external compute executi
   const candidate = fs.readFileSync("lib/intelligence/runtime/AvantiqoModelCandidateCanaryRuntime.js", "utf8");
   const shared = fs.readFileSync("lib/intelligence/runtime/AvantiqoSharedTrainerReservationGuard.js", "utf8");
   for (const source of [trainer, benchmark, candidate, shared]) {
-    assert.doesNotMatch(source, /Modal|modal|RunPod|runpod/);
+    assert.doesNotMatch(source, /execute[A-Za-z]*ModalDirect|createAvantiqoOwnedModalWorker|api\.runpod\.ai|OwnedIntelligenceRequestLeaseRuntime/);
   }
-  assert.match(trainer, /AVANTIQO_INTELLIGENCE_LOCAL_TRAINER_EXECUTOR_REQUIRED/);
+  assert.match(trainer, /AVANTIQO_LOCAL_TRAINING_NODE_UNAVAILABLE/);
   assert.match(benchmark, /AVANTIQO_MODEL_BENCHMARK_LOCAL_RUNTIME_REQUIRED/);
   assert.match(candidate, /AVANTIQO_MODEL_CANDIDATE_CANARY_LOCAL_RUNTIME_REQUIRED/);
   assert.match(shared, /AVANTIQO_LOCAL_TRAINER_V1/);

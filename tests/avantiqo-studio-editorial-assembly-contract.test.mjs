@@ -48,7 +48,7 @@ assert.match(planner, /EDITORIAL_GENERATED_SOURCE_CONTINUITY_QC_SEAL_REQUIRED/);
 
 assert.match(renderer, /AVANTIQO_EDITORIAL_ASSEMBLY_RENDER_V1/);
 assert.match(renderer, /xfade=transition=/);
-assert.match(renderer, /fadeblack/);
+assert.match(planner, /ffmpegTransition = type === TYPES\.DIP_TO_BLACK \? "fadeblack" : "fade"/);
 assert.match(renderer, /afade=t=in/);
 assert.match(renderer, /afade=t=out/);
 assert.match(renderer, /adelay=/);

@@ -18,7 +18,7 @@ test("stems UI executes, polls and exposes customer files", () => {
   assert.match(panel, /Local test ready/);
 });
 test("vocal role separation remains outside standard local Demucs execution", () => {
-  assert.match(panel, /separationMode !== "STANDARD_STEMS"/);
-  assert.match(panel, /Research \/ benchmark required/);
-  assert.match(panel, /Dedicated vocal-role separator/);
+  assert.match(panel, /executionReady = plan\?\.ready_for_execution === true && separationMode === "STANDARD_STEMS"/);
+  assert.match(panel, /Owned research runtime ready · certification \+ model-license review required/);
+  assert.match(panel, /Dedicated vocal-role separator · no ordinary Demucs fallback/);
 });

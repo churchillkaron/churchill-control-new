@@ -63,10 +63,11 @@ test("Director Plan derives full production intent from canonical shot truth", (
 
   assert.match(directorPlan, /story:/);
   assert.match(directorPlan, /production_dependencies:/);
-  assert.match(directorPlan, /continuity:/);
-  assert.match(directorPlan, /identities:/);
-  assert.match(directorPlan, /audio:/);
-  assert.match(directorPlan, /runtime:/);
+  assert.match(directorPlan, /production_dependencies:/);
+  assert.match(directorPlan, /continuity,/);
+  assert.match(directorPlan, /identities,/);
+  assert.match(directorPlan, /audio,/);
+  assert.match(directorPlan, /runtime,/);
   assert.match(directorPlan, /identity_requirements/);
   assert.match(directorPlan, /product_requirements/);
   assert.match(directorPlan, /wardrobe/);

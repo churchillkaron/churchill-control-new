@@ -88,11 +88,14 @@ test("platform Intelligence policy is owned-only with no external fallback", () 
 });
 
 
-test("research reservation uses the approved deep-lane token ceiling", async () => {
+test("research reservation prices the actual deep-lane synthesis payload inside the approved aggregate cap", async () => {
   const source = fs.readFileSync("lib/creative/research/runtime/AutonomousResearchDirectorV4Runtime.js", "utf8");
-  assert.match(source, /estimated_input_tokens:\s*Number\(approval\.estimated_input_tokens \|\| 12000\)/);
-  assert.match(source, /estimated_output_tokens:\s*Number\(approval\.estimated_output_tokens \|\| 8000\)/);
-  assert.equal(source.includes("estimated_input_tokens: 12000,\n          estimated_output_tokens: 8000,"), false);
+  assert.match(source, /const estimatedSynthesisInputTokens = localSynthesis/);
+  assert.match(source, /Math\.max\(12000, Math\.ceil\(effectiveSynthesisPrompt\.length \/ 3\)\)/);
+  assert.match(source, /const estimatedSynthesisOutputTokens = localSynthesis \? 3000 : 12000/);
+  assert.match(source, /maximum_customer_price: budgetBeforeSynthesis\.remaining/);
+  assert.match(source, /estimated_input_tokens: estimatedSynthesisInputTokens/);
+  assert.match(source, /estimated_output_tokens: estimatedSynthesisOutputTokens/);
 });
 
 test("creative grounding deterministically repairs evidence-bound entities before validation", () => {

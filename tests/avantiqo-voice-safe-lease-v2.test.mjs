@@ -1,54 +1,31 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import fs from "node:fs";
+import test from "node:test";
 
-const providerUrl = new URL(
-  "../lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProvider.js",
-  import.meta.url,
-);
-const launcherUrl = new URL(
-  "../scripts/run-avantiqo-voice-tts-v3-one-proof-safe-lease-v2-local.mjs",
-  import.meta.url,
-);
-const policyUrl = new URL(
-  "../config/avantiqo-runpod-safe-lease-policy.json",
-  import.meta.url,
-);
+const provider = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProviderV2.js", "utf8");
+const registration = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceProviderRegistration.js", "utf8");
+const stt = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceSttLocalQueueProvider.js", "utf8");
+const tts = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-voice/AvantiqoVoiceTtsLocalQueueProvider.js", "utf8");
 
-test("Voice provider requires exact RunPod Safe Lease V2 before submission", async () => {
-  const source = await readFile(providerUrl, "utf8");
-  assert.match(source, /AVANTIQO_RUNPOD_SAFE_LEASE_V2/);
-  assert.match(source, /AVANTIQO_RUNPOD_SAFE_LEASE_CONTRACT/);
-  assert.match(source, /AVANTIQO_RUNPOD_SAFE_LEASE_EXPIRES_AT/);
-  assert.match(source, /AVANTIQO_VOICE_RUNPOD_SAFE_LEASE_EXPIRED_OR_EXPIRING/);
-  assert.match(source, /await requireSafeLeaseForSubmission\(endpointId, capability, input\)/);
-  assert.match(source, /input\.runpod_safe_lease \|\| input\.runpodSafeLease/);
-  assert.match(source, /validateVoiceRunpodDistributedLease/);
-  assert.match(source, /submitJob\(\{\s*endpointId,\s*capability,/s);
+test("legacy RunPod Safe Lease is retired from active Voice execution", () => {
+  assert.doesNotMatch(provider, /RUNPOD_SAFE_LEASE|RunPod|acquireVoiceRunpod|safe_lease/i);
+  assert.doesNotMatch(registration, /RUNPOD_SAFE_LEASE|RunPod|safe_lease/i);
+  assert.match(provider, /AVANTIQO_VOICE_LEGACY_JOB_TRANSPORT_RETIRED/);
 });
 
-test("Voice capabilities map to dedicated V2 lease lanes", async () => {
-  const source = await readFile(providerUrl, "utf8");
-  assert.match(source, /ai\.text\.to\.speech"\) return "voice-tts"/);
-  assert.match(source, /ai\.speech\.to\.text"\) return "voice-stt"/);
-  assert.match(source, /AVANTIQO_VOICE_RUNPOD_SAFE_LEASE_LANE_MISMATCH/);
-
-  const policy = JSON.parse(await readFile(policyUrl, "utf8"));
-  assert.equal(policy.contract, "AVANTIQO_RUNPOD_SAFE_LEASE_POLICY_V2");
-  assert.equal(policy.parallel_work_allowed, true);
-  assert.equal(policy.workers_min_one_allowed, false);
-  assert.equal(policy.lanes["voice-tts"], "avantiqo-voice-tts-v1-recovery-20260825");
-  assert.notEqual(policy.lanes["voice-tts"], "avantiqo-voice-tts-v1");
-  assert.equal(policy.lanes["voice-stt"], "avantiqo-voice-stt-v1");
+test("Voice capabilities use dedicated local queue job identities", () => {
+  assert.match(stt, /AVANTIQO_VOICE_STT_LOCAL_JOB_PREFIX = "local-voice-stt:"/);
+  assert.match(tts, /AVANTIQO_VOICE_TTS_LOCAL_JOB_PREFIX = "local-voice-tts:"/);
+  assert.match(stt, /workload: "voice_stt"/);
+  assert.match(tts, /workload: "voice_tts"/);
+  assert.match(registration, /transport:|local_compute_configured|AVANTIQO_LOCAL_NODE_V1/);
 });
 
-test("canonical Voice TTS proof launcher always delegates through V2", async () => {
-  const source = await readFile(launcherUrl, "utf8");
-  assert.match(source, /run-avantiqo-runpod-safe-lease-v2-local\.mjs/);
-  assert.match(source, /const LANE = "voice-tts"/);
-  assert.match(source, /AVANTIQO_RUNPOD_SAFE_LEASE_APPROVED=YES_REQUIRED/);
-  assert.match(source, /AVANTIQO_VOICE_TTS_V3_ONE_PROOF_APPROVED=YES_REQUIRED/);
-  assert.match(source, /--lane=\$\{LANE\}/);
-  assert.match(source, /permanent_rest_state: "VOICE_TTS_0_0"/);
-  assert.doesNotMatch(source, /run-avantiqo-runpod-safe-lease-local\.mjs/);
+test("local Voice job cancellation is exact-job and organization scoped", () => {
+  for (const source of [stt, tts]) {
+    assert.match(source, /\.eq\("id", rawJobId\(jobId\)\)/);
+    assert.match(source, /\.eq\("organization_id", organizationId\)/);
+    assert.match(source, /exact_job_only: true/);
+    assert.doesNotMatch(source, /purge-queue/);
+  }
 });

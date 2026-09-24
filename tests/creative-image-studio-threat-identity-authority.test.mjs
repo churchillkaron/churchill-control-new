@@ -42,7 +42,8 @@ test("previs production package and video execution bind exact threat identity",
   assert.ok(previs.includes("PREVIS_THREAT_IDENTITY_REQUIRED"));
   assert.ok(previs.includes("threat_identity_key:governedThreatKey"));
   assert.ok(productionPackage.includes("PRODUCTION_PACKAGE_THREAT_IDENTITY_REQUIRED"));
-  assert.ok(productionPackage.includes("threat_identity_key:governedThreatKey||null"));
+  assert.ok(productionPackage.includes("threat_identity_key:governedThreatKey"));
+  assert.ok(productionPackage.includes("PRODUCTION_PACKAGE_THREAT_IDENTITY_REQUIRED"));
   assert.ok(gate.includes("IMAGE_STUDIO_THREAT_IDENTITY_REQUIRED"));
   assert.ok(gate.includes("threat_identity_key: governedThreatKey"));
 });

@@ -21,7 +21,8 @@ const toolRegistry = await readFile(
 
 test("Creative reasoning is supervised by owned Avantiqo Intelligence first", () => {
   assert.match(reasoningService, /AvantiqoStructuredIntelligenceSupervisorRuntime/);
-  assert.match(reasoningService, /CREATIVE_INTELLIGENCE_SUPERVISION/);
+  assert.match(reasoningService, /intelligence_supervision/);
+  assert.match(reasoningService, /execution_source: "avantiqo_intelligence_supervisor"/);
   assert.match(reasoningService, /allow_mutating_tools:\s*false/);
   assert.match(reasoningService, /avantiqo_intelligence_supervisor/);
   assert.match(reasoningService, /governed_service_runtime_fallback/);

@@ -8,6 +8,6 @@ test("Tribunal repair must replace exact cited stale blocker evidence before pai
   assert.match(source, /blockerQuotedEvidenceFragments/);
   assert.match(source, /unresolvedQuotedBlockerEvidence/);
   assert.match(source, /CREATIVE_TRIBUNAL_REPAIR_STALE_BLOCKER_EVIDENCE/);
-  assert.match(source, /Adding a parallel sibling field is not a repair/);
-  assert.match(source, /concept\.visual_system\.production_approach/);
+  assert.match(source, /candidateText\.includes\(fragment\.toLowerCase\(\)\)/);
+  assert.match(source, /CREATIVE_TRIBUNAL_REPAIR_STALE_BLOCKER_EVIDENCE/);
 });

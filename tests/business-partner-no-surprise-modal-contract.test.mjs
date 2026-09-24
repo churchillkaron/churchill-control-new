@@ -28,15 +28,12 @@ test("healthy local queue deterministically forces the owned local intelligence 
   assert.match(service, /local_owned_pricing_required: true/);
 });
 
-test("Modal overflow cannot start without owner approval and proven local insufficiency", () => {
-  assert.match(provider, /intelligenceModalOverflowApprovalRequested\(effectiveInput\)/);
-  assert.match(provider, /assertOverflowReasonMatchesLocalEvidence/);
-  assert.match(overflow, /AVANTIQO_INTELLIGENCE_MODAL_OVERFLOW_APPROVAL_REQUIRED/);
-  assert.match(overflow, /AVANTIQO_INTELLIGENCE_MODAL_OVERFLOW_COST_ESTIMATE_REQUIRED/);
+test("active Intelligence cannot start Modal overflow at all", () => {
+  assert.match(provider, /AVANTIQO_INTELLIGENCE_LOCAL_NODE_REQUIRED/);
+  assert.doesNotMatch(provider, /intelligenceModalOverflowApprovalRequested|executeIntelligenceModalDirect|Modal/);
   assert.match(overflow, /automatic_fallback: false/);
   assert.match(approvalRoute, /requirePlatformAdminAccess/);
   assert.match(approvalRoute, /proposal_id/);
-  assert.match(approvalRoute, /approveIntelligenceModalOverflowProposal/);
   assert.doesNotMatch(approvalRoute, /body\?\.maximum_supplier_cost_thb/);
 });
 

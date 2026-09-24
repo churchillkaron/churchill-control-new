@@ -22,7 +22,7 @@ test("Voice Library enrollment is explicitly separate from Operator STT", async 
   assert.match(operator, /AvantiqoVoiceLibraryPanel/);
   assert.match(operator, /voiceLibraryOpenRef\.current/);
   assert.match(operator, /openVoiceLibrary/);
-  assert.match(operator, /stopWakeRecognition\(\);/);
+  assert.match(operator, /voiceLibraryOpenRef\.current = true/);
   assert.match(operator, /disabled=\{busy \|\| voiceBusy \|\| recording \|\| speaking\}/);
   assert.match(operator, /speakingRef\.current/);
 

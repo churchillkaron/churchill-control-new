@@ -8,7 +8,7 @@ const worker = fs.readFileSync("scripts/local-node/avantiqo-node01-worker.ps1", 
 const ide = fs.readFileSync("components/creative/code/AvantiqoCodeIDE.jsx", "utf8");
 
 test("image analysis routes to owned Node01 vision before external fallback", () => {
-  assert.match(imageProvider, /\["ai\.image\.analyze", "document\.ocr", "document\.classify"\]\.includes\(capability\)/);
+  assert.match(imageProvider, /\["ai\.image\.analyze", "document\.ocr", "document\.classify", "creative\.materials\.estimate"\]\.includes\(capability\)/);
   assert.match(imageProvider, /const provider = await requireLocal\(AvantiqoDocumentVisionLocalQueueProvider[\s\S]*?return provider\.execute\(input\)/);
   assert.match(imageRoute, /"ai\.image\.analyze"/);
   assert.match(imageRoute, /REVIEW_DISCUSSION_VISUAL/);

@@ -43,7 +43,8 @@ test("previs production package video and VFX request scoped material truth",()=
   assert.match(previs,/identity_key:governedIdentityKey/);
   assert.match(previs,/threat_identity_key:governedThreatKey\|\|requestedThreatKey/);
   assert.match(pack,/identity_key:governedIdentityKey/);
-  assert.match(pack,/threat_identity_key:foundationAuthority\.threat_identity_key\|\|requestedThreatKey/);
+  assert.match(pack,/governedThreatKey=foundationAuthority\.threat_identity_key\|\|requestedThreatKey\|\|null/);
+  assert.match(pack,/CreativeImageMaterialTruthPackRuntime\.select\(\{asset_nodes,continuity_group_id:group,identity_key:governedIdentityKey,threat_identity_key:governedThreatKey\}\)/);
   assert.match(gate,/identity_key: governedIdentityKey/);
   assert.match(gate,/threat_identity_key: governedThreatKey/);
   assert.match(vfx,/threat_identity_key:threatIdentityKey/);

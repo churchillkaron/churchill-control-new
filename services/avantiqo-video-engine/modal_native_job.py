@@ -371,6 +371,7 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
     relative_root = Path("runtime-jobs") / organization / usage / job_id
     candidate_t2v = job["capability"] == "ai.video.generate" and not job["native_control"] and not job["source_urls"]
     conditioned_i2v = bool(job["source_urls"]) and not job["native_control"]
+    structured_studio_master = bool(job.get("generation_envelope"))
     output_relative = str(
         relative_root / (
             "candidate-master-1920x1088.mp4"
@@ -406,7 +407,7 @@ def _generate_native_job_impl(data: dict[str, Any]) -> dict[str, Any]:
             )
         else:
             if structured_studio_master:
-                generation = generate_native_master.remote("", output_relative, job["instruction"], job["duration_seconds"], job["seed"])
+                generation = generate_native_master.remote("", output_relative, job["instruction"], job["duration_seconds"], job["seed"], job["width"], job["height"])
             else:
                 if job["duration_seconds"] > 12:
                     raise ValueError("AVANTIQO_VIDEO_LTX25_MODAL_CANDIDATE_DURATION_INVALID")

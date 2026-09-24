@@ -29,8 +29,8 @@ test("owned Cinema separates target, implemented, and default-certified capabili
   ]) {
     assert.match(registration, new RegExp(capability.replaceAll(".", "\\.")));
   }
-  assert.match(registration, /const IMPLEMENTED_CAPABILITIES = Object\.freeze\(\[\s*"ai\.video\.generate",\s*"ai\.video\.image_to_video",\s*"ai\.video\.first_last_frame_to_video",\s*"ai\.video\.upscale",\s*\]\)/s);
-  assert.match(registration, /DEFAULT_CERTIFIED_CAPABILITIES = Object\.freeze\(\[\s*"ai\.video\.generate",\s*"ai\.video\.image_to_video",\s*\]\)/s);
+  assert.match(registration, /const IMPLEMENTED_CAPABILITIES = Object\.freeze\(\[\s*"ai\.video\.generate",\s*\]\)/s);
+  assert.match(registration, /DEFAULT_CERTIFIED_CAPABILITIES = Object\.freeze\(\[\s*"ai\.video\.generate",\s*\]\)/s);
   assert.match(registration, /PROVIDER_VIDEO_CAPABILITY_CONFIGURATION_V4/);
   assert.match(registration, /implemented_capabilities: IMPLEMENTED_CAPABILITIES/);
   assert.match(registration, /certified_capabilities: capabilities/);
@@ -52,21 +52,14 @@ test("Cinema extend code remains present but is not falsely production-advertise
   assert.equal(implementedBlock.includes('"ai.video.extend"'), false);
 });
 
-test("Cinema 4K delivery uses temporal FlashVSR rather than legacy frame SR", () => {
-  const provider = source(
-    "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoFlashVsrProvider.js",
-  );
+test("Cinema delivery upscale remains fail closed until an owned temporal engine is certified", () => {
   const registration = source(
     "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderRegistration.js",
   );
-
-  assert.match(provider, /JunhaoZhuang\/FlashVSR-v1\.1/);
-  assert.match(provider, /temporal_super_resolution:true/);
-  assert.match(provider, /per_frame_independent_sr:false/);
-  assert.match(registration, /delivery_upscale_engine: "FlashVSR-v1\.1"/);
-  assert.match(registration, /temporal_super_resolution_engine: "FlashVSR-v1\.1"/);
+  assert.match(registration, /delivery_upscale_engine: null/);
+  assert.match(registration, /owned_super_resolution: false/);
+  assert.match(registration, /temporal_super_resolution_engine: null/);
   assert.match(registration, /per_frame_independent_super_resolution_production_forbidden: true/);
-  assert.equal(registration.includes("swin2SR"), false);
 });
 
 test("lip-sync is separately governed and is not claimed as owned Cinema production certification", () => {
@@ -108,7 +101,7 @@ test("Service Runtime and cinematic state memory both target the V2 facade", () 
   assert.match(memory, /continuity:\s*governedContinuity/);
 });
 
-test("production registration and owned certification agree on LTX plus temporal FlashVSR", () => {
+test("production registration and owned certification agree on local LTX generation only", () => {
   const registration = source(
     "lib/platform/service-runtime/providers/avantiqo-video/AvantiqoVideoProviderRegistration.js",
   );
@@ -116,13 +109,11 @@ test("production registration and owned certification agree on LTX plus temporal
     "lib/platform/service-runtime/providers/AvantiqoOwnedCertificationPolicy.js",
   );
 
-  assert.match(registration, /FAST_PRODUCTION_RESOLUTION = "1920x1088"/);
-  assert.match(registration, /DELIVERY_MASTER_RESOLUTION = "3840x2160"/);
-  assert.match(registration, /HERO_NATIVE_RESOLUTION = "3840x2176"/);
-  assert.match(registration, /hero_native_generation_default: false/);
-  assert.match(registration, /temporal_4k_mastering_required_for_4k_delivery: true/);
+  assert.match(registration, /LOCAL_DEFAULT_RESOLUTION = "608x352"/);
+  assert.match(registration, /PRODUCTION_GPU = "NODE01_LOCAL_GPU_6GB_CPU_OFFLOAD"/);
+  assert.match(registration, /temporal_4k_mastering_required_for_4k_delivery: false/);
+  assert.match(registration, /delivery_upscale_engine: null/);
   assert.match(policy, /"Lightricks\/LTX-2\.5"/);
-  assert.match(policy, /"JunhaoZhuang\/FlashVSR-v1\.1"/);
   const videoCatalog = policy.match(/"avantiqo-video": Object\.freeze\(\{([\s\S]*?)"avantiqo-audio":/)?.[1] || "";
   assert.equal(videoCatalog.includes("Wan-AI/Wan2"), false);
   assert.equal(videoCatalog.includes("swin2SR-realworld-sr-x4-64-bsrgan-psnr"), false);

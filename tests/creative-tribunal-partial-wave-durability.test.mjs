@@ -10,6 +10,7 @@ const source = fs.readFileSync(
 test("Tribunal preserves successful sibling reviews when one reviewer fails", () => {
   assert.match(source, /Promise\.allSettled\(/);
   assert.match(source, /entry\.status === "fulfilled"/);
-  assert.match(source, /error\.settled_reviews = fulfilled/);
-  assert.match(source, /reviews: list\(error\?\.settled_reviews\)/);
+  assert.match(source, /const results = settledResults[\s\S]*entry\.status === "fulfilled"/);
+  assert.match(source, /error\.settled_reviews = results/);
+  assert.match(source, /error\.partial_reviews = results/);
 });

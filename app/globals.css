@@ -82,3 +82,188 @@ main
   > button:last-child {
   display: none;
 }
+
+/* Canonical light treatment for ordinary organization back-office workspaces. */
+.avantiqo-backoffice-light {
+  background: #fcfbf8 !important;
+  color: #191919 !important;
+}
+
+.avantiqo-backoffice-light [class*="bg-black"],
+.avantiqo-backoffice-light [class*="bg-[#03"],
+.avantiqo-backoffice-light [class*="bg-[#05"],
+.avantiqo-backoffice-light [class*="bg-[#07"],
+.avantiqo-backoffice-light [class*="bg-[#08"],
+.avantiqo-backoffice-light [class*="bg-[#09"],
+.avantiqo-backoffice-light [class*="bg-[#0a"],
+.avantiqo-backoffice-light [class*="bg-[#0b"],
+.avantiqo-backoffice-light [class*="bg-white/"] {
+  background-color: #fff !important;
+}
+
+.avantiqo-backoffice-light [class*="text-white"] { color: #5f5b55 !important; }
+.avantiqo-backoffice-light [class*="border-white"] { border-color: rgb(23 22 20 / 0.09) !important; }
+.avantiqo-backoffice-light [class*="placeholder:text-white"]::placeholder { color: #aaa69e !important; }
+.avantiqo-backoffice-light [class*="shadow-black"] { --tw-shadow-color: rgb(31 27 20 / 0.12) !important; }
+
+/* Canonical Avantiqo organization workspace theme: no dark product chrome. */
+.avantiqo-workspace-theme {
+  min-height: 100vh;
+  background: #f7f6f3;
+  color: #191919;
+}
+
+.avantiqo-workspace-theme [class*="bg-black"],
+.avantiqo-workspace-theme [class*="bg-[#03"],
+.avantiqo-workspace-theme [class*="bg-[#04"],
+.avantiqo-workspace-theme [class*="bg-[#05"],
+.avantiqo-workspace-theme [class*="bg-[#06"],
+.avantiqo-workspace-theme [class*="bg-[#07"],
+.avantiqo-workspace-theme [class*="bg-[#08"],
+.avantiqo-workspace-theme [class*="bg-[#09"],
+.avantiqo-workspace-theme [class*="bg-[#0a"],
+.avantiqo-workspace-theme [class*="bg-[#0A"],
+.avantiqo-workspace-theme [class*="bg-[#0b"],
+.avantiqo-workspace-theme [class*="bg-[#0B"] {
+  background-color: #f7f6f3 !important;
+}
+
+.avantiqo-workspace-theme [class*="bg-white/"] {
+  background-color: #ffffff !important;
+}
+
+.avantiqo-workspace-theme [class*="bg-zinc-9"],
+.avantiqo-workspace-theme [class*="bg-neutral-9"],
+.avantiqo-workspace-theme [class*="bg-slate-9"] {
+  background-color: #fbf8f3 !important;
+}
+
+.avantiqo-workspace-theme [class*="text-white"] {
+  color: #191919 !important;
+}
+
+.avantiqo-workspace-theme [class*="text-zinc-"],
+.avantiqo-workspace-theme [class*="text-neutral-"],
+.avantiqo-workspace-theme [class*="text-slate-"] {
+  color: #706a62 !important;
+}
+
+.avantiqo-workspace-theme [class*="border-white"],
+.avantiqo-workspace-theme [class*="border-zinc-"],
+.avantiqo-workspace-theme [class*="border-neutral-"],
+.avantiqo-workspace-theme [class*="border-slate-"] {
+  border-color: rgb(23 22 20 / 0.09) !important;
+}
+
+.avantiqo-workspace-theme [class*="placeholder:text-white"]::placeholder,
+.avantiqo-workspace-theme [class*="placeholder:text-zinc"]::placeholder {
+  color: #aaa69e !important;
+}
+
+.avantiqo-workspace-theme [class*="shadow-black"] {
+  --tw-shadow-color: rgb(31 27 20 / 0.12) !important;
+}
+
+.avantiqo-workspace-theme [class*="bg-blue-"],
+.avantiqo-workspace-theme [class*="bg-cyan-"],
+.avantiqo-workspace-theme [class*="bg-indigo-"],
+.avantiqo-workspace-theme [class*="bg-violet-"] {
+  background-color: rgb(214 166 106 / 0.12) !important;
+}
+
+.avantiqo-workspace-theme [class*="text-blue-"],
+.avantiqo-workspace-theme [class*="text-cyan-"],
+.avantiqo-workspace-theme [class*="text-indigo-"],
+.avantiqo-workspace-theme [class*="text-violet-"] {
+  color: #9a744b !important;
+}
+
+.avantiqo-workspace-theme [class*="border-blue-"],
+.avantiqo-workspace-theme [class*="border-cyan-"],
+.avantiqo-workspace-theme [class*="border-indigo-"],
+.avantiqo-workspace-theme [class*="border-violet-"] {
+  border-color: rgb(214 166 106 / 0.3) !important;
+}
+
+/* Avantiqo global product palette. Dark legacy utility classes are visually retired. */
+body {
+  background: #f7f6f3;
+  color: #191919;
+}
+
+body [class*="bg-black"],
+body [class*="bg-[#02"],
+body [class*="bg-[#03"],
+body [class*="bg-[#04"],
+body [class*="bg-[#05"],
+body [class*="bg-[#06"],
+body [class*="bg-[#07"],
+body [class*="bg-[#08"],
+body [class*="bg-[#09"],
+body [class*="bg-[#0a"],
+body [class*="bg-[#0A"],
+body [class*="bg-[#0b"],
+body [class*="bg-[#0B"],
+body [class*="bg-[#10"],
+body [class*="bg-[#11"],
+body [class*="bg-[#12"] {
+  background-color: #f7f6f3 !important;
+  background-image: none !important;
+}
+
+body [class*="linear-gradient(180deg,#12100d"],
+body [class*="linear-gradient(180deg,#070707"],
+body [class*="radial-gradient("] {
+  background-color: #f7f6f3 !important;
+  background-image: linear-gradient(180deg, #fbf8f3 0%, #f7f6f3 100%) !important;
+}
+
+body [class*="bg-white/"] {
+  background-color: #ffffff !important;
+}
+
+body [class*="text-white"] {
+  color: #191919 !important;
+}
+
+body [class*="border-white"] {
+  border-color: rgb(23 22 20 / 0.09) !important;
+}
+
+body [class*="placeholder:text-white"]::placeholder {
+  color: #aaa69e !important;
+}
+
+body [class*="shadow-black"] {
+  --tw-shadow-color: rgb(31 27 20 / 0.12) !important;
+}
+
+body [class*="bg-blue-"],
+body [class*="bg-cyan-"],
+body [class*="bg-indigo-"],
+body [class*="bg-violet-"],
+body [class*="bg-fuchsia-"] {
+  background-color: rgb(214 166 106 / 0.12) !important;
+}
+
+body [class*="text-blue-"],
+body [class*="text-cyan-"],
+body [class*="text-indigo-"],
+body [class*="text-violet-"],
+body [class*="text-fuchsia-"] {
+  color: #9a744b !important;
+}
+
+body [class*="border-blue-"],
+body [class*="border-cyan-"],
+body [class*="border-indigo-"],
+body [class*="border-violet-"],
+body [class*="border-fuchsia-"] {
+  border-color: rgb(214 166 106 / 0.3) !important;
+}
+
+body input,
+body textarea,
+body select {
+  color: #191919;
+}

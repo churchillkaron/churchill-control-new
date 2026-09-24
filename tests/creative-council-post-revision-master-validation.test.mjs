@@ -13,7 +13,7 @@ const master = fs.readFileSync(
 
 test("Concept Council revalidates and repairs the selected revision before returning", () => {
   assert.match(council, /CreativeMasterPlanRuntime\.repairExistingPlan\(/);
-  assert.match(council, /plan:\s*normalizedPlan/);
+  assert.match(council, /plan:\s*postRevisionReview\.plan/);
   assert.match(council, /const plan = repairedMaster\.plan/);
   assert.match(council, /post_revision_master_validation/);
 });
@@ -23,13 +23,15 @@ test("existing master repair uses the canonical bounded validation and repair lo
   assert.match(master, /validatePlan\(\{/);
   assert.match(master, /repairInvalidPlan\(\{/);
   assert.match(master, /MAXIMUM_CONTRACT_REPAIR_ATTEMPTS/);
-  assert.match(master, /settled_result: settledRepairResults\[attempt\] \|\| null/);
+  assert.match(master, /settled_result: settledRepairReplayAllowed \? settledRepairResults\[attempt\] \|\| null : null/);
+  assert.match(master, /if \(repair\.rejected_settled_result === true\) settledRepairReplayAllowed = false/);
 });
 
 test("approved Council plan can resume without rerunning Council", () => {
   assert.match(council, /async function resumeApprovedCouncilPlan\(input = \{\}\)/);
   assert.match(council, /CREATIVE_APPROVED_CONCEPT_COUNCIL_REQUIRED/);
-  assert.match(council, /repair_results:\s*list\(input\.repair_results\)/);
+  assert.match(council, /CreativeMasterPlanRuntime\.validateExistingPlan/);
+  assert.match(council, /post_revision_repairs: repairedMaster\.repairs\.map/);
   assert.match(council, /resumed_from_approved_council:\s*true/);
   assert.match(council, /resumeApprovedCouncilPlan,/);
 });

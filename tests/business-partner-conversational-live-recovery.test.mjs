@@ -45,7 +45,7 @@ test("Business Partner renders live execution as premium governed status without
   assert.match(ui, /function busyRequestStatus/);
   assert.match(ui, /busyRequestStatus\(liveExecution, busyElapsedSeconds, activeRequestStartedAt\)/);
   assert.match(ui, /data-avantiqo-live-status="true"/);
-  assert.match(ui, /text-white\/35/);
+  assert.match(ui, /text-\[#8A867F\]/);
   assert.match(ui, /event\?\.description/);
   assert.doesNotMatch(ui, /event\?\.capability_key/);
   assert.doesNotMatch(ui, /event\?\.command/);

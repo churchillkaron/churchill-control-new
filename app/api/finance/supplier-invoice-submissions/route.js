@@ -28,13 +28,21 @@ async function requirePayablesManage(access) {
   });
 }
 
-async function loadSubmissions(organizationId) {
-  const { data: submissions, error } = await supabaseAdmin
+async function loadSubmissions({ organizationId, submissionId = null, page = 1, pageSize = 50 }) {
+  let query = supabaseAdmin
     .from("supplier_invoice_submissions")
-    .select("id,supplier_account_id,supplier_party_id,supplier_portal_access_id,organization_id,entity_id,purchase_order_id,organization_document_id,invoice_number,invoice_date,due_date,currency_code,total_amount,supplier_note,status,canonical_vendor_invoice_id,submitted_by_auth_user_id,reviewed_by_auth_user_id,reviewed_at,review_note,created_at,updated_at")
+    .select("id,supplier_account_id,supplier_party_id,supplier_portal_access_id,organization_id,entity_id,purchase_order_id,organization_document_id,invoice_number,invoice_date,due_date,currency_code,total_amount,supplier_note,status,canonical_vendor_invoice_id,submitted_by_auth_user_id,reviewed_by_auth_user_id,reviewed_at,review_note,created_at,updated_at", { count: "exact" })
     .eq("organization_id", organizationId)
-    .order("created_at", { ascending: false })
-    .limit(500);
+    .order("created_at", { ascending: false });
+
+  if (submissionId) {
+    query = query.eq("id", submissionId);
+  } else {
+    const from = (page - 1) * pageSize;
+    query = query.range(from, from + pageSize - 1);
+  }
+
+  const { data: submissions, error, count } = await query;
   if (error) throw error;
 
   const accountIds = [...new Set((submissions || []).map((row) => row.supplier_account_id).filter(Boolean))];
@@ -60,7 +68,7 @@ async function loadSubmissions(organizationId) {
   const documentById = new Map((documentsResult.data || []).map((row) => [String(row.id), row]));
   const poById = new Map((ordersResult.data || []).map((row) => [String(row.id), row]));
 
-  return Promise.all((submissions || []).map(async (row) => {
+  const rows = await Promise.all((submissions || []).map(async (row) => {
     const document = row.organization_document_id ? documentById.get(String(row.organization_document_id)) || null : null;
     return {
       ...row,
@@ -71,27 +79,39 @@ async function loadSubmissions(organizationId) {
       purchase_order: row.purchase_order_id ? poById.get(String(row.purchase_order_id)) || null : null,
     };
   }));
+
+  return { rows, count: Number(count || 0) };
 }
 
 export async function GET(request) {
   try {
     const organizationId = request.nextUrl.searchParams.get("organizationId") || request.nextUrl.searchParams.get("organization_id");
     const submissionId = String(request.nextUrl.searchParams.get("submissionId") || request.nextUrl.searchParams.get("submission_id") || "").trim();
+    const page = Math.max(1, Number(request.nextUrl.searchParams.get("page")) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(request.nextUrl.searchParams.get("pageSize") || request.nextUrl.searchParams.get("page_size")) || 50));
     const access = await requireOrganizationAccess({ organizationId, request });
     if (!access.success) return jsonError(access.error, access.status);
 
     if (submissionId) await requirePayablesManage(access);
     else await requireFinanceView(access);
 
-    const submissions = await loadSubmissions(access.organizationId);
-    const filtered = submissionId
-      ? submissions.filter((row) => String(row.id) === submissionId)
-      : submissions;
+    const result = await loadSubmissions({
+      organizationId: access.organizationId,
+      submissionId: submissionId || null,
+      page,
+      pageSize,
+    });
 
     return NextResponse.json({
       success: true,
-      submissions: filtered,
-      submission: submissionId ? filtered[0] || null : null,
+      submissions: result.rows,
+      submission: submissionId ? result.rows[0] || null : null,
+      pagination: submissionId ? null : {
+        page,
+        page_size: pageSize,
+        total: result.count,
+        has_more: page * pageSize < result.count,
+      },
     });
   } catch (error) {
     return jsonError(error?.message || "Unable to load supplier invoice submissions", 500);

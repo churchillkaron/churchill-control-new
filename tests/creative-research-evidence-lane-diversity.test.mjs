@@ -8,7 +8,9 @@ test('company research includes distinct evidence lanes',()=>{
   assert.match(source,/planObjective\("audience_context"\)/);
   assert.match(source,/planObjective\("creative_precedent"\)/);
 });
-test('public discovery caps each query so one lane cannot monopolize evidence',()=>{
-  assert.match(source,/acceptedForQuery \+= 1/);
-  assert.match(source,/acceptedForQuery >= 2/);
+test('public discovery interleaves query lanes so one lane cannot monopolize evidence',()=>{
+  assert.match(source,/for \(let rank = 0; rank < 12; rank \+= 1\)/);
+  assert.match(source,/for \(const \{ query, found \} of queryResults\)/);
+  assert.match(source,/const item = found\[rank\]/);
+  assert.match(source,/candidates\.push\(\{ \.\.\.item, query, discovery_rank: rank \+ 1 \}\)/);
 });

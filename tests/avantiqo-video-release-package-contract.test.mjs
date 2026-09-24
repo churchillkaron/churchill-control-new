@@ -17,13 +17,13 @@ const packageRoute = source("app/api/creative/release/package/route.js");
 
 requireText(assetNode, 'RELEASE_PACKAGE: "RELEASE_PACKAGE"', "release package node type");
 
-requireText(delivery, "CREATIVE_TEMPORAL_CHANNEL_DELIVERY_V2", "channel delivery v2");
+requireText(delivery, "CREATIVE_TEMPORAL_CHANNEL_DELIVERY_V4", "channel delivery v4");
 requireText(delivery, "CreativeDeliveryMasterConformanceRuntime.analyze", "per-derivative conformance");
 requireText(delivery, "CreativeDeliveryAudioQualityRuntime.analyze", "per-derivative delivery audio");
 requireText(delivery, "conformance_report_id", "conformance evidence id");
 requireText(delivery, "delivery_audio_report_id", "delivery audio evidence id");
 
-requireText(releasePackage, "CREATIVE_RELEASE_PACKAGE_V1", "release package contract");
+requireText(releasePackage, "CREATIVE_RELEASE_PACKAGE_V3", "release package contract");
 requireText(releasePackage, "release_package_identity", "immutable package identity");
 requireText(releasePackage, "master_checksum", "master checksum binding");
 requireText(releasePackage, "render_asset_node_id", "derivative asset binding");

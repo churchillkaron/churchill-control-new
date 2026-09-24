@@ -16,7 +16,7 @@ test('bank statement import is a governed Operator create capability', () => {
   assert.match(route, /requireFinanceWorkspacePermission/);
   assert.match(route, /capabilityId:\s*"bank_statements"/);
   assert.match(route, /create_finance_bank_statement_import/);
-  assert.match(financeRuntime, /bank_statements:[\s\S]{0,200}importBankStatement/);
+  assert.match(financeRuntime, /bank_statements:[\s\S]{0,260}create:\s*\(\) =>[\s\S]*bank-statements\/capabilities\/importBankStatement/);
   assert.match(capability, /const REQUIRED_PERMISSION = \"finance\.banking\.manage\"/);
   assert.match(capability, /operatorRequiresConfirmation:\s*true/);
   assert.match(capability, /operatorAutoExecute:\s*false/);

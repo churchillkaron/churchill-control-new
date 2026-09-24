@@ -14,21 +14,21 @@ const panel = fs.readFileSync("components/creative/ProductionStudio/workspaces/M
 const source = "storage://creative-assets/example/song.wav";
 const rights = { contract: MUSIC_SOURCE_AUDIO_RIGHTS_ATTESTATION_CONTRACT, confirmed: true };
 test("ordinary backing tracks remain on certified all-vocals removal", () => {
-  const previous = { certified: process.env.AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES, audio: process.env.AVANTIQO_AUDIO_ENGINE_ENABLED, separator: process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_ENABLED, separatorCertified: process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED, tokenId: process.env.MODAL_TOKEN_ID, tokenSecret: process.env.MODAL_TOKEN_SECRET };
-  Object.assign(process.env, { AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES: "ai.music.generate,ai.audio.stems", AVANTIQO_AUDIO_ENGINE_ENABLED: "true", AVANTIQO_MUSIC_SEPARATOR_ENGINE_ENABLED: "true", AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED: "true", MODAL_TOKEN_ID: "test-token-id", MODAL_TOKEN_SECRET: "test-token-secret" });
+  const previous = { certified: process.env.AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES, audio: process.env.AVANTIQO_AUDIO_ENGINE_ENABLED, localQueue: process.env.AVANTIQO_LOCAL_COMPUTE_QUEUE_ENABLED, separator: process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_ENABLED, separatorCertified: process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED };
+  Object.assign(process.env, { AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES: "ai.music.generate,ai.audio.stems", AVANTIQO_AUDIO_ENGINE_ENABLED: "true", AVANTIQO_LOCAL_COMPUTE_QUEUE_ENABLED: "true", AVANTIQO_MUSIC_SEPARATOR_ENGINE_ENABLED: "true", AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED: "true" });
   try {
     const plan = buildMusicTransformationPlan("backing_track", { source_audio: source, source_duration_seconds: 180, rights_attestation: rights });
     assert.equal(plan.session.processing.vocal_removal_mode, MUSIC_VOCAL_REMOVAL_MODES.ALL_VOCALS);
     assert.equal(plan.session.processing.preserve_backing_vocals, false);
     assert.equal(plan.executable, true);
   } finally {
-    process.env.AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES = previous.certified; process.env.AVANTIQO_AUDIO_ENGINE_ENABLED = previous.audio; process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_ENABLED = previous.separator; process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED = previous.separatorCertified; process.env.MODAL_TOKEN_ID = previous.tokenId; process.env.MODAL_TOKEN_SECRET = previous.tokenSecret;
+    process.env.AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES = previous.certified; process.env.AVANTIQO_AUDIO_ENGINE_ENABLED = previous.audio; process.env.AVANTIQO_LOCAL_COMPUTE_QUEUE_ENABLED = previous.localQueue; process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_ENABLED = previous.separator; process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED = previous.separatorCertified;
   }
 });
 
 test("lead-only removal never falls back to four-stem Demucs", () => {
-  const previous = { certified: process.env.AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES, audio: process.env.AVANTIQO_AUDIO_ENGINE_ENABLED, separator: process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_ENABLED, separatorCertified: process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED, tokenId: process.env.MODAL_TOKEN_ID, tokenSecret: process.env.MODAL_TOKEN_SECRET };
-  Object.assign(process.env, { AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES: "ai.music.generate,ai.audio.stems", AVANTIQO_AUDIO_ENGINE_ENABLED: "true", AVANTIQO_MUSIC_SEPARATOR_ENGINE_ENABLED: "true", AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED: "true", MODAL_TOKEN_ID: "test-token-id", MODAL_TOKEN_SECRET: "test-token-secret" });
+  const previous = { certified: process.env.AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES, audio: process.env.AVANTIQO_AUDIO_ENGINE_ENABLED, localQueue: process.env.AVANTIQO_LOCAL_COMPUTE_QUEUE_ENABLED, separator: process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_ENABLED, separatorCertified: process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED };
+  Object.assign(process.env, { AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES: "ai.music.generate,ai.audio.stems", AVANTIQO_AUDIO_ENGINE_ENABLED: "true", AVANTIQO_LOCAL_COMPUTE_QUEUE_ENABLED: "true", AVANTIQO_MUSIC_SEPARATOR_ENGINE_ENABLED: "true", AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED: "true" });
   try {
     const plan = buildMusicTransformationPlan("backing_track", { source_audio: source, source_duration_seconds: 180, rights_attestation: rights, vocal_removal_mode: "LEAD_ONLY_KEEP_BACKING" });
     assert.equal(plan.session.processing.preserve_backing_vocals, true);
@@ -36,17 +36,17 @@ test("lead-only removal never falls back to four-stem Demucs", () => {
     assert.equal(plan.session.separator.vocal_role_capability, MUSIC_VOCAL_ROLE_SEPARATOR_CAPABILITY);
     assert.equal(plan.executable, false);
   } finally {
-    process.env.AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES = previous.certified; process.env.AVANTIQO_AUDIO_ENGINE_ENABLED = previous.audio; process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_ENABLED = previous.separator; process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED = previous.separatorCertified; process.env.MODAL_TOKEN_ID = previous.tokenId; process.env.MODAL_TOKEN_SECRET = previous.tokenSecret;
+    process.env.AVANTIQO_AUDIO_CERTIFIED_CAPABILITIES = previous.certified; process.env.AVANTIQO_AUDIO_ENGINE_ENABLED = previous.audio; process.env.AVANTIQO_LOCAL_COMPUTE_QUEUE_ENABLED = previous.localQueue; process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_ENABLED = previous.separator; process.env.AVANTIQO_MUSIC_SEPARATOR_ENGINE_CERTIFIED = previous.separatorCertified;
   }
 });
 test("provider registry keeps vocal-role separation research-gated", () => {
   assert.match(registration, /VOCAL_ROLE_SEPARATOR_CAPABILITY = "ai\.audio\.vocal-role-separate"/);
   assert.match(registration, /RESEARCH_RUNTIME_IMPLEMENTED_CERTIFICATION_REQUIRED/);
-  assert.match(registration, /production_routing_allowed: false/);
-  assert.match(registration, /ordinary_stem_separator_substitution_forbidden: true/);
+  assert.match(registration, /production_routing_allowed:\s*false/);
+  assert.match(registration, /ordinary_stem_separator_substitution_forbidden:\s*true/);
   assert.match(registration, /UVR_MDXNET_KARA_2\.onnx/);
-  assert.match(registration, /model_license_verified: true/);
-  assert.match(registration, /replace_certified_demucs_automatically: false/);
+  assert.match(registration, /model_license_verified:\s*true/);
+  assert.match(registration, /replace_certified_demucs_automatically:\s*false/);
 });
 
 test("Backing Track UI exposes the honest vocal-removal choice", () => {

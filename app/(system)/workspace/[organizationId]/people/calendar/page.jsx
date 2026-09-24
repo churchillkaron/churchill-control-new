@@ -115,7 +115,7 @@ export default function WorkforceCalendarPage() {
   const publicHolidays = activeDays.filter((row) => row.day_type === "PUBLIC_HOLIDAY");
 
   return (
-    <main className="min-h-screen bg-[#030303] p-5 text-white lg:p-8">
+    <main className="min-h-screen bg-[#F7F6F3] p-5 text-[#191919] lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="rounded-[32px] border border-white/10 bg-white/[0.04] p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   useOrganizationRuntime,
 } from "@/lib/hooks/useOrganizationRuntime";
@@ -12,7 +12,7 @@ export default function TableSettingsPage() {
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  async function loadSettings() {
+  const loadSettings = useCallback(async () => {
     if (!organizationId) {
       setSettings(null);
       return;
@@ -40,7 +40,7 @@ export default function TableSettingsPage() {
     }
 
     setSettings(result.settings);
-  }
+  }, [organizationId]);
 
   async function saveSettings() {
     if (!organizationId) {
@@ -82,11 +82,11 @@ export default function TableSettingsPage() {
     loadSettings().catch((error) => {
       console.error("LOAD_TABLE_SETTINGS_ERROR", error);
     });
-  }, [organizationId]);
+  }, [loadSettings]);
 
   if (!organizationId) {
     return (
-      <div className="p-10 text-white">
+      <div className="p-10 text-[#191919]">
         Select an organization to manage table settings.
       </div>
     );
@@ -94,7 +94,7 @@ export default function TableSettingsPage() {
 
   if (!settings) {
     return (
-      <div className="p-10 text-white">
+      <div className="p-10 text-[#191919]">
         Loading...
       </div>
     );
@@ -108,7 +108,7 @@ export default function TableSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-10">
+    <div className="avantiqo-backoffice-light min-h-screen bg-[#F7F6F3] p-10 text-[#191919]">
       <div className="max-w-5xl mx-auto space-y-8">
         <div>
           <div className="text-sm uppercase tracking-[0.3em] text-zinc-500 mb-3">
@@ -141,7 +141,7 @@ export default function TableSettingsPage() {
               className={`p-6 rounded-3xl border transition ${
                 settings[key]
                   ? "bg-emerald-500 text-black border-emerald-400"
-                  : "bg-white/5 border-white/10"
+                  : "bg-white border-black/[0.08]"
               }`}
             >
               <div className="text-lg">

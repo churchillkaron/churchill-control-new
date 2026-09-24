@@ -66,14 +66,14 @@ export default function PlatformProviderSetupPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black p-6 text-white lg:p-10">
+      <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
         <div className="mx-auto max-w-7xl text-sm text-white/45">Loading Avantiqo provider setup…</div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-7xl">
         <Link
           href={`/workspace/${encodeURIComponent(organizationId)}/administration/integrations`}

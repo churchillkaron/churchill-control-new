@@ -1,6 +1,8 @@
 import { requirePlatformOperatorWorkspaceAccess } from "@/lib/platform/security/requirePlatformOperatorWorkspaceAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 const PLATFORM_ORGANIZATION_ID = "9a148429-b6a0-4bc6-ac83-a35c64fb7045";
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 20;

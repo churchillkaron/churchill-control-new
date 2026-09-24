@@ -211,41 +211,41 @@ export default function RetailCatalogWorkspace({
   }
 
   return (
-    <main className="min-h-screen bg-[#070707] px-4 py-5 text-white lg:px-6">
+    <main className="min-h-screen bg-[#F7F6F3] px-4 py-5 text-[#191919] lg:px-6">
       <div className="mx-auto max-w-[1700px]">
-        <header className="rounded-[26px] border border-white/10 bg-white/[0.035] p-5">
+        <header className="rounded-[26px] border border-black/[0.07] bg-white p-5">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#D6A66A]">Retail Selling</p>
               <h1 className="mt-2 text-2xl font-semibold">Catalog, basket and checkout</h1>
-              <p className="mt-2 max-w-3xl text-xs leading-5 text-white/45">
+              <p className="mt-2 max-w-3xl text-xs leading-5 text-[#817B73]">
                 Add products, validate live availability, confirm the sale and reserve stock. The checkout panel becomes payable immediately after the governed confirmation succeeds.
               </p>
             </div>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-white/60"
+              className="flex items-center gap-2 rounded-xl border border-black/[0.07] px-3 py-2 text-xs text-[#6F6962]"
             >
               <RefreshCw size={14} /> Refresh
             </button>
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-white/35">Catalog</div>
+            <div className="rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-4">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-[#8A867F]">Catalog</div>
               <div className="mt-2 text-2xl">{runtime?.catalog?.item_count || 0}</div>
-              <div className="mt-1 text-[10px] text-white/35">Canonical sellable items</div>
+              <div className="mt-1 text-[10px] text-[#8A867F]">Canonical sellable items</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-white/35">Available</div>
+            <div className="rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-4">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-[#8A867F]">Available</div>
               <div className="mt-2 text-2xl">{runtime?.catalog?.available_item_count || 0}</div>
-              <div className="mt-1 text-[10px] text-white/35">Available in selected entity</div>
+              <div className="mt-1 text-[10px] text-[#8A867F]">Available in selected entity</div>
             </div>
             <div className="rounded-2xl border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] p-4">
               <div className="text-[10px] uppercase tracking-[0.16em] text-[#D6A66A]">Sale lifecycle</div>
               <div className="mt-2 text-base">Basket → Reserve → Pay</div>
-              <div className="mt-1 text-[10px] text-white/40">No separate confirm screen required</div>
+              <div className="mt-1 text-[10px] text-[#817B73]">No separate confirm screen required</div>
             </div>
           </div>
 
@@ -266,26 +266,26 @@ export default function RetailCatalogWorkspace({
         <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_360px]">
           <section>
             <div className="relative mb-4">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#918B83]" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search item, SKU, barcode or category"
-                className="w-full rounded-2xl border border-white/10 bg-white/[0.035] py-3 pl-11 pr-4 text-sm outline-none placeholder:text-white/25 focus:border-[#D6A66A]/50"
+                className="w-full rounded-2xl border border-black/[0.07] bg-white py-3 pl-11 pr-4 text-sm outline-none placeholder:text-[#A09A92] focus:border-[#D6A66A]/50"
               />
             </div>
 
             {visibleItems.length ? (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {visibleItems.map((item) => (
-                  <article key={item.id} className="flex min-h-[190px] flex-col rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+                  <article key={item.id} className="flex min-h-[190px] flex-col rounded-[22px] border border-black/[0.07] bg-white p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="text-[10px] uppercase tracking-[0.14em] text-[#D6A66A]">{item.category || "Item"}</div>
                         <h2 className="mt-2 text-sm font-semibold">{item.name}</h2>
-                        <div className="mt-1 text-[10px] text-white/35">{[item.sku, item.barcode].filter(Boolean).join(" · ") || "No SKU or barcode"}</div>
+                        <div className="mt-1 text-[10px] text-[#8A867F]">{[item.sku, item.barcode].filter(Boolean).join(" · ") || "No SKU or barcode"}</div>
                       </div>
-                      <PackageSearch size={16} className="text-white/25" />
+                      <PackageSearch size={16} className="text-[#A09A92]" />
                     </div>
                     <div className="mt-auto flex items-end justify-between gap-3 pt-4">
                       <div>
@@ -305,42 +305,42 @@ export default function RetailCatalogWorkspace({
                 ))}
               </div>
             ) : (
-              <div className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-sm text-white/35">No catalog items match this search.</div>
+              <div className="rounded-3xl border border-dashed border-black/[0.07] p-10 text-center text-sm text-[#8A867F]">No catalog items match this search.</div>
             )}
           </section>
 
-          <aside className="h-fit rounded-[24px] border border-white/10 bg-white/[0.035] p-4 xl:sticky xl:top-24">
+          <aside className="h-fit rounded-[24px] border border-black/[0.07] bg-white p-4 xl:sticky xl:top-24">
             <div className="flex items-center gap-3">
               <ShoppingBasket size={17} className="text-[#D6A66A]" />
               <div>
                 <div className="text-sm font-semibold">Current basket</div>
-                <div className="text-[10px] text-white/35">{basketQuantity} item(s)</div>
+                <div className="text-[10px] text-[#8A867F]">{basketQuantity} item(s)</div>
               </div>
             </div>
 
             <div className="mt-4 space-y-2">
               {basketLines.length ? basketLines.map(({ item, quantity }) => (
-                <div key={item.id} className="rounded-2xl border border-white/10 bg-black/25 p-3">
+                <div key={item.id} className="rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-3">
                   <div className="flex justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-xs font-medium">{item.name}</div>
-                      <div className="mt-1 text-[10px] text-white/35">{money(item.price, currency)} each</div>
+                      <div className="mt-1 text-[10px] text-[#8A867F]">{money(item.price, currency)} each</div>
                     </div>
                     <div className="text-xs">{money(item.price * quantity, currency)}</div>
                   </div>
                   <div className="mt-3 flex items-center gap-2">
-                    <button type="button" onClick={() => setQuantity(item.id, quantity - 1)} className="h-7 w-7 rounded-lg border border-white/10">−</button>
+                    <button type="button" onClick={() => setQuantity(item.id, quantity - 1)} className="h-7 w-7 rounded-lg border border-black/[0.07]">−</button>
                     <div className="min-w-7 text-center text-xs">{quantity}</div>
-                    <button type="button" onClick={() => setQuantity(item.id, quantity + 1)} className="h-7 w-7 rounded-lg border border-white/10">+</button>
+                    <button type="button" onClick={() => setQuantity(item.id, quantity + 1)} className="h-7 w-7 rounded-lg border border-black/[0.07]">+</button>
                   </div>
                 </div>
               )) : (
-                <div className="rounded-2xl border border-dashed border-white/10 p-5 text-center text-xs text-white/30">Add products to start a sale.</div>
+                <div className="rounded-2xl border border-dashed border-black/[0.07] p-5 text-center text-xs text-[#918B83]">Add products to start a sale.</div>
               )}
             </div>
 
-            <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
-              <span className="text-xs text-white/45">Total</span>
+            <div className="mt-4 flex items-center justify-between border-t border-black/[0.07] pt-4">
+              <span className="text-xs text-[#817B73]">Total</span>
               <span className="text-lg font-semibold">{money(basketTotal, currency)}</span>
             </div>
 
@@ -352,7 +352,7 @@ export default function RetailCatalogWorkspace({
             >
               {creating ? "Preparing checkout..." : "Confirm sale & continue to pay"}
             </button>
-            <p className="mt-3 text-[10px] leading-4 text-white/35">
+            <p className="mt-3 text-[10px] leading-4 text-[#8A867F]">
               Prices and tax are revalidated server-side. Inventory reservation uses the existing governed Commercial confirmation contract before checkout is enabled.
             </p>
           </aside>

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import ConnectedServiceDataOverview from "@/components/public/ConnectedServiceDataOverview";
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
+import Link from "next/link";
 
 const businessAreas = [
   [
@@ -798,9 +799,9 @@ export default function AvantiqoPublicHome() {
             <a href="/channels" className="transition hover:text-[#8A633C]">
               Channels
             </a>
-            <a href="/solutions" className="transition hover:text-[#8A633C]">
+            <Link href="/solutions" className="transition hover:text-[#8A633C]">
               Solutions
-            </a>
+            </Link>
             <a href="/pricing" className="transition hover:text-[#8A633C]">
               Pricing
             </a>

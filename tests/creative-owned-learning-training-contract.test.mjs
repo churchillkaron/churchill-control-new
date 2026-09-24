@@ -37,11 +37,12 @@ assert.ok(compiler.includes("Never reconstruct or imitate prior customer creativ
 assert.ok(readiness.includes('CREATIVE_PREFERENCE_PAIR: "AVANTIQO_CREATIVE_TRAINING_CANDIDATE_V1"'));
 assert.ok(benchmarkReadiness.includes('CREATIVE_PREFERENCE_PAIR: "AVANTIQO_CREATIVE_TRAINING_CANDIDATE_V1"'));
 
-assert.ok(execution.includes("AVANTIQO_MODEL_TRAINING_EXECUTION_V3"));
-assert.ok(execution.includes('INFRASTRUCTURE_PROVIDER = "AVANTIQO_LOCAL_TRAINER_V1"'));
-assert.ok(execution.includes("AVANTIQO_INTELLIGENCE_LOCAL_TRAINER_EXECUTOR_REQUIRED"));
-assert.ok(execution.includes("external_compute_allowed: false"));
-assert.ok(execution.includes("external_provider_job_submitted: false"));
-assert.ok(!/Modal|modal|RunPod|runpod/.test(execution));
+assert.ok(execution.includes("AVANTIQO_MODEL_TRAINING_EXECUTION_V4_LOCAL_QUEUE"));
+assert.ok(execution.includes('INFRASTRUCTURE = "AVANTIQO_LOCAL_NODE_V1"'));
+assert.ok(execution.includes("AVANTIQO_LOCAL_TRAINING_NODE_UNAVAILABLE"));
+assert.ok(execution.includes('execution_backend:"AVANTIQO_LOCAL_NODE_TRAINER_V1"'));
+assert.ok(execution.includes("local_only:true"));
+assert.ok(execution.includes("modal_fallback_allowed:false"));
+assert.ok(!/executeIntelligenceModalDirect|api\.runpod\.ai|patchWorkers/.test(execution));
 
 console.log("AVANTIQO_CREATIVE_OWNED_LEARNING_TRAINING=PASS");

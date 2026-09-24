@@ -377,7 +377,7 @@ export default function CampaignBuilderPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black px-6 py-8 text-white lg:px-10">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-8 text-[#191919] lg:px-10">
       <div className="mx-auto max-w-7xl">
         <header className="mb-8 flex flex-wrap items-end justify-between gap-5">
           <div>

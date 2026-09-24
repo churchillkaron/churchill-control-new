@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import { getPublicSupplierShop } from "@/lib/supplier-network/SupplierNetworkRuntime";
+import Link from "next/link";
 
 function money(value, currency = "THB") {
   const amount = Number(value || 0);
@@ -51,7 +52,7 @@ export default async function PublicSupplierShopPage({ params }) {
           <div className="text-[8px] font-semibold uppercase tracking-[.16em] text-[#9A744B]">Public catalog</div>
           <h2 className="mt-2 text-[30px] font-semibold tracking-[-.035em]">Products</h2>
         </div>
-        <a href="/products#supplier-portal" className="text-[9px] font-semibold text-[#815B36]">About Avantiqo Supplier Network →</a>
+        <Link href="/products#supplier-portal" className="text-[9px] font-semibold text-[#815B36]">About Avantiqo Supplier Network →</Link>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {shop.products.map((product) => <article key={product.id} className="overflow-hidden rounded-[22px] border border-black/[.07] bg-white shadow-[0_12px_34px_rgba(50,41,31,.035)]">{product.image_url ? <img src={product.image_url} alt="" className="h-44 w-full object-cover" /> : null}<div className="p-5">

@@ -55,7 +55,7 @@ export default function Dashboard() {
   }, [organizationId]);
 
   return (
-    <main className="min-h-screen bg-black p-8 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] p-8 text-[#191919]">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8">
           <div className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">

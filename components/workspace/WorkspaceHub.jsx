@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowRight, RefreshCw } from "lucide-react";
@@ -40,7 +40,7 @@ export default function WorkspaceHub({
 
   const items = group?.items || [];
 
-  async function loadRuntime() {
+  const loadRuntime = useCallback(async () => {
     if (!runtimeEndpoint || !organizationId) {
       setLoading(false);
       return;
@@ -72,11 +72,11 @@ export default function WorkspaceHub({
     } finally {
       setLoading(false);
     }
-  }
+  }, [organizationId, runtimeEndpoint, runtimeMethod]);
 
   useEffect(() => {
     loadRuntime();
-  }, [organizationId, runtimeEndpoint]);
+  }, [loadRuntime]);
 
   const resolvedMetrics = metrics.map(metric => ({
     ...metric,

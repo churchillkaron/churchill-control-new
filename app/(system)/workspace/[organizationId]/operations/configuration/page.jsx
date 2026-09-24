@@ -167,7 +167,7 @@ export default function ConfigurationManagerPage() {
 
   return (
 
-    <div className="min-h-screen bg-black text-white p-8">
+    <div className="avantiqo-backoffice-light min-h-screen bg-[#F7F6F3] p-8 text-[#191919]">
 
       <div className="flex items-center justify-between mb-10">
 
@@ -189,7 +189,7 @@ export default function ConfigurationManagerPage() {
 
         <div className="space-y-6">
 
-          <div className="border border-zinc-800 bg-zinc-950 rounded-3xl p-6">
+          <div className="border border-black/[0.07] bg-white rounded-3xl p-6">
 
             <div className="flex items-center gap-3 mb-6">
 
@@ -213,7 +213,7 @@ export default function ConfigurationManagerPage() {
                     name: e.target.value,
                   }))
                 }
-                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
+                className="w-full rounded-2xl border border-black/[0.08] bg-[#FBF8F3] text-[#191919] p-4"
               />
 
               <div className="flex items-center justify-between">
@@ -269,7 +269,7 @@ export default function ConfigurationManagerPage() {
                       ),
                   }))
                 }
-                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
+                className="w-full rounded-2xl border border-black/[0.08] bg-[#FBF8F3] text-[#191919] p-4"
               />
 
               <button
@@ -283,7 +283,7 @@ export default function ConfigurationManagerPage() {
 
           </div>
 
-          <div className="border border-zinc-800 bg-zinc-950 rounded-3xl p-6">
+          <div className="border border-black/[0.07] bg-white rounded-3xl p-6">
 
             <div className="flex items-center gap-3 mb-6">
 
@@ -307,7 +307,7 @@ export default function ConfigurationManagerPage() {
                     name: e.target.value,
                   }))
                 }
-                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
+                className="w-full rounded-2xl border border-black/[0.08] bg-[#FBF8F3] text-[#191919] p-4"
               />
 
               <input
@@ -323,7 +323,7 @@ export default function ConfigurationManagerPage() {
                       ),
                   }))
                 }
-                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
+                className="w-full rounded-2xl border border-black/[0.08] bg-[#FBF8F3] text-[#191919] p-4"
               />
 
               <select
@@ -335,7 +335,7 @@ export default function ConfigurationManagerPage() {
                       e.target.value,
                   }))
                 }
-                className="w-full bg-black border border-zinc-800 rounded-2xl p-4"
+                className="w-full rounded-2xl border border-black/[0.08] bg-[#FBF8F3] text-[#191919] p-4"
               >
 
                 <option value="">
@@ -369,7 +369,7 @@ export default function ConfigurationManagerPage() {
 
         </div>
 
-        <div className="xl:col-span-2 border border-zinc-800 bg-zinc-950 rounded-3xl p-6">
+        <div className="xl:col-span-2 border border-black/[0.07] bg-white rounded-3xl p-6">
 
           <div className="flex items-center gap-3 mb-6">
 
@@ -387,7 +387,7 @@ export default function ConfigurationManagerPage() {
 
               <div
                 key={group.id}
-                className="border border-zinc-800 rounded-3xl p-5 bg-black"
+                className="border border-black/[0.07] rounded-3xl p-5 bg-[#FBF8F3]"
               >
 
                 <div className="flex items-center justify-between mb-5">
@@ -432,7 +432,7 @@ export default function ConfigurationManagerPage() {
 
                       <div
                         key={modifier.id}
-                        className="border border-zinc-800 rounded-2xl p-4 flex items-center justify-between"
+                        className="border border-black/[0.07] rounded-2xl bg-[#FBF8F3] p-4 flex items-center justify-between"
                       >
 
                         <div className="font-bold">

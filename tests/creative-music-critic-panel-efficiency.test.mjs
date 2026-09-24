@@ -20,10 +20,12 @@ test("Music critic panel fails closed when any required critic review is absent"
 });
 
 
-test("isolated Music quality worker can extend Deep keep-warm without changing production default", () => {
-  const modal = fs.readFileSync("services/avantiqo-intelligence-modal/modal_app.py", "utf8");
-  assert.match(modal, /AVANTIQO_INTELLIGENCE_DEEP_SCALEDOWN_SECONDS/);
-  assert.match(modal, /\"60\"/);
+test("owned local Deep reviews allow the full five-minute specialist window", () => {
+  const local = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceHierarchicalLocalRuntime.js", "utf8");
+  assert.match(local, /DEFAULT_TIMEOUT_MS = 300000/);
+  assert.match(local, /modal_inference_performed: false/);
+  assert.match(local, /runpod_inference_performed: false/);
+  assert.doesNotMatch(local, /executeIntelligenceModalDirect|api\.runpod\.ai|patchWorkers/);
 });
 
 

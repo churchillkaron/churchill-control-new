@@ -67,7 +67,7 @@ export default function CampaignsLayout({ children }) {
   const canCreateCampaign = capabilities?.canCreateCampaign === true;
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919]">
       <div className="sticky top-0 z-40 border-b border-white/10 bg-black/95 px-6 py-3 lg:px-10">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-2">
           {canUseWholeCampaign ? (

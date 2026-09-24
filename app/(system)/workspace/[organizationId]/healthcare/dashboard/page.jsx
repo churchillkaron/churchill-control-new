@@ -20,7 +20,7 @@ export default function HealthcareDashboardPage() {
       </h1>
 
       <div className="grid gap-6 md:grid-cols-4">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.07] bg-white p-6">
           <div className="text-sm text-zinc-400">
             Patients
           </div>
@@ -31,7 +31,7 @@ export default function HealthcareDashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.07] bg-white p-6">
           <div className="text-sm text-zinc-400">
             Appointments
           </div>
@@ -42,7 +42,7 @@ export default function HealthcareDashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.07] bg-white p-6">
           <div className="text-sm text-zinc-400">
             Admissions
           </div>
@@ -53,7 +53,7 @@ export default function HealthcareDashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="rounded-2xl border border-black/[0.07] bg-white p-6">
           <div className="text-sm text-zinc-400">
             Beds
           </div>

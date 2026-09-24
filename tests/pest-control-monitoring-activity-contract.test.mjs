@@ -18,7 +18,8 @@ test("visit monitoring API rejects anonymous pest activity", async () => {
   assert.match(route, /activityLevel !== "none" && !pestName/);
   assert.match(route, /Identify the pest before recording observed activity/);
   assert.match(route, /pest_name: activityLevel === "none" \? null : pestName/);
-  assert.match(route, /count: activityLevel === "none" \? 0/);
+  assert.match(route, /const count = activityLevel === "none" \? 0/);
+  assert.match(route, /\n\s*count,\n/);
 });
 
 test("general monitoring API enforces the same pest identity contract", async () => {

@@ -42,11 +42,8 @@ export default function ExportEngine({
   const [scope, setScope] = useState("current");
   const [fileType, setFileType] = useState(defaultFormat);
 
-  if (!action || action.enabled === false) return null;
-
-  const endpoint = action.endpoint || "/api/workspace/export";
-  const available = formats || action.formats || DEFAULT_EXPORT_FORMATS;
-  const allowedScopes = Array.isArray(action.scopes) && action.scopes.length
+  const available = formats || action?.formats || DEFAULT_EXPORT_FORMATS;
+  const allowedScopes = Array.isArray(action?.scopes) && action.scopes.length
     ? CONTENT_OPTIONS.filter(option => action.scopes.includes(option.id))
     : CONTENT_OPTIONS;
 
@@ -57,6 +54,10 @@ export default function ExportEngine({
       items: options.filter(item => item.group === group.id),
     })).filter(group => group.items.length > 0);
   }, [available]);
+
+  if (!action || action.enabled === false) return null;
+
+  const endpoint = action.endpoint || "/api/workspace/export";
 
   async function exportData() {
     if (!fileType) {

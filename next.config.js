@@ -20,17 +20,18 @@ const nextConfig = {
 
   experimental: {
     optimizePackageImports: [],
-    outputFileTracingIncludes: {
-      "/api/creative/**": creativeMediaBinaries,
-      "/api/internal/avantiqo-investor-film-final": creativeMediaBinaries,
-      "/api/internal/avantiqo-investor-film-finished": creativeMediaBinaries,
-      "/api/internal/avantiqo-investor-logo-reveal": creativeMediaBinaries,
-      "/api/internal/avantiqo-investor-film-lipsync": creativeMediaBinaries,
-      "/api/internal/avantiqo-investor-video-voice-v3": creativeMediaBinaries,
-      "/api/internal/avantiqo-investor-founder-audio-lock": creativeMediaBinaries,
-      "/api/internal/creative-churchill-night-changes-v3-qc": creativeMediaBinaries,
-      "/api/internal/creative-churchill-night-changes-v3-repair-qc": creativeMediaBinaries,
-    },
+  },
+
+  outputFileTracingIncludes: {
+    "/api/creative/**": creativeMediaBinaries,
+    "/api/internal/avantiqo-investor-film-final": creativeMediaBinaries,
+    "/api/internal/avantiqo-investor-film-finished": creativeMediaBinaries,
+    "/api/internal/avantiqo-investor-logo-reveal": creativeMediaBinaries,
+    "/api/internal/avantiqo-investor-film-lipsync": creativeMediaBinaries,
+    "/api/internal/avantiqo-investor-video-voice-v3": creativeMediaBinaries,
+    "/api/internal/avantiqo-investor-founder-audio-lock": creativeMediaBinaries,
+    "/api/internal/creative-churchill-night-changes-v3-qc": creativeMediaBinaries,
+    "/api/internal/creative-churchill-night-changes-v3-repair-qc": creativeMediaBinaries,
   },
 
   images: {

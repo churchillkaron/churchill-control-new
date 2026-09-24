@@ -239,7 +239,7 @@ export default function PayrollPaymentsPage() {
     "Accounting entity";
 
   return (
-    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="overflow-hidden rounded-[34px] border border-white/10 bg-white/[0.045] backdrop-blur-3xl">
           <div className="h-px bg-gradient-to-r from-transparent via-[#D6A66A] to-transparent" />

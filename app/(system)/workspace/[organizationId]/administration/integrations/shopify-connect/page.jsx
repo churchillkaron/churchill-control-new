@@ -7,7 +7,7 @@ export default async function ShopifyConnectPage({ params }) {
   const organizationId = String(resolved?.organizationId || "").trim();
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-[#F7F6F3]">
       <ShopifyIntegrationCard organizationId={organizationId} />
       <ShopifyInventorySyncPanel organizationId={organizationId} />
       <ShopifyFinanceSyncPanel organizationId={organizationId} />

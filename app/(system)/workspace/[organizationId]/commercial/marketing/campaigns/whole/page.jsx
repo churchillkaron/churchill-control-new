@@ -113,7 +113,7 @@ export default function WholeCampaignPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black p-8 text-white">
+      <main className="min-h-screen bg-[#F7F6F3] p-8 text-[#191919]">
         <div className="mx-auto max-w-[1500px] text-white/50">
           Loading whole campaign...
         </div>
@@ -122,7 +122,7 @@ export default function WholeCampaignPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-[1500px]">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-5">
           <div>

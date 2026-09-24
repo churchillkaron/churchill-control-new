@@ -1,6 +1,7 @@
 import Image from "next/image";
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import BusinessPartnerShowcase from "@/components/public/BusinessPartnerShowcase";
+import Link from "next/link";
 
 const PRIMARY_AREAS = [
   {
@@ -95,7 +96,7 @@ export default function AvantiqoUniverseHome(){
 
         <div className="relative z-20 mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-[#8E6B43]/12 pt-5 lg:absolute lg:bottom-6 lg:left-10 lg:right-10 lg:mt-0 xl:left-16 xl:right-16">
           <div className="text-[7px] uppercase tracking-[.24em] text-[#27231E]/42">Ideas · People · Products · A stronger tomorrow</div>
-          <a href="/start" className="inline-flex items-center gap-3 text-[8px] font-medium uppercase tracking-[.23em] text-[#40372E]/62 transition hover:text-[#9A6628]"><span className="h-px w-8 bg-[#B47C3A]"/>A more capable tomorrow</a>
+          <Link href="/start" className="inline-flex items-center gap-3 text-[8px] font-medium uppercase tracking-[.23em] text-[#40372E]/62 transition hover:text-[#9A6628]"><span className="h-px w-8 bg-[#B47C3A]"/>A more capable tomorrow</Link>
         </div>
       </div>
       </section>
@@ -133,7 +134,7 @@ export default function AvantiqoUniverseHome(){
           <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {INDUSTRIES.map(([name,href,image])=><a key={name} href={href} className="group relative min-h-[270px] overflow-hidden rounded-[26px] border border-black/[0.07] bg-[#E9DFD1] shadow-[0_16px_45px_rgba(35,26,18,.05)]"><Image src={image} alt="" fill sizes="33vw" className="object-cover transition duration-700 group-hover:scale-[1.025]"/><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(12,8,5,.01),rgba(12,8,5,.09)_52%,rgba(12,8,5,.62))]"/><div className="absolute inset-x-5 bottom-5 flex items-center justify-between gap-3"><div><div className="text-[7px] font-semibold uppercase tracking-[.18em] text-[#F0C98F]">AVANTIQO / SOLUTION</div><div className="mt-2 text-[24px] font-medium tracking-[-.045em] text-white">{name}</div></div><span className="text-white"><Arrow/></span></div></a>)}
           </div>
-          <div className="mt-7 text-center"><a href="/solutions" className="inline-flex h-11 items-center gap-2 rounded-full border border-[#D6A66A]/38 bg-white/72 px-5 text-[10px] font-semibold text-[#6A5540]">Explore all solutions <Arrow /></a></div>
+          <div className="mt-7 text-center"><Link href="/solutions" className="inline-flex h-11 items-center gap-2 rounded-full border border-[#D6A66A]/38 bg-white/72 px-5 text-[10px] font-semibold text-[#6A5540]">Explore all solutions <Arrow /></Link></div>
         </div>
       </section>
 
@@ -154,7 +155,7 @@ export default function AvantiqoUniverseHome(){
           <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">START WITH THE PROBLEM YOU WANT SOLVED</p>
           <h2 className="mx-auto mt-4 max-w-4xl text-[42px] font-medium leading-[1.00] tracking-[-0.055em] sm:text-[60px]">One business. One context. More ways to get work done.</h2>
           <p className="mx-auto mt-5 max-w-2xl text-[13px] leading-7 text-[#706A62]">Choose the first outcome you need today. Avantiqo can expand with the business without making you rebuild the context every time.</p>
-          <div className="mt-8 flex flex-wrap justify-center gap-2.5"><a href="/start" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Start with Avantiqo →</a><a href="/products" className="inline-flex h-11 items-center rounded-full border border-[#D6A66A]/40 bg-white/72 px-5 text-[10px] font-semibold text-[#6A5540]">Explore products</a></div>
+          <div className="mt-8 flex flex-wrap justify-center gap-2.5"><Link href="/start" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Start with Avantiqo →</Link><Link href="/products" className="inline-flex h-11 items-center rounded-full border border-[#D6A66A]/40 bg-white/72 px-5 text-[10px] font-semibold text-[#6A5540]">Explore products</Link></div>
         </div>
       </section>
     </main>

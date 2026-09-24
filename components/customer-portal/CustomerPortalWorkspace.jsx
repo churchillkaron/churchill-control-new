@@ -92,7 +92,7 @@ export default function CustomerPortalWorkspace({ section = "home" }) {
     }
   }
 
-  const invoices = data?.invoices || [];
+  const invoices = useMemo(() => data?.invoices || [], [data?.invoices]);
   const payments = data?.payments || [];
   const orders = data?.orders || [];
   const bookings = data?.bookings || [];

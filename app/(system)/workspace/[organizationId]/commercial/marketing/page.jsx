@@ -118,7 +118,7 @@ export default function MarketingPage() {
   const base = `/workspace/${organizationId}/commercial/marketing`;
 
   return (
-    <main className="min-h-screen bg-black p-8 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-8 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-7xl">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
           <div>

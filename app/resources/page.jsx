@@ -1,5 +1,6 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import Image from "next/image";
+import Link from "next/link";
 
 export const metadata = { title: "Resources | Avantiqo", description: "Guides, research, playbooks, templates, benchmarks, case studies and product updates from Avantiqo." };
 
@@ -41,6 +42,6 @@ export default function ResourcesPage(){
         <div className="p-6"><h2 className="text-[25px] font-medium tracking-[-0.04em]">{t}</h2><p className="mt-3 text-[11px] leading-6 text-[#746F68]">{d}</p><div className="mt-7 border-t border-black/[0.06] pt-4 text-[9px] leading-5 text-[#9A744B]">{b}</div></div>
       </article>)}</div>
     </div></section>
-    <section className="border-t border-black/[0.06] bg-[#F3EFE7]"><div className="mx-auto max-w-[1120px] px-5 py-20 text-center sm:px-7 lg:px-10"><p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">FROM LEARNING TO ACTION</p><h2 className="mx-auto mt-4 max-w-3xl text-[40px] font-medium leading-[1.02] tracking-[-0.05em] sm:text-[54px]">Use the knowledge. Then enter the right Avantiqo world.</h2><div className="mt-8 flex flex-wrap justify-center gap-2.5"><a href="/start" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Start Now →</a><a href="/solutions" className="inline-flex h-11 items-center rounded-full border border-[#D6A66A]/38 bg-white/72 px-5 text-[10px] font-semibold text-[#6A5540]">Explore Solutions</a></div></div></section>
+    <section className="border-t border-black/[0.06] bg-[#F3EFE7]"><div className="mx-auto max-w-[1120px] px-5 py-20 text-center sm:px-7 lg:px-10"><p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#9A744B]">FROM LEARNING TO ACTION</p><h2 className="mx-auto mt-4 max-w-3xl text-[40px] font-medium leading-[1.02] tracking-[-0.05em] sm:text-[54px]">Use the knowledge. Then enter the right Avantiqo world.</h2><div className="mt-8 flex flex-wrap justify-center gap-2.5"><Link href="/start" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Start Now →</Link><Link href="/solutions" className="inline-flex h-11 items-center rounded-full border border-[#D6A66A]/38 bg-white/72 px-5 text-[10px] font-semibold text-[#6A5540]">Explore Solutions</Link></div></div></section>
   </main>;
 }

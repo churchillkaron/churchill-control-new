@@ -2,6 +2,7 @@ import Image from "next/image";
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import { productCatalog } from "@/components/public/productCatalog";
 import { CUSTOMER_GROUPS, isCustomerProduct } from "@/components/public/customerProductGroups";
+import Link from "next/link";
 
 const customerProducts = productCatalog.filter(isCustomerProduct);
 
@@ -186,7 +187,7 @@ export default function ProductsCatalogPage() {
             <p className="mt-7 max-w-[590px] text-[16px] leading-8 text-[#625D55]">Choose one business problem, solve it properly, and expand only when the next connected capability creates value.</p>
             <div className="mt-9 flex flex-wrap gap-2.5">
               <a href="#choose" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white shadow-[0_9px_28px_rgba(20,18,15,.16)]">Choose by business need</a>
-              <a href="/products/all" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#5C554D]">Search all products</a>
+              <Link href="/products/all" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/70 px-5 text-[10px] font-semibold text-[#5C554D]">Search all products</Link>
             </div>
             <div className="mt-10 grid max-w-[560px] grid-cols-3 border-t border-black/[0.08] pt-5">
               {["Start focused","Stay connected","Expand when useful"].map((item,index)=><div key={item} className={index ? "border-l border-black/[0.07] pl-4" : "pr-4"}><div className="text-[7px] font-semibold uppercase tracking-[.15em] text-[#9A744B]">0{index+1}</div><div className="mt-2 text-[9px] leading-4 text-[#716A62]">{item}</div></div>)}
@@ -280,7 +281,7 @@ export default function ProductsCatalogPage() {
       <section className="border-b border-[#CFC5B8]/45 bg-[#F7F3EC]">
         <div className="mx-auto grid max-w-[1320px] gap-8 px-5 py-14 sm:px-7 lg:grid-cols-[1fr_auto] lg:items-center lg:px-10 lg:py-16">
           <div><p className="text-[8px] font-semibold uppercase tracking-[.18em] text-[#9A744B]">NEED THE COMPLETE CATALOG?</p><h2 className="mt-3 text-[34px] font-medium tracking-[-.045em]">Search every product without making this page feel like a database.</h2><p className="mt-3 max-w-3xl text-[11px] leading-6 text-[#6F685F]">The full catalog now lives in a dedicated searchable view. Filter by business need, team, industry or product name when you need exact product detail.</p></div>
-          <a href="/products/all" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Search all products →</a>
+          <Link href="/products/all" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Search all products →</Link>
         </div>
       </section>
 

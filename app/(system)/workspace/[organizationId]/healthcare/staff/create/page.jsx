@@ -18,7 +18,7 @@ export default function CreateStaffPage() {
         <input type="text" placeholder="Department ID" className="w-full rounded border p-3" />
         <input type="text" placeholder="Phone" className="w-full rounded border p-3" />
         <input type="email" placeholder="Email" className="w-full rounded border p-3" />
-        <button type="submit" className="rounded bg-blue-600 px-5 py-3 text-white">
+        <button type="submit" className="rounded bg-[#D6A66A] px-5 py-3 text-[#191919]">
           Add Staff
         </button>
       </form>

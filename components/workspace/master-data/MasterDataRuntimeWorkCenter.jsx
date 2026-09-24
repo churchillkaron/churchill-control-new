@@ -577,41 +577,9 @@ export default function MasterDataRuntimeWorkCenter({
   }
 
 
-  if (
+  const isReportWorkCenter =
     resolvedCapability?.runtime?.renderer ===
-    "ReportWorkCenter"
-  ) {
-
-    return (
-
-      <ReportWorkCenter
-
-        capability={
-          resolvedCapability
-        }
-
-        organizationId={
-          resolvedOrganizationId
-        }
-
-        entityId={
-          resolvedEntityId || legalEntityId
-        }
-
-        periodId={
-          resolvedPeriodId
-        }
-
-        workspaceId={
-          workspaceId
-        }
-
-      />
-
-    );
-
-  }
-
+    "ReportWorkCenter";
 
   const normalizedKey =
     resolvedCapability.id ||
@@ -833,6 +801,7 @@ export default function MasterDataRuntimeWorkCenter({
     }
 
     if (
+      !isReportWorkCenter &&
       runtime.ready &&
       resolvedOrganizationId &&
       resolvedEntityId
@@ -854,6 +823,11 @@ export default function MasterDataRuntimeWorkCenter({
     refresh,
     config.api,
     config.rowsKey,
+    config.filters,
+    runtime.ready,
+    resolvedEntityId,
+    resolvedPeriodId,
+    isReportWorkCenter,
   ]);
 
   const filteredRows =
@@ -902,6 +876,11 @@ export default function MasterDataRuntimeWorkCenter({
 
 
     async function resolveSelected() {
+
+      if (isReportWorkCenter) {
+        setSelectedDetail(null);
+        return;
+      }
 
       if (!selected) {
 
@@ -970,7 +949,8 @@ export default function MasterDataRuntimeWorkCenter({
     };
 
   }, [
-    selected?.id,
+    selected,
+    isReportWorkCenter,
   ]);
 
   const totalValue =
@@ -1045,6 +1025,18 @@ export default function MasterDataRuntimeWorkCenter({
     )
       ? configuredCreate
       : null;
+
+  if (isReportWorkCenter) {
+    return (
+      <ReportWorkCenter
+        capability={resolvedCapability}
+        organizationId={resolvedOrganizationId}
+        entityId={resolvedEntityId || legalEntityId}
+        periodId={resolvedPeriodId}
+        workspaceId={workspaceId}
+      />
+    );
+  }
 
   return (
     <MasterDataWorkCenter

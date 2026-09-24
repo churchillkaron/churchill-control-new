@@ -353,7 +353,7 @@ export default function OrganizationAccessPolicyPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-5xl space-y-6">
         <section className="rounded-[32px] border border-white/10 bg-white/[0.045] p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">

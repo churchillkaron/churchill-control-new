@@ -40,8 +40,8 @@ async function readResponse(response) {
 
 function RuntimeLoading() {
   return (
-    <main className="min-h-screen bg-black px-6 py-20 text-white">
-      <div className="mx-auto max-w-[900px] rounded-[32px] border border-white/10 bg-white/[0.03] p-8">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-20 text-[#191919]">
+      <div className="mx-auto max-w-[900px] rounded-[32px] border border-black/[0.07] bg-white p-8">
         <p className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">
           Avantiqo POS
         </p>
@@ -50,7 +50,7 @@ function RuntimeLoading() {
           Loading Stationary POS
         </h1>
 
-        <p className="mt-3 text-sm text-white/50">
+        <p className="mt-3 text-sm text-[#777169]">
           Resolving the installed POS application and organization runtime.
         </p>
 
@@ -68,7 +68,7 @@ function RuntimeError({
   retry,
 }) {
   return (
-    <main className="min-h-screen bg-black px-6 py-20 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-20 text-[#191919]">
       <div className="mx-auto max-w-[900px] rounded-[32px] border border-amber-300/20 bg-white/[0.03] p-8">
         <p className="text-xs uppercase tracking-[0.28em] text-[#D6A66A]">
           Stationary POS
@@ -78,11 +78,11 @@ function RuntimeError({
           POS runtime unavailable
         </h1>
 
-        <p className="mt-3 text-sm leading-7 text-white/55">
+        <p className="mt-3 text-sm leading-7 text-[#777169]">
           {error || "The POS runtime could not be loaded."}
         </p>
 
-        <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-4 text-xs text-white/40">
+        <div className="mt-6 rounded-2xl border border-black/[0.07] bg-[#FBF8F3] p-4 text-xs text-[#817B73]">
           Server status: {status || "Unavailable"}
         </div>
 

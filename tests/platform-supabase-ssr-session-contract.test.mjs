@@ -3,7 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const read = (path) => fs.readFileSync(path, "utf8");
-const middleware = read("middleware.js");
+const proxy = read("proxy.js");
 const callback = read("app/login/callback/page.js");
 const syncRoute = read("app/api/auth/session/sync/route.js");
 
@@ -16,18 +16,18 @@ test("browser login synchronizes a validated session before workspace bootstrap"
   assert.match(syncRoute, /Cache-Control/);
 });
 
-test("middleware refreshes Supabase cookies without changing custom-host routing", () => {
-  assert.match(middleware, /createServerClient/);
-  assert.match(middleware, /supabase\.auth\.getClaims\(\)/);
-  assert.match(middleware, /request\.cookies\.set/);
-  assert.match(middleware, /response\.cookies\.set/);
-  assert.match(middleware, /isWorkforcePath\(request\.nextUrl\.pathname\)/);
-  assert.match(middleware, /process\.env\.NODE_ENV === "development"/);
-  assert.match(middleware, /request\.nextUrl\.hostname === "127\.0\.0\.1"/);
-  assert.match(middleware, /localUrl\.hostname = "localhost"/);
-  assert.match(middleware, /_next\/static/);
-  assert.match(middleware, /isProtectedWorkspacePath/);
-  assert.match(middleware, /loginUrl\.searchParams\.set\("next"/);
+test("proxy refreshes Supabase cookies without changing custom-host routing", () => {
+  assert.match(proxy, /createServerClient/);
+  assert.match(proxy, /supabase\.auth\.getClaims\(\)/);
+  assert.match(proxy, /request\.cookies\.set/);
+  assert.match(proxy, /response\.cookies\.set/);
+  assert.match(proxy, /isWorkforcePath\(request\.nextUrl\.pathname\)/);
+  assert.match(proxy, /process\.env\.NODE_ENV === "development"/);
+  assert.match(proxy, /request\.nextUrl\.hostname === "127\.0\.0\.1"/);
+  assert.match(proxy, /localUrl\.hostname = "localhost"/);
+  assert.match(proxy, /_next\/static/);
+  assert.match(proxy, /isProtectedWorkspacePath/);
+  assert.match(proxy, /loginUrl\.searchParams\.set\("next"/);
 });
 
 test("login returns authenticated users to the requested workspace", () => {

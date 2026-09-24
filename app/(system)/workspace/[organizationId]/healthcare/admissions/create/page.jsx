@@ -32,7 +32,7 @@ export default function CreateAdmissionPage() {
         />
         <button
           type="submit"
-          className="rounded bg-blue-600 px-5 py-3 text-white"
+          className="rounded bg-[#D6A66A] px-5 py-3 text-[#191919]"
         >
           Admit Patient
         </button>

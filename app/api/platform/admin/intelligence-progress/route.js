@@ -1,6 +1,8 @@
 import { requirePlatformOperatorWorkspaceAccess } from "@/lib/platform/security/requirePlatformOperatorWorkspaceAccess";
 import { supabaseAdmin } from "@/lib/shared/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 const LEARNING_SCOPES = [
   "platform_learning_runs",
   "platform_learning_agenda",

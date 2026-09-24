@@ -122,7 +122,7 @@ export default function ProductionUsagePage() {
 
   return (
 
-    <div className="min-h-screen bg-black text-white overflow-hidden">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919] overflow-hidden">
 
       {/* ===== HEADER ===== */}
       <div className="flex flex-col gap-4 border-b border-white/5 px-4 py-6 sm:px-6 lg:h-28 lg:flex-row lg:items-center lg:justify-between lg:px-12 lg:py-0">

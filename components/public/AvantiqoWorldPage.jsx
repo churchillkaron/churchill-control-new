@@ -1,6 +1,7 @@
 import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import PublicArtStage from "@/components/public/PublicArtStage";
 import BusinessPartnerShowcase from "@/components/public/BusinessPartnerShowcase";
+import Link from "next/link";
 
 function Arrow({ className = "" }) {
   return <svg aria-hidden="true" viewBox="0 0 20 20" className={className} fill="none"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -178,7 +179,7 @@ export default function AvantiqoWorldPage({ config }) {
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-[22px] border border-black/[0.07] bg-[#F9F4EC] px-5 py-4 sm:px-6">
             <div className="text-[8px] font-semibold uppercase tracking-[.15em] text-[#77695B]">EVERY CONVERSATION → RIGHT BUSINESS OBJECT → CUSTOMER PORTAL → PAYMENT → SERVICE → COMPANY MEMORY</div>
-            <a href="/products#intelligence" className="text-[8px] font-semibold text-[#8D6339]">Explore Intelligence →</a>
+            <Link href="/products#intelligence" className="text-[8px] font-semibold text-[#8D6339]">Explore Intelligence →</Link>
           </div>
         </div>
       </section> : null}

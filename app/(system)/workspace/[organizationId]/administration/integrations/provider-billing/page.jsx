@@ -268,7 +268,7 @@ export default function ProviderBillingPage() {
 
   if (organizationLoading || loading) {
     return (
-      <main className="min-h-screen bg-black p-6 text-white lg:p-10">
+      <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
         <div className="mx-auto max-w-7xl rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-sm text-white/50">
           Loading provider billing…
         </div>
@@ -278,7 +278,7 @@ export default function ProviderBillingPage() {
 
   if (!organizationId) {
     return (
-      <main className="min-h-screen bg-black p-6 text-white lg:p-10">
+      <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
         <div className="mx-auto max-w-7xl rounded-3xl border border-amber-400/20 bg-amber-400/10 p-6 text-sm text-amber-100">
           Select an organization before managing Provider Billing.
         </div>
@@ -287,7 +287,7 @@ export default function ProviderBillingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-7xl">
         <div className="border-b border-white/10 pb-8">
           <Link

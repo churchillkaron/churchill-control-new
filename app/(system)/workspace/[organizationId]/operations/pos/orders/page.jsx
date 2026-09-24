@@ -378,7 +378,7 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
 
   if (!entityId) {
     return (
-      <main className="min-h-screen bg-black px-6 py-8 text-white">
+      <main className="min-h-screen bg-[#F7F6F3] px-6 py-8 text-[#191919]">
         <div className="mx-auto max-w-[1600px] rounded-[30px] border border-white/10 bg-white/[0.03] p-6 text-sm text-white/50">
           Select an active legal entity before loading Order Control.
         </div>
@@ -387,7 +387,7 @@ export default function POSOrdersPage({ posConfiguration, posRuntime }) {
   }
 
   return (
-    <main className="min-h-screen bg-black px-6 py-8 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-8 text-[#191919]">
       <div className="mx-auto max-w-[1600px]">
         <header className="rounded-[34px] border border-white/10 bg-white/[0.035] p-7">
           <div className="flex flex-wrap items-start justify-between gap-5">

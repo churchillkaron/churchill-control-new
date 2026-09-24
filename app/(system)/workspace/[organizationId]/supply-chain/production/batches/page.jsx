@@ -71,7 +71,7 @@ export default function ProductionBatchPage() {
   }, [loadBatches]);
 
   return (
-    <div className="min-h-screen bg-black p-10 text-white">
+    <div className="min-h-screen bg-[#F7F6F3] p-10 text-[#191919]">
       <div className="mx-auto max-w-7xl">
         <div className="mb-10 flex items-start justify-between gap-6">
           <div>

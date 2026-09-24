@@ -909,7 +909,7 @@ export default function POSFinalUI({
 
   if (runtimeError) {
     return (
-      <main className="min-h-screen bg-black p-4 text-white">
+      <main className="min-h-screen bg-[#F7F6F3] p-4 text-[#191919]">
         <div className="mx-auto flex min-h-[80vh] w-full max-w-[430px] flex-col items-center justify-center gap-4 rounded-[32px] border border-red-500/20 bg-[#060606] p-6 text-center">
           <div className="text-sm text-red-300">{runtimeError}</div>
           <button
@@ -925,7 +925,7 @@ export default function POSFinalUI({
 
   if (!runtime) {
     return (
-      <main className="min-h-screen bg-black p-4 text-white">
+      <main className="min-h-screen bg-[#F7F6F3] p-4 text-[#191919]">
         <div className="mx-auto flex min-h-[80vh] w-full max-w-[430px] items-center justify-center rounded-[32px] border border-white/10 bg-[#060606] text-xs text-white/40">
           Loading waiter...
         </div>
@@ -934,7 +934,7 @@ export default function POSFinalUI({
   }
 
   return (
-    <main className="min-h-screen bg-black p-3 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] p-3 text-[#191919]">
       <section className="mx-auto flex min-h-[calc(100vh-24px)] w-full max-w-[430px] overflow-hidden rounded-[32px] border border-white/10 bg-[#060606] shadow-2xl">
         <div className="flex min-h-0 w-full flex-col">
           <header className="border-b border-white/10 bg-black/70 px-4 py-3 backdrop-blur-xl">

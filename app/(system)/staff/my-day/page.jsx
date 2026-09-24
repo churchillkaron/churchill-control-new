@@ -79,7 +79,7 @@ export default function StaffMyDayPage() {
     const key = `${job.id}:${action}`;
     setState((current) => ({ ...current, working: key, error: "", message: "" }));
     try {
-      const location = await currentLocation();
+      const location = job.requiresLocationConfirmation ? await currentLocation() : null;
       const response = await fetch("/api/staff/my-day", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -187,8 +187,9 @@ export default function StaffMyDayPage() {
                         <span className="rounded-full border border-black/[0.08] px-2.5 py-1 text-[9px] uppercase tracking-[0.12em] text-[#948E86]">{job.priority || "normal"}</span>
                       </div>
                       <h2 className="mt-3 text-xl font-black tracking-[-0.02em] sm:text-2xl">{job.serviceName}</h2>
-                      <div className="mt-1 text-sm text-[#79736B]">{job.customerName}</div>
+                      <div className="mt-1 text-sm text-[#79736B]">{job.subjectLabel || "Work"}: {job.subjectName || job.customerName || "Unassigned"}</div>
                       {job.description ? <p className="mt-3 max-w-3xl text-sm leading-6 text-[#8A847C]">{job.description}</p> : null}
+                      <p className="mt-2 text-[10px] text-[#AAA49C]">Location proof is required only when the assignment or protocol needs it.</p>
                     </div>
                     <div className="grid w-full gap-2 text-xs sm:grid-cols-2 lg:w-auto lg:min-w-64 lg:grid-cols-1">
                       <Info icon={Clock3} label="Scheduled" value={job.scheduledStart ? dateTime(job.scheduledStart) : "Not scheduled"} />

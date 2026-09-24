@@ -29,10 +29,10 @@ export function BusinessContextProvider({
     loading,
   } = useOrganizationRuntime();
 
-  const finance =
-    runtime?.finance ||
-    runtime?.resolvedRuntime?.finance ||
-    {};
+  const finance = useMemo(
+    () => runtime?.finance || runtime?.resolvedRuntime?.finance || {},
+    [runtime?.finance, runtime?.resolvedRuntime?.finance],
+  );
 
   const entity =
     finance.entity ||

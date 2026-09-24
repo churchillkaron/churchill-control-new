@@ -2,6 +2,7 @@ import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import ProductFinder from "@/components/public/ProductControlIndex";
 import { productCatalog } from "@/components/public/productCatalog";
 import { CUSTOMER_GROUPS, isCustomerProduct } from "@/components/public/customerProductGroups";
+import Link from "next/link";
 
 export const metadata = {
   title: "All Products | Avantiqo",
@@ -21,7 +22,7 @@ export default async function AllProductsPage({ searchParams }) {
           <p className="text-[9px] font-semibold uppercase tracking-[.22em] text-[#9A744B]">AVANTIQO PRODUCT CATALOG</p>
           <h1 className="mt-4 text-[48px] font-medium leading-[.96] tracking-[-.055em] sm:text-[66px]">Find the exact product when you need the full catalog.</h1>
           <p className="mt-6 max-w-3xl text-[14px] leading-7 text-[#6D655D]">Search every customer-facing Avantiqo product by job, team, industry or name. If you are still deciding where to start, use the simpler Products page first.</p>
-          <a href="/products" className="mt-7 inline-flex text-[9px] font-semibold text-[#815B36]">← Back to Products</a>
+          <Link href="/products" className="mt-7 inline-flex text-[9px] font-semibold text-[#815B36]">← Back to Products</Link>
         </div>
       </div>
     </section>

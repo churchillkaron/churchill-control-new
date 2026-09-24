@@ -3,6 +3,7 @@ import PublicSiteHeader from "@/components/public/PublicSiteHeader";
 import ProductFamilyArt from "@/components/public/ProductFamilyArt";
 import { productCatalog } from "@/components/public/productCatalog";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 export function generateStaticParams() {
   return productCatalog.map((product) => ({ slug: product.id }));
@@ -57,7 +58,7 @@ function PortalHero({ product }) {
         <h1 className="mt-5 text-[48px] font-medium leading-[.94] tracking-[-.065em] sm:text-[62px] xl:text-[72px]">{view.headline}</h1>
         <p className="mt-6 max-w-xl text-[15px] leading-8 text-[#625D55]">{view.body}</p>
         <div className="mt-7 flex flex-wrap gap-2">{view.chips.map((chip)=><span key={chip} className="rounded-full border border-[#D6A66A]/24 bg-white/60 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.12em] text-[#80664B]">{chip}</span>)}</div>
-        <div className="mt-9 flex flex-wrap gap-2.5"><a href="/start" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Start with {product.name} →</a><a href="/products#portals-external" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/68 px-5 text-[10px] font-semibold text-[#5A5148]">See all portals</a></div>
+        <div className="mt-9 flex flex-wrap gap-2.5"><Link href="/start" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Start with {product.name} →</Link><Link href="/products#portals-external" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/68 px-5 text-[10px] font-semibold text-[#5A5148]">See all portals</Link></div>
       </div>
       <div className="relative min-h-[520px] overflow-hidden rounded-[34px] border border-black/[0.08] bg-[#E9DFD1] shadow-[0_34px_95px_rgba(68,47,25,.13)] sm:min-h-[590px]">
         <Image src={view.image} alt="" fill priority sizes="58vw" className={`object-cover ${view.imageClass || ""}`} />
@@ -109,7 +110,7 @@ export default function CatalogProductPage({ params }) {
             <h1 className="mt-4 max-w-[650px] text-[50px] font-medium leading-[.94] tracking-[-.065em] sm:text-[64px] lg:text-[70px]">{product.summary}</h1>
             <p className="mt-7 max-w-xl text-[15px] leading-8 text-[#625D55]">Built for {product.buyers}. Start with this product on its own, then connect more Avantiqo products as your operation grows.</p>
             <div className="mt-7 flex flex-wrap gap-2">{product.verticals.slice(0,6).map((vertical)=><span key={vertical} className="rounded-full border border-[#D6A66A]/25 bg-white/55 px-3 py-1.5 text-[7px] font-semibold uppercase tracking-[.12em] text-[#80664B]">{vertical}</span>)}</div>
-            <div className="mt-9 flex flex-wrap gap-2.5"><a href="/start" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Start with {product.name} →</a>{product.href ? <a href={product.href} className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/58 px-5 text-[10px] font-semibold text-[#5A5148]">Explore full {product.name} →</a> : null}</div>
+            <div className="mt-9 flex flex-wrap gap-2.5"><Link href="/start" className="inline-flex h-11 items-center rounded-full bg-[#171614] px-5 text-[10px] font-semibold text-white">Start with {product.name} →</Link>{product.href ? <a href={product.href} className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/58 px-5 text-[10px] font-semibold text-[#5A5148]">Explore full {product.name} →</a> : null}</div>
           </div>
         </div>
         <div className="relative min-h-[520px] overflow-hidden border-t border-black/[.06] p-5 sm:p-7 lg:min-h-0 lg:border-l lg:border-t-0 lg:p-8">
@@ -128,6 +129,6 @@ export default function CatalogProductPage({ params }) {
       </div>
     </div></section>
     {product.family === "portals-external" ? <PortalProductStory product={product} /> : null}
-    <section className="bg-[#EEE6DB] text-[#1D1B18]"><div className="mx-auto grid max-w-[1320px] gap-8 px-5 py-16 sm:px-7 lg:grid-cols-[1fr_auto] lg:items-center lg:px-10 lg:py-20"><div><p className="text-[8px] font-semibold uppercase tracking-[.18em] text-[#9A744B]">ONE BUSINESS. CONNECTED PRODUCTS.</p><h2 className="mt-3 text-[36px] font-medium tracking-[-.045em]">Start with {product.name}. Connect more when you need them.</h2><p className="mt-3 max-w-3xl text-[11px] leading-6 text-[#6D645B]">Your organization, people and records stay connected as you add more Avantiqo products.</p></div><a href="/products" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/62 px-5 text-[10px] font-semibold text-[#5A5148]">Explore all products</a></div></section>
+    <section className="bg-[#EEE6DB] text-[#1D1B18]"><div className="mx-auto grid max-w-[1320px] gap-8 px-5 py-16 sm:px-7 lg:grid-cols-[1fr_auto] lg:items-center lg:px-10 lg:py-20"><div><p className="text-[8px] font-semibold uppercase tracking-[.18em] text-[#9A744B]">ONE BUSINESS. CONNECTED PRODUCTS.</p><h2 className="mt-3 text-[36px] font-medium tracking-[-.045em]">Start with {product.name}. Connect more when you need them.</h2><p className="mt-3 max-w-3xl text-[11px] leading-6 text-[#6D645B]">Your organization, people and records stay connected as you add more Avantiqo products.</p></div><Link href="/products" className="inline-flex h-11 items-center rounded-full border border-black/[0.10] bg-white/62 px-5 text-[10px] font-semibold text-[#5A5148]">Explore all products</Link></div></section>
   </main>;
 }

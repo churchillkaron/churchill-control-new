@@ -57,16 +57,16 @@ export default function PatientsPage() {
 
         <Link
           href={`/workspace/${organization?.id}/healthcare/patients/create`}
-          className="rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white"
+          className="rounded-2xl bg-[#D6A66A] px-5 py-3 font-semibold text-[#191919]"
         >
           Add Patient
         </Link>
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
+      <div className="overflow-hidden rounded-3xl border border-black/[0.07] bg-white">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/10">
+            <tr className="border-b border-black/[0.07]">
               <th className="p-5 text-left">
                 Name
               </th>
@@ -106,7 +106,7 @@ export default function PatientsPage() {
                 (patient) => (
                   <tr
                     key={patient.id}
-                    className="border-b border-white/5"
+                    className="border-b border-black/[0.05]"
                   >
                     <td className="p-5">
                       <div className="font-medium">
@@ -131,14 +131,14 @@ export default function PatientsPage() {
                       <div className="flex justify-end gap-2">
                         <Link
                           href={`/workspace/${organization?.id}/healthcare/patients/${patient.id}`}
-                          className="rounded-xl border border-white/10 px-3 py-2"
+                          className="rounded-xl border border-black/[0.07] px-3 py-2"
                         >
                           View
                         </Link>
 
                         <Link
                           href={`/workspace/${organization?.id}/healthcare/patients/${patient.id}/edit`}
-                          className="rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 py-2"
+                          className="rounded-xl border border-[#D6A66A]/25 bg-[#FBF4EA] px-3 py-2"
                         >
                           Edit
                         </Link>

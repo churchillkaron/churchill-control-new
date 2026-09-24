@@ -126,7 +126,7 @@ export default function PasskeyReadinessPage() {
     : null;
 
   return (
-    <main className="min-h-screen bg-[#030303] p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex items-center justify-between gap-4">
           <Link

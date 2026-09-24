@@ -7,10 +7,10 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "test": "node --test tests/*.test.mjs",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "lint": "eslint .",
     "persist:code:competitive-evidence:local": "node scripts/persist-avantiqo-code-competitive-evidence-local.mjs",
     "attest:code:competitive-reference:local": "node scripts/attest-avantiqo-code-competitive-reference-local.mjs",
     "benchmark:code:competitive-reference:live": "node scripts/run-avantiqo-code-competitive-reference-live.mjs",
@@ -90,7 +90,7 @@
     "lucide-react": "^1.11.0",
     "mammoth": "^1.12.2",
     "monaco-editor": "^0.53.0",
-    "next": "14.2.35",
+    "next": "16.3.6",
     "openai": "^6.42.0",
     "papaparse": "^5.5.3",
     "pdf-lib": "^1.17.1",
@@ -101,7 +101,7 @@
     "react-chartjs-2": "^5.3.1",
     "react-dom": "18.2.0",
     "recharts": "^3.8.1",
-    "sharp": "^0.34.5",
+    "sharp": "0.35.4",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "stripe": "^22.2.1",
@@ -112,8 +112,8 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.5.0",
-    "eslint": "8.57.1",
-    "eslint-config-next": "14.2.35",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.6",
     "postcss": "^8.5.10",
     "tailwindcss": "^3.4.1"
   }

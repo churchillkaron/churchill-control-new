@@ -124,7 +124,7 @@ export default function ProductionPerformancePage() {
 
   return (
 
-    <div className="min-h-screen bg-black text-white overflow-hidden">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919] overflow-hidden">
 
       {/* ===== HEADER ===== */}
       <div className="h-24 border-b border-white/5 flex items-center justify-between px-10">

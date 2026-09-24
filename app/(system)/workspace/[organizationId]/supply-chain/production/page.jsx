@@ -161,7 +161,7 @@ export default function ProductionPage() {
 
   return (
 
-    <main className="min-h-screen bg-black p-10 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] p-10 text-[#191919]">
 
       <div className="mb-10">
 

@@ -39,7 +39,7 @@ export default function HealthcarePage() {
           <Link
             key={module.href}
             href={organization?.id ? `/workspace/${organization.id}/healthcare/${module.href}` : "#"}
-            className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 hover:bg-white/[0.06] transition"
+            className="rounded-2xl border border-black/[0.07] bg-white p-6 hover:bg-[#FBF8F3] transition"
           >
             <div className="text-lg font-semibold">
               {module.name}

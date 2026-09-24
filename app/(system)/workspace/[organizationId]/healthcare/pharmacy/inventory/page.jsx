@@ -15,10 +15,10 @@ export default function PharmacyInventoryPage() {
         Organization: {organization?.name}
       </p>
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
+      <div className="rounded-2xl border border-black/[0.07] bg-white overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/10">
+            <tr className="border-b border-black/[0.07]">
               <th className="p-4 text-left">Medication</th>
               <th className="p-4 text-left">Quantity</th>
               <th className="p-4 text-left">Unit</th>

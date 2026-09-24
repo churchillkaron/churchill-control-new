@@ -59,7 +59,7 @@ export default function EditPatientPage() {
 
       <form
         onSubmit={save}
-        className="space-y-4 rounded-3xl border border-white/10 bg-white/[0.03] p-8"
+        className="space-y-4 rounded-3xl border border-black/[0.07] bg-white p-8"
       >
         <input
           value={form.first_name || ""}
@@ -70,7 +70,7 @@ export default function EditPatientPage() {
                 e.target.value,
             })
           }
-          className="w-full rounded-xl border border-white/10 bg-transparent p-3"
+          className="w-full rounded-xl border border-black/[0.07] bg-transparent p-3"
         />
 
         <input
@@ -82,7 +82,7 @@ export default function EditPatientPage() {
                 e.target.value,
             })
           }
-          className="w-full rounded-xl border border-white/10 bg-transparent p-3"
+          className="w-full rounded-xl border border-black/[0.07] bg-transparent p-3"
         />
 
         <input
@@ -94,7 +94,7 @@ export default function EditPatientPage() {
                 e.target.value,
             })
           }
-          className="w-full rounded-xl border border-white/10 bg-transparent p-3"
+          className="w-full rounded-xl border border-black/[0.07] bg-transparent p-3"
         />
 
         <input
@@ -106,11 +106,11 @@ export default function EditPatientPage() {
                 e.target.value,
             })
           }
-          className="w-full rounded-xl border border-white/10 bg-transparent p-3"
+          className="w-full rounded-xl border border-black/[0.07] bg-transparent p-3"
         />
 
         <button
-          className="rounded-2xl bg-blue-600 px-6 py-3 text-white"
+          className="rounded-2xl bg-[#D6A66A] px-6 py-3 text-[#191919]"
         >
           Save Changes
         </button>

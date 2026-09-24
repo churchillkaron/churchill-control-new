@@ -8,8 +8,8 @@ import {
 
 const WORKFORCE_CANONICAL_HOST = "avantiqo.ai";
 const INVESTOR_V7_LAUNCH_PATH = "/api/internal/creative-investor-spatial-master-v7-launch";
-const INVESTOR_V7_LAUNCH_TOKEN = "avq-investor-spatial-master-v7-launch-20260821";
-const INVESTOR_V7_RENDER_TOKEN = "avq-investor-spatial-master-v7-20260821";
+const INVESTOR_V7_LAUNCH_TOKEN = String(process.env.AVANTIQO_INVESTOR_V7_LAUNCH_TOKEN || "").trim();
+const INVESTOR_V7_RENDER_TOKEN = String(process.env.AVANTIQO_INVESTOR_V7_RENDER_TOKEN || "").trim();
 
 
 function isWorkforcePath(pathname) {
@@ -86,7 +86,7 @@ async function refreshSupabaseSession(request) {
   return response;
 }
 function launchInvestorV7(request, event) {
-  if (request.nextUrl.searchParams.get("token") !== INVESTOR_V7_LAUNCH_TOKEN) {
+  if (!INVESTOR_V7_LAUNCH_TOKEN || !INVESTOR_V7_RENDER_TOKEN || request.nextUrl.searchParams.get("token") !== INVESTOR_V7_LAUNCH_TOKEN) {
     return new NextResponse(null, { status: 404 });
   }
 
@@ -140,7 +140,7 @@ function launchInvestorV7(request, event) {
   }, { status: 202 });
 }
 
-export async function middleware(request, event) {  if (request.nextUrl.pathname === INVESTOR_V7_LAUNCH_PATH) {
+export async function proxy(request, event) {  if (request.nextUrl.pathname === INVESTOR_V7_LAUNCH_PATH) {
     return launchInvestorV7(request, event);
   }
 

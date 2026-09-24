@@ -84,7 +84,7 @@ export default function AdsIntelligencePage() {
   const allocation = data?.capital_allocation_proposal || null;
 
   return (
-    <main className="min-h-screen bg-black p-6 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-[1500px]">
         <Link
           href={`/workspace/${organizationId}/commercial/marketing/campaigns/whole`}

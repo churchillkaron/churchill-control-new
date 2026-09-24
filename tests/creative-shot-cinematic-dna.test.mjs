@@ -71,7 +71,7 @@ test("provider serializer gives Cinema the exact cinematic DNA instead of droppi
   assert.match(instruction, /HUMAN|ENVIRONMENTAL|MONUMENTAL/);
   assert.match(instruction, /campaign_still_strength_required/);
   assert.match(instruction, /generic AI beauty/);
-  assert.match(instruction, /merely photoreal result/i);
+  assert.match(instruction, /Photorealism alone is insufficient/i);
 });
 
 test("shot bible fails closed for generated video when cinematic DNA is absent and passes when bound", () => {

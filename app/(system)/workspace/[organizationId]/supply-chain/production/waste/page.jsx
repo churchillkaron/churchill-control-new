@@ -43,7 +43,7 @@ export default function WastePage() {
   }, [organizationId]);
 
   return (
-    <div className="min-h-screen bg-black text-white p-10">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#191919] p-10">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-start justify-between gap-6 mb-10">
           <div>

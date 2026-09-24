@@ -19,10 +19,10 @@ export default function InsurancePage() {
         Insurance Claims
       </h1>
 
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+      <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/10">
+            <tr className="border-b border-black/[0.07]">
               <th className="p-4 text-left">
                 Provider
               </th>
@@ -55,7 +55,7 @@ export default function InsurancePage() {
                 (claim) => (
                   <tr
                     key={claim.id}
-                    className="border-b border-white/5"
+                    className="border-b border-black/[0.05]"
                   >
                     <td className="p-4">
                       {claim.insurance_provider}

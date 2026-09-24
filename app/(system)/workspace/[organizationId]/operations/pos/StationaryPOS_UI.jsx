@@ -120,7 +120,7 @@ export default function StationaryPOSUI({
 
   const shellClass = isRestaurant
     ? "min-h-screen bg-[#F7F6F3] text-[#191919]"
-    : "min-h-screen bg-black text-white";
+    : "min-h-screen bg-[#F7F6F3] text-[#191919]";
 
   const headerClass = isRestaurant
     ? "sticky top-0 z-50 border-b border-black/[0.07] bg-[#F7F6F3]/95 px-4 py-3 backdrop-blur-xl"

@@ -13,7 +13,7 @@ import { CREATIVE_TOOL_CAPABILITIES } from "@/lib/creative/tools/registry/Creati
 import { CreativeToolExecutionRuntime } from "@/lib/creative/tools/runtime/CreativeToolExecutionRuntime";
 import { resolveCreativeFfmpegPath, resolveCreativeFfprobePath } from "@/lib/creative/media/runtime/CreativeMediaBinaryRuntime";
 
-const TOKEN = "avq-investor-spatial-master-v7-20260821";
+const TOKEN = String(process.env.AVANTIQO_INVESTOR_V7_RENDER_TOKEN || "").trim();
 const ORG = "33336a72-acb5-474e-856b-8be0269360e2";
 const PROJECT = "37ca49f2-210d-4665-af6b-6b5fa834f750";
 const BUCKET = "creative-assets";

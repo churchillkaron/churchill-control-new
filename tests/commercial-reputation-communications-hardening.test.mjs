@@ -6,10 +6,10 @@ import path from "node:path";
 const root = process.cwd();
 const source = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
-test("critical reviews can never auto-publish", () => {
+test("critical reviews preserve recovery while organization policy controls auto-publish", () => {
   const runtime = source("lib/commercial/reputation/ReputationAutomationRuntime.js");
   assert.match(runtime, /const critical = rating <=/);
-  assert.match(runtime, /const autoPublish =\s*!critical && rating >=/);
+  assert.match(runtime, /const autoPublish = rating >= Number\(policy\.auto_publish_min_rating \?\? 5\)/);
   assert.match(runtime, /if \(critical\) await createRecoveryCase/);
 });
 

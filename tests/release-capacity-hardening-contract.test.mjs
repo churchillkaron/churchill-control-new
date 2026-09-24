@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 const vercel = JSON.parse(await readFile(new URL("vercel.json", root), "utf8"));
 const cron = new Map(vercel.crons.map((item) => [item.path, item.schedule]));
-const middleware = await readFile(new URL("middleware.js", root), "utf8");
+const proxy = await readFile(new URL("proxy.js", root), "utf8");
 
 async function source(path) {
   return readFile(new URL(path, root), "utf8");
@@ -20,12 +20,12 @@ test("release cron load is staggered and Google Reviews runs three times daily",
   assert.equal(cron.get("/api/internal/commercial/communications/email-inbox-sync"), "2-59/5 * * * *");
 });
 
-test("middleware never waits on Supabase auth for API traffic", () => {
-  assert.match(middleware, /pathname\.startsWith\("\/api\/"\)/);
-  assert.match(middleware, /setTimeout\(resolve, 2500\)/);
-  assert.match(middleware, /AbortController/);
-  assert.match(middleware, /setTimeout\(\(\) => controller\.abort\(\), 2000\)/);
-  assert.match(middleware, /fetch: fetchWithDeadline/);
+test("proxy never waits on Supabase auth for API traffic", () => {
+  assert.match(proxy, /pathname\.startsWith\("\/api\/"\)/);
+  assert.match(proxy, /setTimeout\(resolve, 2500\)/);
+  assert.match(proxy, /AbortController/);
+  assert.match(proxy, /setTimeout\(\(\) => controller\.abort\(\), 2000\)/);
+  assert.match(proxy, /fetch: fetchWithDeadline/);
 });
 
 test("heavy recurring workers use bounded release batches", async () => {

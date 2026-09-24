@@ -23,16 +23,16 @@ export default function StaffPage() {
 
         <Link
           href={`/workspace/${organization?.id}/healthcare/staff/create`}
-          className="rounded-xl bg-blue-600 px-4 py-2 text-white"
+          className="rounded-xl bg-[#D6A66A] px-4 py-2 text-[#191919]"
         >
           Add Staff
         </Link>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+      <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/10">
+            <tr className="border-b border-black/[0.07]">
               <th className="p-4 text-left">First Name</th>
               <th className="p-4 text-left">Last Name</th>
               <th className="p-4 text-left">Role</th>
@@ -49,7 +49,7 @@ export default function StaffPage() {
 
             {!loading &&
               staff.map((member) => (
-                <tr key={member.id} className="border-b border-white/5">
+                <tr key={member.id} className="border-b border-black/[0.05]">
                   <td className="p-4">{member.first_name}</td>
                   <td className="p-4">{member.last_name}</td>
                   <td className="p-4">{member.role}</td>

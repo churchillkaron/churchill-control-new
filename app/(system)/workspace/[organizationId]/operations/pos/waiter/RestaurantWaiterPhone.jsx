@@ -507,7 +507,7 @@ export default function RestaurantWaiterPhone({ posRuntime, refreshPOSRuntime })
   }
 
   return (
-    <main className="min-h-screen bg-black p-2 text-white sm:p-3">
+    <main className="min-h-screen bg-[#F7F6F3] p-2 text-[#191919] sm:p-3">
       <section className="mx-auto flex min-h-[calc(100vh-16px)] w-full max-w-[430px] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[#070707]">
         <header className="border-b border-white/10 bg-black/85 px-3 py-3 backdrop-blur-xl">
           <div className="flex items-center justify-between gap-3">

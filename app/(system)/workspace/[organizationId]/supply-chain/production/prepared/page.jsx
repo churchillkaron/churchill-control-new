@@ -75,7 +75,7 @@ export default function PreparedInventoryPage() {
   }, [loadPreparedInventory]);
 
   return (
-    <div className="min-h-screen bg-black p-10 text-white">
+    <div className="min-h-screen bg-[#F7F6F3] p-10 text-[#191919]">
       <div className="mx-auto max-w-7xl">
         <div className="mb-10 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div>

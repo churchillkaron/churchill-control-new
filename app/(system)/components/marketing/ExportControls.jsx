@@ -23,7 +23,7 @@ export default function ExportControls({
       const dataUrl = await toPng(node, {
         cacheBust: true,
         pixelRatio: 2,
-        backgroundColor: "#000000",
+        backgroundColor: "#F7F6F3",
       });
 
       const link =
@@ -50,8 +50,8 @@ export default function ExportControls({
       onClick={exportPoster}
       className="
         w-full
-        bg-orange-500
-        text-black
+        bg-[#D6A66A]
+        text-[#191919]
         px-8
         py-4
         rounded-xl

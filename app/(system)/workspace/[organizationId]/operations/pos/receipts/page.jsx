@@ -130,7 +130,7 @@ export default function ReceiptsPage({
   const isNoPaymentDue = receipt?.status === "NO_PAYMENT_DUE";
 
   return (
-    <main className="min-h-screen bg-black px-6 py-8 text-white">
+    <main className="min-h-screen bg-[#F7F6F3] px-6 py-8 text-[#191919]">
       <style jsx global>{`
         @media print {
           body { background: white !important; color: black !important; }
@@ -140,20 +140,20 @@ export default function ReceiptsPage({
       `}</style>
 
       <div className="mx-auto max-w-[1500px]">
-        <header className="rounded-[34px] border border-white/10 bg-white/[0.035] p-7">
+        <header className="rounded-[34px] border border-black/[0.07] bg-white p-7">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-[#D6A66A]">
                 {presentation?.receiptEyebrow || receiptEyebrow}
               </p>
               <h1 className="mt-3 text-4xl font-semibold">Settlement Records</h1>
-              <p className="mt-2 text-sm text-white/45">
+              <p className="mt-2 text-sm text-[#817B73]">
                 Paid receipts and governed no-payment-due adjustment records.
               </p>
             </div>
             <button
               onClick={loadReceipts}
-              className="receipt-actions inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60"
+              className="receipt-actions inline-flex items-center gap-2 rounded-xl border border-black/[0.08] bg-white px-4 py-2 text-sm text-[#6F6962]"
             >
               <RefreshCw size={15} /> Refresh
             </button>
@@ -166,46 +166,46 @@ export default function ReceiptsPage({
         </header>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[0.65fr_1.35fr]">
-          <div className="receipt-navigation rounded-[30px] border border-white/10 bg-white/[0.025] p-5">
-            <div className="text-xs uppercase tracking-[0.2em] text-white/35">
+          <div className="receipt-navigation rounded-[30px] border border-black/[0.07] bg-white p-5">
+            <div className="text-xs uppercase tracking-[0.2em] text-[#8A867F]">
               Settled transactions
             </div>
             <div className="mt-4 max-h-[720px] space-y-2 overflow-y-auto">
               {loading ? (
-                <div className="p-8 text-center text-sm text-white/35">Loading settlement records...</div>
+                <div className="p-8 text-center text-sm text-[#8A867F]">Loading settlement records...</div>
               ) : receipts.length ? receipts.map((row) => (
                 <button
                   key={row.order_id}
                   onClick={() => setSelectedOrderId(row.order_id)}
-                  className={`w-full rounded-2xl border p-4 text-left ${selectedOrderId === row.order_id ? "border-[#D6A66A]/45 bg-[#D6A66A]/10" : "border-white/10 bg-black/20"}`}
+                  className={`w-full rounded-2xl border p-4 text-left ${selectedOrderId === row.order_id ? "border-[#D6A66A]/45 bg-[#D6A66A]/10" : "border-black/[0.08] bg-[#FBF8F3]"}`}
                 >
                   <div className="flex justify-between gap-3">
                     <div>
                       <div className="font-semibold">{row.receipt_number}</div>
-                      <div className="mt-1 text-xs text-white/35">
+                      <div className="mt-1 text-xs text-[#8A867F]">
                         {contextLabel(row, effectiveContextLabel)}
                       </div>
                       <div className="mt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D6A66A]">
                         {settlementStatusLabel(row)}
                       </div>
                     </div>
-                    <div className="text-sm text-white/60">
+                    <div className="text-sm text-[#6F6962]">
                       {formatMoney(row.total, receiptCurrency(row, currencyCode))}
                     </div>
                   </div>
-                  <div className="mt-3 text-xs text-white/30">
+                  <div className="mt-3 text-xs text-[#918B83]">
                     {row.created_at ? new Date(row.created_at).toLocaleString() : ""}
                   </div>
                 </button>
               )) : (
-                <div className="p-8 text-center text-sm text-white/35">
+                <div className="p-8 text-center text-sm text-[#8A867F]">
                   No settlement records found.
                 </div>
               )}
             </div>
           </div>
 
-          <div className="receipt-document rounded-[30px] border border-white/10 bg-white/[0.03] p-8">
+          <div className="receipt-document rounded-[30px] border border-black/[0.07] bg-white p-8">
             {receipt ? (
               <>
                 <div className="flex flex-wrap items-start justify-between gap-4">
@@ -213,17 +213,17 @@ export default function ReceiptsPage({
                     <h2 className="text-3xl font-semibold">
                       {organization?.name || (isNoPaymentDue ? "Settlement Record" : "Receipt")}
                     </h2>
-                    <div className="mt-2 text-sm text-white/40">
+                    <div className="mt-2 text-sm text-[#817B73]">
                       {receipt.receipt_number}
                     </div>
-                    <div className="mt-1 text-sm text-white/40">
+                    <div className="mt-1 text-sm text-[#817B73]">
                       {contextLabel(receipt, effectiveContextLabel)}
                     </div>
                     <div className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#D6A66A]">
                       {settlementStatusLabel(receipt)}
                     </div>
                     {isNoPaymentDue ? (
-                      <div className="mt-2 max-w-xl text-xs leading-5 text-white/45" data-no-payment-due-record="true">
+                      <div className="mt-2 max-w-xl text-xs leading-5 text-[#817B73]" data-no-payment-due-record="true">
                         No payment was collected. The payable amount was reduced to zero by governed item COMP corrections retained below for audit.
                       </div>
                     ) : null}
@@ -242,14 +242,14 @@ export default function ReceiptsPage({
                     return (
                       <div
                         key={item.id}
-                        className="flex justify-between gap-4 border-b border-white/10 pb-3"
+                        className="flex justify-between gap-4 border-b border-black/[0.07] pb-3"
                         data-receipt-item-billable={item.billable === false ? "false" : "true"}
                       >
                         <div>
                           <div className={item.billable === false ? "line-through opacity-55" : ""}>
                             {item.item_name || item.name || "Item"}
                           </div>
-                          <div className="mt-1 text-xs text-white/35">
+                          <div className="mt-1 text-xs text-[#8A867F]">
                             {Number(item.quantity || 1)} × {formatMoney(item.price, selectedCurrencyCode)}
                           </div>
                           {adjustmentLabel ? (
@@ -258,10 +258,10 @@ export default function ReceiptsPage({
                             </div>
                           ) : null}
                           {item.correction?.reason ? (
-                            <div className="mt-1 text-[11px] text-white/35">{item.correction.reason}</div>
+                            <div className="mt-1 text-[11px] text-[#8A867F]">{item.correction.reason}</div>
                           ) : null}
                         </div>
-                        <div className={item.billable === false ? "text-white/40" : ""}>
+                        <div className={item.billable === false ? "text-[#817B73]" : ""}>
                           {item.billable === false ? (
                             <>
                               <span className="mr-2 line-through">
@@ -278,12 +278,12 @@ export default function ReceiptsPage({
                   })}
                 </div>
 
-                <div className="mt-8 space-y-3 border-t border-white/10 pt-5">
-                  <div className="flex justify-between text-white/55"><span>Subtotal</span><span>{formatMoney(receipt.subtotal, selectedCurrencyCode)}</span></div>
-                  <div className="flex justify-between text-white/55"><span>Discount</span><span>-{formatMoney(receipt.discount, selectedCurrencyCode)}</span></div>
-                  <div className="flex justify-between text-white/55"><span>Tax</span><span>{formatMoney(receipt.tax, selectedCurrencyCode)}</span></div>
+                <div className="mt-8 space-y-3 border-t border-black/[0.07] pt-5">
+                  <div className="flex justify-between text-[#746E66]"><span>Subtotal</span><span>{formatMoney(receipt.subtotal, selectedCurrencyCode)}</span></div>
+                  <div className="flex justify-between text-[#746E66]"><span>Discount</span><span>-{formatMoney(receipt.discount, selectedCurrencyCode)}</span></div>
+                  <div className="flex justify-between text-[#746E66]"><span>Tax</span><span>{formatMoney(receipt.tax, selectedCurrencyCode)}</span></div>
                   {Number(receipt.service_charge || 0) !== 0 ? (
-                    <div className="flex justify-between text-white/55">
+                    <div className="flex justify-between text-[#746E66]">
                       <span>Service charge</span>
                       <span>{formatMoney(receipt.service_charge, selectedCurrencyCode)}</span>
                     </div>
@@ -291,12 +291,12 @@ export default function ReceiptsPage({
                   <div className="flex justify-between text-2xl font-semibold"><span>Total due</span><span>{formatMoney(receipt.total, selectedCurrencyCode)}</span></div>
                 </div>
 
-                <div className="mt-8 border-t border-white/10 pt-5">
-                  <div className="text-xs uppercase tracking-[0.2em] text-white/35">
+                <div className="mt-8 border-t border-black/[0.07] pt-5">
+                  <div className="text-xs uppercase tracking-[0.2em] text-[#8A867F]">
                     {isNoPaymentDue ? "Payment evidence" : "Payment breakdown"}
                   </div>
                   {isNoPaymentDue ? (
-                    <div className="mt-4 rounded-xl border border-white/10 p-3 text-sm text-white/45">
+                    <div className="mt-4 rounded-xl border border-black/[0.07] bg-[#FBF8F3] p-3 text-sm text-[#817B73]">
                       No payment collected.
                     </div>
                   ) : (
@@ -304,7 +304,7 @@ export default function ReceiptsPage({
                       {(receipt.payment_breakdown || []).map((payment) => (
                         <div
                           key={payment.id}
-                          className="flex justify-between rounded-xl border border-white/10 p-3 text-sm"
+                          className="flex justify-between rounded-xl border border-black/[0.07] bg-[#FBF8F3] p-3 text-sm"
                         >
                           <span>{payment.payment_method || payment.method || "Payment"}</span>
                           <span>{formatMoney(payment.amount, receiptCurrency(payment, selectedCurrencyCode))}</span>
@@ -315,7 +315,7 @@ export default function ReceiptsPage({
                 </div>
               </>
             ) : (
-              <div className="flex min-h-[500px] items-center justify-center text-sm text-white/35">
+              <div className="flex min-h-[500px] items-center justify-center text-sm text-[#8A867F]">
                 Select a settlement record to preview it.
               </div>
             )}

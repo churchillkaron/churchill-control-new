@@ -32,39 +32,39 @@ export default function EditAppointmentPage() {
     <main className="mx-auto max-w-3xl p-8">
       <h1 className="mb-6 text-4xl font-bold">Edit Appointment</h1>
 
-      <form className="space-y-4 rounded-3xl border border-white/10 bg-white/[0.03] p-8" onSubmit={save}>
+      <form className="space-y-4 rounded-3xl border border-black/[0.07] bg-white p-8" onSubmit={save}>
         <input
           type="text"
           value={form.patient_id || ""}
           onChange={(e) => setForm({ ...form, patient_id: e.target.value })}
-          className="w-full rounded-xl border border-white/10 bg-transparent p-3"
+          className="w-full rounded-xl border border-black/[0.07] bg-transparent p-3"
         />
 
         <input
           type="text"
           value={form.doctor_id || ""}
           onChange={(e) => setForm({ ...form, doctor_id: e.target.value })}
-          className="w-full rounded-xl border border-white/10 bg-transparent p-3"
+          className="w-full rounded-xl border border-black/[0.07] bg-transparent p-3"
         />
 
         <input
           type="datetime-local"
           value={form.appointment_datetime || ""}
           onChange={(e) => setForm({ ...form, appointment_datetime: e.target.value })}
-          className="w-full rounded-xl border border-white/10 bg-transparent p-3"
+          className="w-full rounded-xl border border-black/[0.07] bg-transparent p-3"
         />
 
         <select
           value={form.status || ""}
           onChange={(e) => setForm({ ...form, status: e.target.value })}
-          className="w-full rounded-xl border border-white/10 bg-transparent p-3"
+          className="w-full rounded-xl border border-black/[0.07] bg-transparent p-3"
         >
           <option value="SCHEDULED">SCHEDULED</option>
           <option value="COMPLETED">COMPLETED</option>
           <option value="CANCELLED">CANCELLED</option>
         </select>
 
-        <button type="submit" className="rounded-2xl bg-blue-600 px-6 py-3 text-white">Save Changes</button>
+        <button type="submit" className="rounded-2xl bg-[#D6A66A] px-6 py-3 text-[#191919]">Save Changes</button>
       </form>
     </main>
   );

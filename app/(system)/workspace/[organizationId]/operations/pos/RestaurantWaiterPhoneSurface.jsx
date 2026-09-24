@@ -674,7 +674,7 @@ export default function RestaurantWaiterPhoneSurface({
   }
 
   return (
-    <main className="min-h-screen bg-black p-2 text-white" data-restaurant-waiter-phone="true">
+    <main className="min-h-screen bg-[#F7F6F3] p-2 text-[#191919]" data-restaurant-waiter-phone="true">
       <section className="mx-auto flex min-h-[calc(100vh-16px)] w-full max-w-[480px] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#070707]">
         <header className="border-b border-white/10 px-3 py-3">
           <div className="flex items-center justify-between gap-3">

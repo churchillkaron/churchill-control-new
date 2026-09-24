@@ -71,7 +71,7 @@ export default function WorkforceRequestsManagementPage() {
   ].sort((a, b) => String(b.requested_at || "").localeCompare(String(a.requested_at || "")));
 
   return (
-    <main className="min-h-screen bg-[#030303] p-5 text-white lg:p-10">
+    <main className="min-h-screen bg-[#F7F6F3] p-5 text-[#191919] lg:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="rounded-[30px] border border-white/10 bg-white/[0.04] p-6">
           <div className="flex flex-wrap items-end justify-between gap-4">

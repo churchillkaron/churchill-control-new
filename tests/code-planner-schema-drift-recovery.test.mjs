@@ -24,3 +24,17 @@ test("record_reproduction binds declared pass/fail status to observed evidence",
   assert.match(source, /CODE_AI_REPRODUCTION_EVIDENCE_REQUIRED/);
   assert.match(source, /deriveReproductionStatusFromEvidence\(state, evidenceOperationIds\)/);
 });
+
+test("record_reproduction requires the same key for exact before-after closure", () => {
+  assert.match(source, /CODE_AI_REPRODUCTION_SAME_KEY_REQUIRED/);
+  assert.match(source, /CODE_AI_REPRODUCTION_MATCHING_FAILURE_REQUIRED/);
+  assert.match(source, /exact_before_after_observed/);
+  assert.match(source, /exact_reproduction_key/);
+});
+
+test("supported or eliminated hypotheses require observed operation evidence", () => {
+  assert.match(source, /CODE_AI_HYPOTHESIS_STATUS_INVALID/);
+  assert.match(source, /\["ELIMINATED", "SUPPORTED"\]\.includes\(status\)/);
+  assert.match(source, /"CODE_AI_HYPOTHESIS"/);
+  assert.match(source, /assertObservedEvidenceOperationIds/);
+});

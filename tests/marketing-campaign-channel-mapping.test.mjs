@@ -284,11 +284,11 @@ test("Google Ads spending account readiness is enforced client and server side",
 
 test("campaign detail exposes no-spend provider preflight for stored execution snapshots", () => {
   const page = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/page.jsx", "utf8");
-  assert.match(page, /Run Preflight/);
+  assert.match(page, /Check readiness/);
   assert.match(page, /action: "preflight"/);
   assert.match(page, /\/api\/marketing\/campaign-execution/);
-  assert.match(page, /Live Provider Preflight/);
-  assert.match(page, /No wallet change and no provider campaign was created/);
+  assert.match(page, /Final Connection Check/);
+  assert.match(page, /No wallet change and no campaign was created/);
 });
 
 test("Meta website conversion optimization carries Pixel and event to promoted_object", () => {
@@ -425,7 +425,7 @@ test("Campaign approval is explicit, fingerprint-gated and paused-first", () => 
   assert.match(page, /window\.confirm/);
   assert.match(page, /confirmOwnerApproval: true/);
   assert.match(page, /expectedPlanFingerprint: fingerprint/);
-  assert.match(page, /does not have a reviewed-plan integrity seal/);
+  assert.match(page, /channel plan has changed since review/);
   assert.match(page, /It will NOT activate ads/);
   assert.match(page, /campaign created in PAUSED state\. Ads are not active/);
 });
@@ -438,7 +438,7 @@ test("approved provider creation persists durable evidence and blocks duplicate 
   assert.match(executionRoute, /execution_evidence: nextEvidence/);
   assert.match(executionRoute, /spend_state: "reserved_paused"/);
   assert.match(executionRoute, /Do not retry provider creation/);
-  assert.match(page, /Durable Provider Execution/);
+  assert.match(page, /Approved Campaign Creation/);
   assert.match(page, /No duplicate will be created/);
   assert.match(page, /marketingCampaignId: selected\.id/);
 });
@@ -1151,8 +1151,8 @@ test("campaign currency comes from each organization and mixed currencies are ne
   assert.match(route, /budgets_by_organization: budgetByOrganization/);
   assert.match(route, /A master monetary budget cannot be used across organizations with different currencies/);
   assert.match(route, /campaign_budget: amount\(input\.organizationBudget\)/);
-  assert.match(page, /function money\(value, currency = "THB"\)/);
-  assert.match(page, /content\.currency_code \|\| "THB"/);
+  assert.match(page, /function money\(value, currency = null\)/);
+  assert.match(page, /campaignCurrency\(content\)/);
   assert.match(whole, /mixedCurrencies = content\.currency_mode === "PER_ORGANIZATION"/);
   assert.match(whole, /value=\{mixedCurrencies \? "Per organization"/);
   assert.doesNotMatch(whole, /Spend Authorized: THB 0/);
@@ -1317,4 +1317,27 @@ test("Meta preflight and execution evidence include the exact publishing identit
   assert.match(adapter, /page_asset_id: translated\.pageAssetId/);
   assert.match(adapter, /instagram_asset_id: translated\.instagramAssetId/);
   assert.match(adapter, /daily_budget_minor: translated\.adSet\.daily_budget/);
+});
+
+test("owned messaging senders stay bound to an active exact connection credential", () => {
+  const adapter = fs.readFileSync("lib/marketing/campaigns/adapters/OwnedMessagingCampaignAdapter.js", "utf8");
+  assert.match(adapter, /ChannelConnectionRuntime\.list\(organizationId\)/);
+  assert.match(adapter, /OWNED_MESSAGING_SENDER_CONNECTION_INACTIVE/);
+  assert.match(adapter, /connection_credentials_reference: text\(activeConnection\.credentials_reference\) \|\| null/);
+  assert.match(adapter, /credential_id: prepared\.asset\.connection_credentials_reference \|\| undefined/);
+  assert.match(adapter, /sender_credential_binding: prepared\.asset\.connection_credentials_reference \? "CONNECTION_SPECIFIC" : "ORGANIZATION_DEFAULT"/);
+});
+
+test("campaign read surfaces use currency-neutral formatting and readable Avantiqo warnings", () => {
+  const page = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/page.jsx", "utf8");
+  const whole = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/whole/page.jsx", "utf8");
+  const intelligencePage = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/whole/intelligence/page.jsx", "utf8");
+  assert.match(page, /function campaignCurrency\(content = \{\}\)/);
+  assert.match(page, /function money\(value, currency = null\)/);
+  assert.match(whole, /function campaignCurrency\(campaign = \{\}, groupCurrency = null\)/);
+  assert.doesNotMatch(whole, /currency: currency \|\| "THB"/);
+  assert.match(intelligencePage, /Next Spend Allocation/);
+  assert.match(intelligencePage, /next_spend_priority \|\| allocation\?\.next_baht_priority/);
+  assert.doesNotMatch(intelligencePage, /text-amber-100/);
+  assert.match(intelligencePage, /Multi-Organization Campaign/);
 });

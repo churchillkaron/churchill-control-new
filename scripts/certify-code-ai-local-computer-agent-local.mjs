@@ -127,7 +127,10 @@ try {
   assert.equal(diff.diff_check.exit_code, 0);
   assert.ok(diff.status.length >= 4);
   assert.match(diff.patch, /Avantiqo Computer Agent Proof/);
-  assert.match(diff.patch, /vercel\.json/);
+  assert.match(diff.patch, /tests\/fixtures\/code-ai-local-computer-cert-app\/package\.json/);
+  assert.match(diff.patch, /tests\/fixtures\/code-ai-local-computer-cert-app\/server\.mjs/);
+  assert.match(diff.patch, /tests\/fixtures\/code-ai-local-computer-cert-app\/test\.mjs/);
+  assert.match(diff.patch, /tests\/fixtures\/code-ai-local-computer-cert-app\/vercel\.json/);
 
   console.log(JSON.stringify({
     success: true,

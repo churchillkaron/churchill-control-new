@@ -704,11 +704,11 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                           });
                           return (
                             <div key={organizationId} className={`rounded-2xl border px-4 py-3 text-sm ${issues.length ? "border-[#DDBA8B] bg-[#FFF8EC] text-[#7A5A36]" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>
-                              <div className="font-semibold">Meta provider readiness · {organization?.name || "Organization"}</div>
+                              <div className="font-semibold">Meta campaign check · {organization?.name || "Organization"}</div>
                               {issues.length ? (
                                 <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
                               ) : (
-                                <div className="mt-1 text-xs">The Meta plan contains the required fields for provider preflight. Owner approval is still required before wallet reservation or provider creation.</div>
+                                <div className="mt-1 text-xs">This Meta campaign has the required information for the final connection check. Owner approval is still required before any advertising spend or campaign creation.</div>
                               )}
                             </div>
                           );
@@ -745,11 +745,11 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                           });
                           return (
                             <div key={organizationId} className={`rounded-2xl border px-4 py-3 text-sm ${issues.length ? "border-[#DDBA8B] bg-[#FFF8EC] text-[#7A5A36]" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>
-                              <div className="font-semibold">Google Ads provider readiness · {organization?.name || "Organization"}</div>
+                              <div className="font-semibold">Google Ads campaign check · {organization?.name || "Organization"}</div>
                               {issues.length ? (
                                 <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
                               ) : (
-                                <div className="mt-1 text-xs">The Google Search plan contains the required fields for provider preflight. Owner approval is still required before wallet reservation.</div>
+                                <div className="mt-1 text-xs">This Google Search campaign has the required information for the final connection check. Owner approval is still required before any advertising spend.</div>
                               )}
                             </div>
                           );
@@ -784,8 +784,8 @@ export default function CampaignCommandCenter({ allowMultiOrganization = false }
                                   state={state}
                                 />
                                 <div className={`rounded-2xl border px-4 py-3 text-sm ${issues.length ? "border-[#DDBA8B] bg-[#FFF8EC] text-[#7A5A36]" : "border-emerald-700/15 bg-emerald-50 text-emerald-800"}`}>
-                                  <div className="font-semibold">{channel?.name || channelId} provider readiness · {organization?.name || "Organization"}</div>
-                                  {issues.length ? <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <div className="mt-1 text-xs">Account, provider route and content are ready for no-publish preflight. Explicit owner approval is still required before publishing.</div>}
+                                  <div className="font-semibold">{channel?.name || channelId} campaign check · {organization?.name || "Organization"}</div>
+                                  {issues.length ? <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed">{issues.map((issue) => <li key={issue}>{issue}</li>)}</ul> : <div className="mt-1 text-xs">Account, content and channel setup are ready for the final connection check. Explicit owner approval is still required before publishing.</div>}
                                 </div>
                               </div>
                             );
@@ -1293,7 +1293,7 @@ function ChannelPicker({ selected = [], readiness, organizationId, onToggle, set
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#A37849]">Configure Selected Channel</div>
               <div className="mt-1 text-xs text-[#817B73]">Only one channel editor is open at a time. Your other selected channels stay selected.</div>
             </div>
-            <div className="text-[10px] text-[#9B9289]">{organizationId ? "Organization-scoped configuration" : "Channel configuration"}</div>
+            <div className="text-[10px] text-[#9B9289]">{organizationId ? "Settings for this business" : "Channel settings"}</div>
           </div>
           <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
             {selectedChannels.map((channel) => {

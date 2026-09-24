@@ -4,12 +4,19 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
-function money(value, currency = "THB") {
-  return new Intl.NumberFormat("en-TH", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+function money(value, currency = null) {
+  if (value === null || value === undefined) return "Not aggregated";
+  const code = String(currency || "").toUpperCase();
+  if (!code) return Number(value || 0).toLocaleString();
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: 0,
+    }).format(Number(value || 0));
+  } catch {
+    return `${code} ${Number(value || 0).toLocaleString()}`;
+  }
 }
 
 function label(value) {
@@ -80,8 +87,9 @@ export default function AdsIntelligencePage() {
   }, [groupId, organizationId]);
 
   const selected = groups.find((group) => group.id === groupId) || groups[0] || null;
-  const currency = selected?.currency_code || "THB";
+  const currency = data?.portfolio?.currency_code || selected?.currency_code || null;
   const allocation = data?.capital_allocation_proposal || null;
+  const spendPriority = allocation?.next_spend_priority || allocation?.next_baht_priority || [];
 
   return (
     <main className="min-h-screen bg-[#F7F6F3] p-6 text-[#2D2822] lg:p-10">
@@ -90,7 +98,7 @@ export default function AdsIntelligencePage() {
           href={`/workspace/${organizationId}/commercial/marketing/campaigns/whole`}
           className="text-sm text-[#7B7168] hover:text-[#49423B]"
         >
-          ← Whole Campaign
+          ← Multi-Organization Campaign
         </Link>
 
         <div className="mt-6 text-xs uppercase tracking-[0.3em] text-[#D6A66A]">
@@ -143,15 +151,15 @@ export default function AdsIntelligencePage() {
             </section>
 
             <section className="rounded-[30px] border border-[#D6A66A]/20 bg-[#D6A66A]/[0.025] p-6">
-              <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">Next Baht Allocation</div>
+              <div className="text-xs uppercase tracking-[0.2em] text-[#D6A66A]">Next Spend Allocation</div>
               <h2 className="mt-2 text-3xl font-light">Controlled Scale Proposal</h2>
               <p className="mt-2 max-w-4xl text-sm text-[#71685F]">
                 {allocation?.allocation_principle}
               </p>
 
               <div className="mt-5 space-y-3">
-                {(allocation?.next_baht_priority || []).length ? (
-                  allocation.next_baht_priority.map((item) => (
+                {spendPriority.length ? (
+                  spendPriority.map((item) => (
                     <div key={item.campaign_id} className="rounded-2xl border border-black/[0.08] bg-white p-4">
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
@@ -163,12 +171,12 @@ export default function AdsIntelligencePage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-right text-xs text-[#7B7168]">
                           <span>Profit / Ad Spend</span><span>{multiple(item.observed_profit_on_ad_spend)}</span>
-                          <span>Profit After Media</span><span>{money(item.observed_profit_after_media, currency)}</span>
+                          <span>Profit After Media</span><span>{money(item.observed_profit_after_media, item.currency_code || currency)}</span>
                           <span>Qualified Outcomes</span><span>{item.qualified_outcomes}</span>
                           <span>Evidence</span><span>{item.evidence_score}/{item.evidence_max}</span>
                         </div>
                       </div>
-                      <div className="mt-3 text-xs text-amber-100/60">
+                      <div className="mt-3 rounded-xl border border-[#E7D3B8] bg-[#FFF8EC] px-3 py-2 text-xs text-[#7A5A36]">
                         No budget amount is recommended until controlled increment history establishes a marginal-return curve. Explicit authorization remains required.
                       </div>
                     </div>
@@ -232,10 +240,10 @@ export default function AdsIntelligencePage() {
                   </div>
 
                   <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-                    <Metric label="Spend" value={money(campaign.metrics?.spend, currency)} />
-                    <Metric label="Revenue" value={money(campaign.metrics?.revenue, currency)} />
-                    <Metric label="Gross Profit" value={money(campaign.metrics?.gross_profit, currency)} />
-                    <Metric label="Profit After Media" value={money(campaign.metrics?.profit_after_media, currency)} />
+                    <Metric label="Spend" value={money(campaign.metrics?.spend, campaign.currency_code || currency)} />
+                    <Metric label="Revenue" value={money(campaign.metrics?.revenue, campaign.currency_code || currency)} />
+                    <Metric label="Gross Profit" value={money(campaign.metrics?.gross_profit, campaign.currency_code || currency)} />
+                    <Metric label="Profit After Media" value={money(campaign.metrics?.profit_after_media, campaign.currency_code || currency)} />
                     <Metric label="Profit / Ad Spend" value={multiple(campaign.metrics?.profit_on_ad_spend)} />
                     <Metric label="Qualified Outcomes" value={String(campaign.metrics?.conversions || 0)} />
                   </div>
@@ -248,7 +256,7 @@ export default function AdsIntelligencePage() {
               ))}
             </section>
 
-            <section className="rounded-[30px] border border-amber-500/20 bg-amber-500/[0.04] p-5 text-sm text-amber-100/70">
+            <section className="rounded-[30px] border border-[#DDBA8B] bg-[#FFF8EC] p-5 text-sm leading-relaxed text-[#7A5A36]">
               Governance lock: Avantiqo may analyze, rank candidates and prepare controlled scale proposals. Moving budget, recommending an unvalidated budget amount, increasing spend or activating paid providers still requires sufficient marginal evidence and explicit authorization.
             </section>
           </div>

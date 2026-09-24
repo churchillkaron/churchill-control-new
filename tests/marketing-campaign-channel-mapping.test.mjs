@@ -1229,6 +1229,11 @@ test("Google Ads budget semantics are daily delivery under a total authorization
   assert.doesNotMatch(googleSection, /budgetMode \|\| "lifetime"/);
 });
 
+test("multi-organization campaign creation requires write permission in every selected organization", () => {
+  assert.match(route, /requiredAnyPermission: \[\s*"marketing\.campaign\.create",\s*"marketing\.campaign\.manage",\s*"marketing\.\*",\s*\]/);
+  assert.match(route, /permissions: \[\s*"marketing\.campaign\.create",\s*"marketing\.campaign\.manage",\s*"marketing\.\*",\s*\]/);
+});
+
 test("multi-organization creation validates every organization before the first write", () => {
   assert.match(route, /async function prepareCampaignForOrganization/);
   assert.match(route, /async function insertPreparedCampaign/);
@@ -1386,6 +1391,15 @@ test("blocked campaign steps explain the exact requirement instead of only disab
   assert.match(component, /disabled:cursor-not-allowed/);
 });
 
+test("multi-organization campaign keeps strategy detail collapsed and light-theme readable", () => {
+  const wholePage = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/whole/page.jsx", "utf8");
+  assert.match(wholePage, /<details className="group rounded-\[28px\] border border-black\/\[0\.08\] bg-white">/);
+  assert.match(wholePage, /90-day strategy, channel system, governance and optimization rules/);
+  assert.match(wholePage, />Show plan<\/span>/);
+  assert.doesNotMatch(wholePage, /text-emerald-(100|200|300)/);
+  assert.doesNotMatch(wholePage, /amber-/);
+});
+
 test("Campaign detail explains launch state before technical provider evidence", () => {
   const campaignPage = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/page.jsx", "utf8");
   assert.match(campaignPage, /<LaunchStage label="Plan" state="complete" detail="Campaign draft saved"/);
@@ -1439,6 +1453,26 @@ test("selected channel keeps detailed provider controls collapsed until explicit
   assert.match(component, />Configure channel<\/span>/);
   assert.match(component, /<details className="group rounded-2xl border border-black\/\[0\.07\] bg-\[#FCFBF8\]">/);
   assert.match(component, /<ChannelSettings[\s\S]*activeSettingsChannel/);
+});
+
+test("multi-organization campaign asset controls respect each child organization permission", () => {
+  const groupsRoute = fs.readFileSync("app/api/marketing/campaign-groups/route.js", "utf8");
+  const wholePage = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/whole/page.jsx", "utf8");
+  assert.match(groupsRoute, /capabilities: \{\s*can_manage_assets: canManageAssets/);
+  assert.match(groupsRoute, /accessibleOrganizations\.get\(member\.organization_id\)/);
+  assert.match(wholePage, /member\.capabilities\?\.can_manage_assets === true/);
+  assert.match(wholePage, /View only · upload permission required/);
+  assert.match(wholePage, /Adding or attaching media requires campaign or creative upload permission/);
+});
+
+test("Campaign asset controls are hidden for read-only users while attached media stays visible", () => {
+  const campaignsRoute = fs.readFileSync("app/api/marketing/campaigns/route.js", "utf8");
+  const campaignPage = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/page.jsx", "utf8");
+  assert.match(campaignsRoute, /request,/);
+  assert.match(campaignsRoute, /can_manage_assets: canManageAssets/);
+  assert.match(campaignPage, /payload\?\.data\?\.capabilities\?\.can_manage_assets === true/);
+  assert.match(campaignPage, /View only · campaign or creative upload permission is required to add media/);
+  assert.match(campaignPage, /\{canManageAssets \? \(/);
 });
 
 test("Campaign media mutations require explicit write permission while library search stays readable", () => {

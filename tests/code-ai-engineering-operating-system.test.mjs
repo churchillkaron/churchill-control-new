@@ -24,6 +24,17 @@ function completedState(overrides = {}) {
       { kind: "operation", action: "verify", status: "completed", result: { exit_code: 0 } },
       { kind: "operation", action: "browser_verify", status: "completed", result: { passed: true } },
     ],
+    verified_engineering_memory: {
+      contract: "AVANTIQO_CODE_VERIFIED_ENGINEERING_MEMORY_V1",
+      evaluated: true,
+      current_head_revalidation_required: true,
+    },
+    formed_engineering_skills: {
+      contract: "AVANTIQO_CODE_ENGINEERING_SKILL_V1",
+      evaluated: true,
+      lifecycle_evaluated: true,
+      automatic_knowledge_promotion: false,
+    },
     employee_completion: {
       verified: true,
       behavioral_verification: { verified: true },
@@ -247,4 +258,23 @@ test("broad program cannot satisfy hidden benchmark gate with held_out label alo
     result: { success: true, state: { ...state, benchmark_scorecard: { held_out: true, verified: true } } },
   });
   assert.ok(!verified.missing_required_departments.some((item) => item.key === "hidden_benchmark"));
+});
+
+test("required memory self-improvement and routing departments fail closed without their evidence", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Inspect and improve invoice handling" });
+  const state = completedState({
+    verified_engineering_memory: null,
+    formed_engineering_skills: null,
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.equal(final.engineering_os_ready, false);
+  assert.ok(final.missing_required_departments.some((item) => item.key === "engineering_memory"));
+  assert.ok(final.missing_required_departments.some((item) => item.key === "self_improvement"));
+  assert.ok(!final.missing_required_departments.some((item) => item.key === "dynamic_routing"));
+
+  const brokenRouting = finalizeCodeAIEngineeringOperatingSystem({
+    prepared_control: { ...prepared.control, routing: { contract: "BROKEN" } },
+    result: { success: true, state: completedState() },
+  });
+  assert.ok(brokenRouting.missing_required_departments.some((item) => item.key === "dynamic_routing"));
 });

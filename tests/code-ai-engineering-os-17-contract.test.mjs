@@ -51,6 +51,13 @@ test("debugging database security performance and observability are durable type
   assert.match(mission, /CODE_AI_PERFORMANCE_BENCHMARK_KEY_REQUIRED/);
   assert.match(mission, /CODE_AI_PERFORMANCE_DISTINCT_BEFORE_AFTER_OPERATIONS_REQUIRED/);
   assert.match(mission, /CODE_AI_PERFORMANCE_BEFORE_AFTER_EVIDENCE_MISMATCH/);
+  assert.match(mission, /CODE_AI_PERFORMANCE_DIRECTION_REQUIRED/);
+  assert.match(mission, /CODE_AI_PERFORMANCE_CLAIM_NOT_SUPPORTED_BY_MEASUREMENTS/);
+  assert.match(mission, /minimum_improvement_percent/);
+  assert.match(mission, /measured_improvement_percent/);
+  assert.match(mission, /direction === "lower_is_better"/);
+  assert.match(mission, /after < before/);
+  assert.match(mission, /after > before/);
   assert.match(mission, /AVANTIQO_CODE_OBSERVABILITY_EVIDENCE_V1/);
   assert.match(mission, /function assertObservedEvidenceOperationIds/);
   assert.match(mission, /"CODE_AI_DATABASE_REVIEW"/);

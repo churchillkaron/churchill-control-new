@@ -5,6 +5,7 @@ import { withApiHandler } from "@/lib/shared/http/withApiHandler";
 import { requireFields } from "@/lib/shared/validation/required";
 import { requireOrganizationAccess } from "@/lib/platform/security/requireOrganizationAccess";
 import { getMarketingCampaigns } from "@/lib/marketing/services/getMarketingCampaigns";
+import { hasMarketingPermission } from "@/lib/marketing/security/marketingCampaignAccess";
 
 export const POST = withApiHandler(
   "marketing-campaigns",
@@ -15,6 +16,7 @@ export const POST = withApiHandler(
 
     const access = await requireOrganizationAccess({
       organizationId: body.organizationId,
+      request,
     });
 
     if (!access.success) {
@@ -23,8 +25,21 @@ export const POST = withApiHandler(
       throw error;
     }
 
-    return await getMarketingCampaigns({
+    const data = await getMarketingCampaigns({
       organizationId: access.organizationId,
     });
+    const canManageAssets = [
+      "marketing.campaign.manage",
+      "creative.asset.upload",
+      "creative.*",
+    ].some((permission) => hasMarketingPermission(access, permission));
+
+    return {
+      ...data,
+      capabilities: {
+        can_manage_assets: canManageAssets,
+        can_manage_paid_media: hasMarketingPermission(access, "marketing.ads.manage"),
+      },
+    };
   },
 );

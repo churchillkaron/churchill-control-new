@@ -180,6 +180,8 @@ export default function CampaignWorkspacePage() {
   const [preflightResults, setPreflightResults] = useState([]);
   const [executingProvider, setExecutingProvider] = useState("");
   const [executionResults, setExecutionResults] = useState({});
+  const [canManageAssets, setCanManageAssets] = useState(false);
+  const [canManagePaidMedia, setCanManagePaidMedia] = useState(false);
 
   const selected = useMemo(
     () => campaigns.find((campaign) => campaign.id === selectedId) || campaigns[0] || null,
@@ -205,11 +207,15 @@ export default function CampaignWorkspacePage() {
       }
 
       setCampaigns(rows);
+      setCanManageAssets(payload?.data?.capabilities?.can_manage_assets === true);
+      setCanManagePaidMedia(payload?.data?.capabilities?.can_manage_paid_media === true);
       setSelectedId((current) => {
         if (current && rows.some((campaign) => campaign.id === current)) return current;
         return rows[0]?.id || null;
       });
     } catch (loadError) {
+      setCanManageAssets(false);
+      setCanManagePaidMedia(false);
       setError(loadError.message || "Unable to load campaigns");
     } finally {
       setLoading(false);
@@ -227,7 +233,7 @@ export default function CampaignWorkspacePage() {
   }, [selectedId]);
 
   async function runPreflight() {
-    if (!selected) return;
+    if (!selected || !canManagePaidMedia) return;
     const snapshots = selected.campaign_content?.execution_plan_snapshots || {};
     const fingerprints = selected.campaign_content?.execution_plan_fingerprints || {};
     const entries = Object.entries(snapshots).filter(([, plan]) => plan && typeof plan === "object");
@@ -272,7 +278,7 @@ export default function CampaignWorkspacePage() {
   }
 
   async function approveAndExecuteProvider(provider) {
-    if (!selected || !provider) return;
+    if (!selected || !provider || !canManagePaidMedia) return;
     const plan = selected.campaign_content?.execution_plan_snapshots?.[provider];
     const fingerprint = selected.campaign_content?.execution_plan_fingerprints?.[provider] || null;
     const existingEvidence = selected.campaign_content?.execution_evidence?.[provider];
@@ -458,7 +464,7 @@ export default function CampaignWorkspacePage() {
 
             {selected ? (
               <section className="space-y-6">
-                <CampaignDetail campaign={selected} onPreflight={runPreflight} preflighting={preflighting} preflightResults={preflightResults} onApproveProvider={approveAndExecuteProvider} executingProvider={executingProvider} executionResults={executionResults} />
+                <CampaignDetail campaign={selected} onPreflight={runPreflight} preflighting={preflighting} preflightResults={preflightResults} onApproveProvider={approveAndExecuteProvider} executingProvider={executingProvider} executionResults={executionResults} canManagePaidMedia={canManagePaidMedia} />
 
                 <div className="rounded-[30px] border border-black/[0.07] bg-white p-6 lg:p-8">
                   <div className="flex flex-wrap items-end justify-between gap-5">
@@ -470,48 +476,54 @@ export default function CampaignWorkspacePage() {
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-3">
-                      <select
-                        value={mediaRole}
-                        onChange={(event) => setMediaRole(event.target.value)}
-                        className="rounded-2xl border border-black/[0.08] bg-white px-4 py-3 text-sm text-[#4E4740] outline-none"
-                      >
-                        {MEDIA_ROLES.map((role) => (
-                          <option key={role.value} value={role.value}>{role.label}</option>
-                        ))}
-                      </select>
+                    {canManageAssets ? (
+                      <div className="flex flex-wrap gap-3">
+                        <select
+                          value={mediaRole}
+                          onChange={(event) => setMediaRole(event.target.value)}
+                          className="rounded-2xl border border-black/[0.08] bg-white px-4 py-3 text-sm text-[#4E4740] outline-none"
+                        >
+                          {MEDIA_ROLES.map((role) => (
+                            <option key={role.value} value={role.value}>{role.label}</option>
+                          ))}
+                        </select>
 
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*,video/*"
-                        className="hidden"
-                        onChange={(event) => uploadFile(event.target.files?.[0])}
-                      />
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*,video/*"
+                          className="hidden"
+                          onChange={(event) => uploadFile(event.target.files?.[0])}
+                        />
 
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-[#2B2118] disabled:opacity-50"
-                      >
-                        {uploading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                        {uploading ? "Uploading..." : "Add Picture / Video"}
-                      </button>
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploading}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-[#D6A66A] px-5 py-3 text-sm font-semibold text-[#2B2118] disabled:opacity-50"
+                        >
+                          {uploading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          {uploading ? "Uploading..." : "Add Picture / Video"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-black/[0.07] bg-[#FCFBF8] px-4 py-3 text-xs text-[#817B73]">View only · campaign or creative upload permission is required to add media.</div>
+                    )}
+                  </div>
+
+                  {canManageAssets ? (
+                    <div
+                      className="mt-6 rounded-[26px] border border-dashed border-[#D7C2A8] bg-[#FCFAF7] p-7 text-center"
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        uploadFile(event.dataTransfer.files?.[0]);
+                      }}
+                    >
+                      <ImagePlus className="mx-auto h-7 w-7 text-[#D6A66A]" />
+                      <div className="mt-3 text-sm text-[#625B53]">Drop an image or video here</div>
+                      <div className="mt-1 text-xs text-[#9B9289]">It will be attached to {selected.campaign_name}</div>
                     </div>
-                  </div>
-
-                  <div
-                    className="mt-6 rounded-[26px] border border-dashed border-[#D7C2A8] bg-[#FCFAF7] p-7 text-center"
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      uploadFile(event.dataTransfer.files?.[0]);
-                    }}
-                  >
-                    <ImagePlus className="mx-auto h-7 w-7 text-[#D6A66A]" />
-                    <div className="mt-3 text-sm text-[#625B53]">Drop an image or video here</div>
-                    <div className="mt-1 text-xs text-[#9B9289]">It will be attached to {selected.campaign_name}</div>
-                  </div>
+                  ) : null}
 
                   {selected.assets?.length ? (
                     <div className="mt-7 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
@@ -543,7 +555,7 @@ export default function CampaignWorkspacePage() {
   );
 }
 
-function CampaignDetail({ campaign, onPreflight, preflighting = false, preflightResults = [], onApproveProvider, executingProvider = "", executionResults = {} }) {
+function CampaignDetail({ campaign, onPreflight, preflighting = false, preflightResults = [], onApproveProvider, executingProvider = "", executionResults = {}, canManagePaidMedia = false }) {
   const content = campaign.campaign_content || {};
   const audience = content.audience || {};
   const creative = content.creative_direction || {};
@@ -601,11 +613,13 @@ function CampaignDetail({ campaign, onPreflight, preflighting = false, preflight
             <div className="text-xs uppercase tracking-[0.15em] text-[#9B9289]">Spend State</div>
             <div className="mt-2 text-sm text-[#8A633C]">{labelize(content.spend_state || "not authorized")}</div>
           </div>
-          {executablePlanCount ? (
+          {executablePlanCount && canManagePaidMedia ? (
             <button type="button" onClick={onPreflight} disabled={preflighting} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#D2B187] bg-[#FBF4EA] px-4 py-3 text-sm font-semibold text-[#684A2E] transition hover:bg-[#F4E7D5] disabled:opacity-50">
               {preflighting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
               {preflighting ? "Checking readiness…" : `Check readiness (${executablePlanCount})`}
             </button>
+          ) : executablePlanCount ? (
+            <div className="rounded-2xl border border-black/[0.07] bg-[#FCFBF8] px-4 py-3 text-center text-xs leading-relaxed text-[#817B73]">View only · paid-media management permission is required for readiness and provider creation.</div>
           ) : null}
         </div>
       </div>
@@ -615,12 +629,12 @@ function CampaignDetail({ campaign, onPreflight, preflighting = false, preflight
         <LaunchStage
           label="Readiness"
           state={preflightResults.length ? (blockedProviderCount ? "blocked" : "complete") : executablePlanCount ? "pending" : "not_applicable"}
-          detail={preflightResults.length ? `${readyProviderCount}/${preflightResults.length} provider plan${preflightResults.length === 1 ? "" : "s"} ready` : executablePlanCount ? "Run readiness check" : "No executable paid plan"}
+          detail={preflightResults.length ? `${readyProviderCount}/${preflightResults.length} provider plan${preflightResults.length === 1 ? "" : "s"} ready` : executablePlanCount ? (canManagePaidMedia ? "Run readiness check" : "View only · paid-media manager required") : "No executable paid plan"}
         />
         <LaunchStage
           label="Provider creation"
           state={createdProviderCount ? "complete" : executablePlanCount ? "pending" : "not_applicable"}
-          detail={createdProviderCount ? `${createdProviderCount} provider campaign${createdProviderCount === 1 ? "" : "s"} created` : executablePlanCount ? "Requires explicit approval" : "Nothing to create"}
+          detail={createdProviderCount ? `${createdProviderCount} provider campaign${createdProviderCount === 1 ? "" : "s"} created` : executablePlanCount ? (canManagePaidMedia ? "Requires explicit approval" : "View only · approval permission required") : "Nothing to create"}
         />
         <LaunchStage
           label="Ads live"
@@ -646,6 +660,8 @@ function CampaignDetail({ campaign, onPreflight, preflighting = false, preflight
                       <div className="rounded-xl border border-emerald-700/15 bg-white px-3 py-2 text-xs font-medium text-emerald-800">Existing provider campaign: {executionEvidence[result.provider].status}. No duplicate will be created.</div>
                     ) : executionResults?.[result.provider]?.success ? (
                       <div className="rounded-xl border border-emerald-700/15 bg-white px-3 py-2 text-xs font-medium text-emerald-800">Approved and created PAUSED. Ads are not active.</div>
+                    ) : !canManagePaidMedia ? (
+                      <div className="rounded-xl border border-black/[0.07] bg-white px-3 py-2 text-xs text-[#817B73]">View only · paid-media management permission is required for provider creation.</div>
                     ) : result.fingerprint ? (
                       <button type="button" onClick={() => onApproveProvider?.(result.provider)} disabled={Boolean(executingProvider)} className="inline-flex items-center gap-2 rounded-xl border border-[#D2B187] bg-[#FBF4EA] px-4 py-2 text-xs font-semibold text-[#684A2E] disabled:opacity-40">
                         {executingProvider === result.provider ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}

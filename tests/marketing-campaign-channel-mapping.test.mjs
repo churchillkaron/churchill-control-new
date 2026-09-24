@@ -288,7 +288,7 @@ test("campaign detail exposes no-spend provider preflight for stored execution s
   assert.match(page, /Check readiness/);
   assert.match(page, /action: "preflight"/);
   assert.match(page, /\/api\/marketing\/campaign-execution/);
-  assert.match(page, /Final Connection Check/);
+  assert.match(page, /Run readiness check/);
   assert.match(page, /No wallet change and no campaign was created/);
 });
 

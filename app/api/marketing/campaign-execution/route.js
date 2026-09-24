@@ -105,6 +105,27 @@ async function assertProviderNotAlreadyCreated({ organizationId, marketingCampai
     duplicate.status = 409;
     throw duplicate;
   }
+
+  const { data: managedRows, error: managedError } = await supabaseAdmin
+    .from("managed_media_campaigns")
+    .select("id,status,provider,provider_campaign_id,metadata")
+    .eq("organization_id", organizationId)
+    .eq("provider", provider)
+    .contains("metadata", { marketing_campaign_id: String(marketingCampaignId) })
+    .in("status", ["RESERVED", "PAUSED", "ACTIVE"])
+    .limit(1);
+  if (managedError) throw managedError;
+  if (managedRows?.length) {
+    const managed = managedRows[0];
+    const duplicate = new Error(`${provider} managed-media campaign already exists for this Marketing Campaign`);
+    duplicate.name = "CampaignExecutionError";
+    duplicate.stage = "EXECUTION_IDEMPOTENCY";
+    duplicate.code = "MANAGED_MEDIA_CAMPAIGN_ALREADY_EXISTS";
+    duplicate.correction = "Recover or reconcile the existing managed-media campaign instead of creating another provider campaign.";
+    duplicate.details = { provider, managed_media_campaign: managed };
+    duplicate.status = 409;
+    throw duplicate;
+  }
 }
 
 async function persistExecutionEvidence({ organizationId, marketingCampaignId, result, fingerprint }) {

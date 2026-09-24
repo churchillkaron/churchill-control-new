@@ -288,7 +288,7 @@ test("campaign detail exposes no-spend provider preflight for stored execution s
   assert.match(page, /Check readiness/);
   assert.match(page, /action: "preflight"/);
   assert.match(page, /\/api\/marketing\/campaign-execution/);
-  assert.match(page, /Final Connection Check/);
+  assert.match(page, /Launch Readiness/);
   assert.match(page, /No wallet change and no campaign was created/);
 });
 
@@ -429,6 +429,23 @@ test("Campaign approval is explicit, fingerprint-gated and paused-first", () => 
   assert.match(page, /channel plan has changed since review/);
   assert.match(page, /It will NOT activate ads/);
   assert.match(page, /campaign created in PAUSED state\. Ads are not active/);
+});
+
+test("managed-media lineage independently blocks duplicate provider creation after evidence sync failure", () => {
+  const executionRoute = fs.readFileSync("app/api/marketing/campaign-execution/route.js", "utf8");
+  const spendRuntime = fs.readFileSync("lib/marketing/services/ManagedMediaSpendRuntime.js", "utf8");
+  const metaRuntime = fs.readFileSync("lib/marketing/services/MetaAdsRuntime.js", "utf8");
+  const googleRuntime = fs.readFileSync("lib/marketing/services/GoogleAdsRuntime.js", "utf8");
+  const metaAdapter = fs.readFileSync("lib/marketing/campaigns/adapters/MetaCampaignAdapter.js", "utf8");
+  const googleAdapter = fs.readFileSync("lib/marketing/campaigns/adapters/GoogleAdsCampaignAdapter.js", "utf8");
+  assert.match(executionRoute, /from\("managed_media_campaigns"\)/);
+  assert.match(executionRoute, /contains\("metadata", \{ marketing_campaign_id: String\(marketingCampaignId\) \}\)/);
+  assert.match(executionRoute, /MANAGED_MEDIA_CAMPAIGN_ALREADY_EXISTS/);
+  assert.match(spendRuntime, /metadata = \{\}/);
+  assert.match(metaRuntime, /marketing_campaign_id: marketingCampaignId \|\| null/);
+  assert.match(googleRuntime, /marketing_campaign_id: marketingCampaignId \|\| null/);
+  assert.match(metaAdapter, /marketingCampaignId = null/);
+  assert.match(googleAdapter, /marketingCampaignId = null/);
 });
 
 test("approved provider creation persists durable evidence and blocks duplicate creation", () => {
@@ -1360,6 +1377,16 @@ test("blocked campaign steps explain the exact requirement instead of only disab
   assert.match(component, /disabled:cursor-not-allowed/);
 });
 
+test("Campaign detail explains launch state before technical provider evidence", () => {
+  const campaignPage = fs.readFileSync("app/(system)/workspace/[organizationId]/commercial/marketing/campaigns/page.jsx", "utf8");
+  assert.match(campaignPage, /<LaunchStage label="Plan" state="complete" detail="Campaign draft saved"/);
+  assert.match(campaignPage, /label="Readiness"/);
+  assert.match(campaignPage, /label="Provider creation"/);
+  assert.match(campaignPage, /label="Ads live"/);
+  assert.match(campaignPage, /Launch Readiness/);
+  assert.match(campaignPage, /Still paused · activation separate/);
+});
+
 test("Campaign creation modal is keyboard-aware and responsive", () => {
   assert.match(component, /role="dialog" aria-modal="true" aria-labelledby="campaign-command-title"/);
   assert.match(component, /id="campaign-command-title"/);
@@ -1401,6 +1428,22 @@ test("selected channel keeps detailed provider controls collapsed until explicit
   assert.match(component, />Configure channel<\/span>/);
   assert.match(component, /<details className="group rounded-2xl border border-black\/\[0\.07\] bg-\[#FCFBF8\]">/);
   assert.match(component, /<ChannelSettings[\s\S]*activeSettingsChannel/);
+});
+
+test("Campaign media mutations require explicit write permission while library search stays readable", () => {
+  const campaignAssetsRoute = fs.readFileSync("app/api/marketing/campaign-assets/route.js", "utf8");
+  const uploadRoute = fs.readFileSync("app/api/marketing/upload-asset/route.js", "utf8");
+  assert.match(campaignAssetsRoute, /requiredAnyPermission: action === "attach"/);
+  assert.match(campaignAssetsRoute, /\["marketing\.campaign\.manage", "creative\.asset\.upload", "creative\.\*"\]/);
+  assert.match(uploadRoute, /requiredAnyPermission: \[/);
+  assert.match(uploadRoute, /"creative\.asset\.upload"/);
+  assert.match(uploadRoute, /organizationId,\s*request,/);
+  assert.match(uploadRoute, /CREATIVE_ASSET_MAX_UPLOAD_BYTES/);
+  assert.match(uploadRoute, /Campaign not found for this organization/);
+  assert.match(uploadRoute, /Creative mission not found for this organization/);
+  assert.match(uploadRoute, /Creative project not found for this organization/);
+  assert.match(uploadRoute, /organizationId: access\.organizationId/);
+  assert.match(uploadRoute, /Campaign media must be an image or video/);
 });
 
 test("Creative Studio preparation from Campaigns requires an explicit write permission", () => {

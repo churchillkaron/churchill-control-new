@@ -93,7 +93,7 @@ test("channel asset references are validated for organization and channel type",
 });
 
 test("campaign builder has progressive review flow and validates date order", () => {
-  assert.match(component, /const createSteps = \["Basics", "Audience & Creative", "Channels", "Budget & Schedule", "Review"\]/);
+  assert.match(component, /const createSteps = \["Campaign", "Strategy", "Channels", "Budget", "Review"\]/);
   assert.match(component, /Review Campaign/);
   assert.match(route, /Campaign end date cannot be before the start date/);
 });
@@ -205,7 +205,7 @@ test("Google Ads campaign UI persists canonical Search execution configuration",
   assert.match(component, /Broad match/);
   assert.match(component, /Negative keywords/);
   assert.match(component, /Responsive Search Ad/);
-  assert.match(component, /Google Ads provider readiness/);
+  assert.match(component, /Google Ads campaign check/);
 });
 
 test("Google Ads translator preserves keyword match types and negative keywords", () => {
@@ -371,7 +371,7 @@ test("Meta creative assets stay separate from channel connection assets and are 
 });
 
 test("Meta review and readiness are organization-specific for multi-organization campaigns", () => {
-  assert.match(component, /Meta provider readiness · \{organization\?\.name/);
+  assert.match(component, /Meta campaign check · \{organization\?\.name/);
   assert.match(component, /mergedChannelSettings\("meta_ads", organizationId\)/);
   assert.match(component, /organizationReadiness\?\.creative_assets/);
 });
@@ -622,7 +622,7 @@ test("organic social review is organization-specific before owner approval", () 
   assert.match(component, /organicSocialSettingsIssues/);
   assert.match(component, /channel override/);
   assert.match(component, /Text only/);
-  assert.match(component, /Account, provider route and content are ready for no-publish preflight/);
+  assert.match(component, /Account, content and channel setup are ready for the final connection check/);
   assert.match(component, /selectedOrganizations\.flatMap/);
 });
 
@@ -1127,7 +1127,7 @@ test("Google Ads UTM controls are applied to the provider landing page", () => {
   assert.equal(url.searchParams.get("utm_campaign"), "launch");
   assert.equal(url.searchParams.get("utm_term"), "restaurant");
   assert.equal(url.searchParams.get("utm_content"), "rsa1");
-  assert.match(component, /<MetaSection title="Tracking">/);
+  assert.match(component, /<AdvancedSettingsSection title="Tracking"/);
   assert.match(route, /term: text\(settings\.utmTerm\)/);
 });
 
@@ -1340,4 +1340,38 @@ test("campaign read surfaces use currency-neutral formatting and readable Avanti
   assert.match(intelligencePage, /next_spend_priority \|\| allocation\?\.next_baht_priority/);
   assert.doesNotMatch(intelligencePage, /text-amber-100/);
   assert.match(intelligencePage, /Multi-Organization Campaign/);
+});
+
+test("Campaign creation uses five business-oriented steps with guidance", () => {
+  assert.match(component, /const createSteps = \["Campaign", "Strategy", "Channels", "Budget", "Review"\]/);
+  assert.match(component, /Name the campaign and define the business outcome/);
+  assert.match(component, /Choose channels, connect exact organization assets/);
+  assert.match(component, /Creating the draft still does not authorize provider spend/);
+  assert.match(component, /Confirm the campaign, channel readiness and exact execution evidence/);
+});
+
+test("collapsed Meta advanced panels surface hidden validation issues", () => {
+  assert.match(component, /attentionCount=\{advancedDeliveryIssueCount\}/);
+  assert.match(component, /attentionCount=\{advancedAudienceIssueCount\}/);
+  assert.match(component, /attentionCount=\{advancedBiddingIssueCount\}/);
+  assert.match(component, /Meta Bid Cap strategy requires a positive bid cap/);
+  assert.match(component, /Meta Cost Cap strategy requires a positive cost cap/);
+  assert.match(component, /Radius targeting requires latitude, longitude and a positive radius/);
+  assert.match(component, /attentionCount \? <span/);
+});
+
+test("Campaign Review explains exact channel setup blockers per organization", () => {
+  assert.match(component, /Why setup is needed/);
+  assert.match(component, /const setupStates = states\.filter/);
+  assert.match(component, /state\.blockers \|\| \[\]/);
+  assert.match(component, /Open channel setup/);
+});
+
+test("active Channel editor explains readiness before provider-specific settings", () => {
+  assert.match(component, /function ChannelReadinessNotice/);
+  assert.match(component, /Ready for governed preflight/);
+  assert.match(component, /Setup required before execution/);
+  assert.match(component, /Strategy planning only/);
+  assert.match(component, /Open setup/);
+  assert.match(component, /<ChannelReadinessNotice channel=\{activeSettingsChannel\}/);
 });

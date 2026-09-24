@@ -45,7 +45,12 @@ export async function GET(request) {
     });
     return Response.json({ success: true, data });
   } catch (error) {
-    return Response.json({ success: false, error: error?.message || "Unable to evaluate campaign consent" }, { status: error?.status || 500 });
+    const status = Number(error?.status || 500);
+    console.error("MARKETING CONSENT READ ERROR:", error);
+    return Response.json(
+      { success: false, error: status < 500 ? error?.message || "Unable to evaluate campaign consent" : "Unable to evaluate campaign consent" },
+      { status },
+    );
   }
 }
 
@@ -72,6 +77,11 @@ export async function POST(request) {
     });
     return Response.json({ success: true, data });
   } catch (error) {
-    return Response.json({ success: false, error: error?.message || "Unable to save campaign consent" }, { status: error?.status || 500 });
+    const status = Number(error?.status || 500);
+    console.error("MARKETING CONSENT WRITE ERROR:", error);
+    return Response.json(
+      { success: false, error: status < 500 ? error?.message || "Unable to save campaign consent" : "Unable to save campaign consent" },
+      { status },
+    );
   }
 }

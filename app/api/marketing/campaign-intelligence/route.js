@@ -9,12 +9,14 @@ import { buildAdsPortfolioIntelligence } from "@/lib/marketing/intelligence/buil
 import { MarketingOutcomeAttributionRuntime } from "@/lib/marketing/intelligence/MarketingOutcomeAttributionRuntime";
 
 function errorResponse(error, status = 500) {
+  const safeStatus = Number(status || 500);
+  if (safeStatus >= 500) console.error("CAMPAIGN INTELLIGENCE ERROR:", error);
   return NextResponse.json(
     {
       success: false,
-      error: error?.message || String(error || "Campaign intelligence failed"),
+      error: safeStatus < 500 ? error?.message || "Campaign intelligence request failed" : "Campaign intelligence request failed",
     },
-    { status },
+    { status: safeStatus },
   );
 }
 
@@ -167,7 +169,8 @@ async function loadGroup({ groupId, ownerOrganizationId, request }) {
   return {
     ...group,
     members: (members || []).map((member) => {
-      const campaign = campaignsById.get(member.marketing_campaign_id) || null;
+      const candidateCampaign = campaignsById.get(member.marketing_campaign_id) || null;
+      const campaign = candidateCampaign?.organization_id === member.organization_id ? candidateCampaign : null;
       const outcomes = outcomeSummary.get(campaign?.id) || {};
       const measuredSpend = number(spendByCampaign.get(campaign?.id));
 

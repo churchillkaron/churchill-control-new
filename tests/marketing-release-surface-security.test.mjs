@@ -79,6 +79,22 @@ test("Marketing asset read and upload routes keep internal server errors private
   assert.match(uploadRoute, /MARKETING ASSET UPLOAD ERROR/);
 });
 
+test("live Campaign provider lookup routes hide internal 5xx details while preserving actionable 4xx feedback", () => {
+  const consent = read("app/api/marketing/channel-consent/route.js");
+  const whatsapp = read("app/api/marketing/whatsapp-templates/route.js");
+  const pinterest = read("app/api/marketing/pinterest-boards/route.js");
+  const tiktok = read("app/api/marketing/tiktok-creator/route.js");
+  assert.match(consent, /status < 500 \? error\?\.message/);
+  assert.match(consent, /MARKETING CONSENT READ ERROR/);
+  assert.match(consent, /MARKETING CONSENT WRITE ERROR/);
+  assert.match(whatsapp, /Unable to load WhatsApp templates from the connected account/);
+  assert.doesNotMatch(whatsapp, /payload\?\.error\?\.message \|\|/);
+  assert.match(pinterest, /status < 500 \? error\?\.message/);
+  assert.match(pinterest, /PINTEREST BOARD LOOKUP ERROR/);
+  assert.match(tiktok, /status < 500 \? error\?\.message/);
+  assert.match(tiktok, /TIKTOK CREATOR LOOKUP ERROR/);
+});
+
 test("Campaign Queue is truthful read-only operational visibility", () => {
   assert.match(queuePage, /fetch\("\/api\/marketing\/campaigns"/);
   assert.match(queuePage, /body: JSON\.stringify\(\{ organizationId \}\)/);
@@ -104,6 +120,33 @@ test("Brand evidence replacement requires explicit creative asset authority", ()
   const upload = read("app/api/creative/brand/onboarding-upload/route.js");
   assert.match(upload, /requiredAnyPermission: \["creative\.asset\.upload", "creative\.\*"\]/);
   assert.match(upload, /organizationId: access\.organizationId/);
+});
+
+test("Marketing intelligence and managed-media control keep organization bindings exact and 5xx details private", () => {
+  const intelligence = read("app/api/marketing/campaign-intelligence/route.js");
+  const outcomes = read("app/api/marketing/campaign-outcomes/route.js");
+  const attribution = read("app/api/marketing/attribution-link/route.js");
+  const managedStatus = read("app/api/marketing/meta-ads/[campaignId]/status/route.js");
+  assert.match(intelligence, /candidateCampaign\?\.organization_id === member\.organization_id/);
+  assert.match(intelligence, /CAMPAIGN INTELLIGENCE ERROR/);
+  assert.match(intelligence, /safeStatus < 500 \? error\?\.message/);
+  assert.match(outcomes, /CAMPAIGN OUTCOME ERROR/);
+  assert.match(outcomes, /safeStatus < 500 \? error\?\.message/);
+  assert.match(attribution, /MARKETING ATTRIBUTION LINK ERROR/);
+  assert.match(attribution, /safeStatus < 500 \? error\?\.message/);
+  assert.match(managedStatus, /MANAGED MEDIA CAMPAIGN ACTION ERROR/);
+  assert.match(managedStatus, /status < 500 \? error\?\.message/);
+});
+
+test("Paid Media Builder exposes explicit capability-aware view-only behavior", () => {
+  const readinessRoute = read("app/api/marketing/campaign-readiness/route.js");
+  const adsPage = read("app/(system)/workspace/[organizationId]/commercial/marketing/ads/page.jsx");
+  assert.match(readinessRoute, /can_manage_paid_media: hasMarketingPermission\(access, "marketing\.ads\.manage"\)/);
+  assert.match(adsPage, /const canManagePaidMedia = readiness\?\.capabilities\?\.can_manage_paid_media === true/);
+  assert.match(adsPage, /View only · paid-media planning, provider preflight and campaign creation require the Marketing Ads management permission/);
+  assert.match(adsPage, /disabled=\{preflighting \|\| !form\.confirmExactAsset \|\| !canManagePaidMedia\}/);
+  assert.match(adsPage, /preflightCurrent && canManagePaidMedia/);
+  assert.match(adsPage, /!loading && canManagePaidMedia && !readiness\?\.ready_channel_count/);
 });
 
 test("Marketing home exposes only implemented release workspaces", () => {

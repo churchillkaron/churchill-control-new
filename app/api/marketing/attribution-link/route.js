@@ -7,12 +7,14 @@ import { canCreateMarketingCampaign } from "@/lib/marketing/security/marketingCa
 import { MarketingAttributionTrackingRuntime } from "@/lib/marketing/intelligence/MarketingAttributionTrackingRuntime";
 
 function fail(error, status = 500) {
+  const safeStatus = Number(status || 500);
+  if (safeStatus >= 500) console.error("MARKETING ATTRIBUTION LINK ERROR:", error);
   return NextResponse.json(
     {
       success: false,
-      error: error?.message || String(error || "Marketing attribution link failed"),
+      error: safeStatus < 500 ? error?.message || "Marketing attribution link failed" : "Marketing attribution link failed",
     },
-    { status },
+    { status: safeStatus },
   );
 }
 

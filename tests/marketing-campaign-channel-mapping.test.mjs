@@ -1351,6 +1351,24 @@ test("Campaign creation uses five business-oriented steps with guidance", () => 
   assert.match(component, /Confirm the campaign, channel readiness and exact execution evidence/);
 });
 
+test("blocked campaign steps explain the exact requirement instead of only disabling Continue", () => {
+  assert.match(component, /function stepBlockingReason\(step\)/);
+  assert.match(component, /Add a campaign name to continue/);
+  assert.match(component, /Add the business objective to continue/);
+  assert.match(component, /Choose at least one campaign channel to continue/);
+  assert.match(component, /\{stepBlockingReason\(createStep\)\}/);
+  assert.match(component, /disabled:cursor-not-allowed/);
+});
+
+test("Campaign creation modal is keyboard-aware and responsive", () => {
+  assert.match(component, /role="dialog" aria-modal="true" aria-labelledby="campaign-command-title"/);
+  assert.match(component, /id="campaign-command-title"/);
+  assert.match(component, /event\.key === "Escape"/);
+  assert.match(component, /document\.body\.style\.overflow = "hidden"/);
+  assert.match(component, /grid grid-cols-2 gap-2 sm:grid-cols-5/);
+  assert.match(component, /aria-current=\{active \? "step" : undefined\}/);
+});
+
 test("collapsed Meta advanced panels surface hidden validation issues", () => {
   assert.match(component, /attentionCount=\{advancedDeliveryIssueCount\}/);
   assert.match(component, /attentionCount=\{advancedAudienceIssueCount\}/);
@@ -1375,6 +1393,19 @@ test("active Channel editor explains readiness before provider-specific settings
   assert.match(component, /Strategy planning only/);
   assert.match(component, /Open setup/);
   assert.match(component, /<ChannelReadinessNotice channel=\{activeSettingsChannel\}/);
+});
+
+test("selected channel keeps detailed provider controls collapsed until explicitly configured", () => {
+  assert.match(component, /Configure \{activeSettingsChannel\.name\}/);
+  assert.match(component, /Open only when you need channel-specific account, audience, creative or delivery controls/);
+  assert.match(component, />Configure channel<\/span>/);
+  assert.match(component, /<details className="group rounded-2xl border border-black\/\[0\.07\] bg-\[#FCFBF8\]">/);
+  assert.match(component, /<ChannelSettings[\s\S]*activeSettingsChannel/);
+});
+
+test("Creative Studio preparation from Campaigns requires an explicit write permission", () => {
+  assert.match(route, /\["marketing\.campaign\.manage", "creative\.mission\.create", "creative\.projects\.create", "creative\.\*"\]/);
+  assert.match(route, /\["creative\.execute", "creative\.production\.run", "creative\.\*"\]/);
 });
 
 test("Click-to-WhatsApp Meta Ads uses an exact organization WhatsApp phone-number asset", () => {

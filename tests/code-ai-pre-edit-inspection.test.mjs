@@ -241,3 +241,33 @@ test("pre-edit inspection still blocks implementation even when explicit target 
   assert.equal(policy.discovery_locked, false);
   assert.deepEqual(policy.allowed_actions.sort(), ["read", "search"]);
 });
+
+test("confirmed absent create targets satisfy declared evidence and unlock first mutation", () => {
+  const targets = ["tmp/new-a.js", "tmp/new-b.js"];
+  const evidence = targets.map((requested_path) => ({
+    kind: "operation",
+    action: "read",
+    status: "completed",
+    result: {
+      expected_new_target: true,
+      allowed_edit_target: true,
+      requested_path,
+      exists: false,
+    },
+  }));
+  const policy = resolveCodeAIWorkPackageActionPolicy({
+    objective_context: {
+      owner_objective: "Create tmp/new-a.js and tmp/new-b.js.",
+      implementation_required: true,
+      allowed_edit_paths: targets,
+    },
+    state: { evidence, files_changed: [], source_changes: [] },
+  });
+  assert.equal(policy.all_declared_evidence_loaded, false);
+  assert.equal(policy.explicit_targets_loaded, true);
+  assert.equal(policy.implementation_evidence_ready, true);
+  assert.equal(policy.implementation_required, true);
+  assert.equal(policy.mutation_blocked_by_declared_evidence, false);
+  assert.equal(policy.mutation_first_required, true);
+  assert.deepEqual(policy.allowed_actions, ["apply_files", "replace_range"]);
+});

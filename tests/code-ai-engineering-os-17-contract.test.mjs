@@ -48,6 +48,9 @@ test("debugging database security performance and observability are durable type
   assert.match(mission, /AVANTIQO_CODE_DATABASE_ENGINEERING_REVIEW_V1/);
   assert.match(mission, /AVANTIQO_CODE_SECURITY_ENGINEERING_REVIEW_V1/);
   assert.match(mission, /AVANTIQO_CODE_PERFORMANCE_EVIDENCE_V1/);
+  assert.match(mission, /CODE_AI_PERFORMANCE_BENCHMARK_KEY_REQUIRED/);
+  assert.match(mission, /CODE_AI_PERFORMANCE_DISTINCT_BEFORE_AFTER_OPERATIONS_REQUIRED/);
+  assert.match(mission, /CODE_AI_PERFORMANCE_BEFORE_AFTER_EVIDENCE_MISMATCH/);
   assert.match(mission, /AVANTIQO_CODE_OBSERVABILITY_EVIDENCE_V1/);
   assert.match(mission, /function assertObservedEvidenceOperationIds/);
   assert.match(mission, /"CODE_AI_DATABASE_REVIEW"/);

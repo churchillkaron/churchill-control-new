@@ -67,7 +67,7 @@ export async function GET(request) {
             text(progress.status).toLowerCase(),
           );
           return {
-            ...progress,
+            ...sharedProgress,
             active: terminal ? false : progress.active !== false,
             events: events.length ? events : [latestEvent],
             latest_event: latestEvent,

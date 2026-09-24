@@ -82,6 +82,6 @@ test("Creative Floor repair normalizes settled Qwen benchmark output into the ev
   assert.match(repair, /function normalizedBenchmarkLab/);
   assert.match(repair, /contract: "CREATIVE_BENCHMARK_LAB_V1"/);
   assert.match(repair, /referenceAssets\.slice\(0, 3\)/);
-  assert.match(repair, /evidence_ref: text\(entry\.asset_id \|\| entry\.evidence_ref\)/);
+  assert.match(repair, /evidence_ref:[\s\S]*text\(entry\.asset_id \|\| entry\.evidence_ref\)[\s\S]*text\(fallbackStudy\.evidence_ref/);
   assert.match(repair, /function normalizedSignatureImages/);
 });

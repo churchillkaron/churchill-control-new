@@ -37,7 +37,12 @@ function completedState(overrides = {}) {
     },
     employee_completion: {
       verified: true,
-      behavioral_verification: { verified: true },
+      behavioral_verification: {
+        required: true,
+        verified: true,
+        matched_impacted_test_count: 1,
+        broad_test_operation_ids: [],
+      },
       final_review: { complete: true },
     },
     ...overrides,
@@ -277,4 +282,67 @@ test("required memory self-improvement and routing departments fail closed witho
     result: { success: true, state: completedState() },
   });
   assert.ok(brokenRouting.missing_required_departments.some((item) => item.key === "dynamic_routing"));
+});
+
+test("ordinary post-mutation verification cannot satisfy adversarial testing", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice form" });
+  const state = completedState({
+    behavioral_verification: null,
+    employee_completion: { verified: true, behavioral_verification: { verified: false }, final_review: { complete: true } },
+    precision_evidence: {},
+    reproduction: { exact_before_after_observed: true, exact_reproduction_key: "invoice-form" },
+    hypothesis_debugging: { hypotheses: ["auth", "state", "contract"] },
+    evidence: [
+      { kind: "causal_hypothesis_record", hypotheses: ["auth", "state", "contract"] },
+      { kind: "operation", action: "apply_files", status: "completed", result: {} },
+      { kind: "operation", action: "verify", status: "completed", result: { exit_code: 0 } },
+      { kind: "operation", action: "browser_verify", status: "completed", result: { passed: true } },
+    ],
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.equal(final.engineering_os_ready, false);
+  assert.ok(final.missing_required_departments.some((item) => item.key === "adversarial_testing"));
+});
+
+test("verified mutation or fuzz evidence satisfies adversarial testing", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice form" });
+  for (const precision_evidence of [
+    { mutation_testing: { passed: true, verified: true } },
+    { property_fuzz: { passed: true, verified: true } },
+  ]) {
+    const state = completedState({
+      behavioral_verification: null,
+      employee_completion: { verified: true, behavioral_verification: { verified: false }, final_review: { complete: true } },
+      precision_evidence,
+      reproduction: { exact_before_after_observed: true, exact_reproduction_key: "invoice-form" },
+      hypothesis_debugging: { hypotheses: ["auth", "state", "contract"] },
+      evidence: [
+        { kind: "causal_hypothesis_record", hypotheses: ["auth", "state", "contract"] },
+        { kind: "operation", action: "apply_files", status: "completed", result: {} },
+        { kind: "operation", action: "verify", status: "completed", result: { exit_code: 0 } },
+        { kind: "operation", action: "browser_verify", status: "completed", result: { passed: true } },
+      ],
+    });
+    const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+    assert.ok(!final.missing_required_departments.some((item) => item.key === "adversarial_testing"));
+  }
+});
+
+test("verified behavioral record without impacted or broad test proof cannot satisfy adversarial testing", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice form" });
+  const state = completedState({
+    behavioral_verification: { required: false, verified: true, matched_impacted_test_count: 0, broad_test_operation_ids: [] },
+    employee_completion: { verified: true, behavioral_verification: { required: false, verified: true, matched_impacted_test_count: 0, broad_test_operation_ids: [] }, final_review: { complete: true } },
+    precision_evidence: {},
+    reproduction: { exact_before_after_observed: true, exact_reproduction_key: "invoice-form" },
+    hypothesis_debugging: { hypotheses: ["auth", "state", "contract"] },
+    evidence: [
+      { kind: "causal_hypothesis_record", hypotheses: ["auth", "state", "contract"] },
+      { kind: "operation", action: "apply_files", status: "completed", result: {} },
+      { kind: "operation", action: "verify", status: "completed", result: { exit_code: 0 } },
+      { kind: "operation", action: "browser_verify", status: "completed", result: { passed: true } },
+    ],
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(final.missing_required_departments.some((item) => item.key === "adversarial_testing"));
 });

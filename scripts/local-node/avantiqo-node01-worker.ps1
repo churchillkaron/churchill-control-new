@@ -367,7 +367,24 @@ function FailJob($Job, [string]$Code, [bool]$Retryable=$true) {
   })
 }
 
-function RunTextJob($Job) {
+function ReleaseIdleOllamaModelsForStrongCode([string]$TargetModel) {
+  $released = @()
+  try {
+    $loaded = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 3
+    foreach ($entry in @($loaded.models)) {
+      $name = $(if ([string]$entry.name) { [string]$entry.name } else { [string]$entry.model })
+      if (-not $name -or $name -eq $TargetModel -or [int64]$entry.size_vram -le 0) { continue }
+      $body = @{ model=$name; keep_alive=0 } | ConvertTo-Json -Compress
+      try {
+        [void](Invoke-RestMethod -Uri "$OllamaUrl/api/generate" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 8)
+        $released += $name
+      } catch {}
+    }
+  } catch {}
+  return @($released)
+}
+
+function RunTextJobUnlocked($Job) {
   $payload = $Job.payload
   $messages = @()
   if ($payload.messages) { $messages = @($payload.messages) }
@@ -410,6 +427,9 @@ function RunTextJob($Job) {
   $gpuTelemetryAvailable = $false
   $runtimeModelAlreadyGpuResident = $false
   $codeGpuWaitMs = 0
+  $codeGpuReclaimAttempted = $false
+  $codeGpuReleasedModels = @()
+  $codeGpuReclaimWaitMs = 0
   if ($Lane -eq 'code') {
     try {
       $loadedModels = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 3
@@ -470,6 +490,35 @@ function RunTextJob($Job) {
         $freeGpuMb = [int]((& nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>$null | Select-Object -First 1).Trim())
         if ($freeGpuMb -ge $codeGpuMinFreeMb) { $forceCpu = $false; break }
       } catch {}
+    }
+    if ($forceCpu) {
+      $codeGpuReclaimAttempted = $true
+      $reclaimStarted = Get-Date
+      $codeGpuReleasedModels = @(ReleaseIdleOllamaModelsForStrongCode $runtimeModel)
+      $reclaimDeadline = (Get-Date).AddSeconds(12)
+      while ((Get-Date) -lt $reclaimDeadline) {
+        Start-Sleep -Milliseconds 750
+        try {
+          $loadedModels = Invoke-RestMethod -Uri "$OllamaUrl/api/ps" -Method Get -TimeoutSec 3
+          $residentModel = @($loadedModels.models | Where-Object {
+            ([string]$_.name -eq $runtimeModel -or [string]$_.model -eq $runtimeModel) -and
+            ([int64]$_.size_vram -gt 0)
+          } | Select-Object -First 1)
+          if ($residentModel.Count -gt 0) {
+            $runtimeModelAlreadyGpuResident = $true
+            $forceCpu = $false
+            break
+          }
+        } catch {}
+        try {
+          $freeGpuMb = [int]((& nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>$null | Select-Object -First 1).Trim())
+          if ($freeGpuMb -ge $codeGpuMinFreeMb) {
+            $forceCpu = $false
+            break
+          }
+        } catch {}
+      }
+      $codeGpuReclaimWaitMs = [int](((Get-Date) - $reclaimStarted).TotalMilliseconds)
     }
     if ($forceCpu) {
       try {
@@ -580,9 +629,31 @@ function RunTextJob($Job) {
     context_tokens=[int]$body.options.num_ctx; message_chars=[int64]$messageChars;
     gpu_workload=($executionResource -eq 'LOCAL_GPU'); gpu_vram_bytes=$gpuVramBytes;
     code_gpu_headroom_required_mb=[int]$codeGpuMinFreeMb; code_gpu_wait_ms=[int]$codeGpuWaitMs;
-    code_runtime_model_already_gpu_resident=[bool]$runtimeModelAlreadyGpuResident; code_cpu_fallback=[bool]$forceCpu
+    code_runtime_model_already_gpu_resident=[bool]$runtimeModelAlreadyGpuResident; code_cpu_fallback=[bool]$forceCpu;
+    code_gpu_reclaim_attempted=[bool]$codeGpuReclaimAttempted; code_gpu_reclaim_wait_ms=[int]$codeGpuReclaimWaitMs;
+    code_gpu_released_model_count=@($codeGpuReleasedModels).Count
   }
   CompleteJob $Job $result $metrics
+}
+
+function RunTextJob($Job) {
+  $createdNew = $false
+  $mutex = New-Object System.Threading.Mutex($false, 'Global\AvantiqoNode01OllamaTextGpu')
+  $held = $false
+  try {
+    $waitSeconds = 30
+    try {
+      if ([bool]$Job.payload.strong_model_required) { $waitSeconds = 90 }
+    } catch {}
+    $held = $mutex.WaitOne([TimeSpan]::FromSeconds($waitSeconds))
+    if (-not $held) { throw 'AVANTIQO_OLLAMA_TEXT_GPU_MUTEX_TIMEOUT' }
+    RunTextJobUnlocked $Job
+  } finally {
+    if ($held) {
+      try { $mutex.ReleaseMutex() } catch {}
+    }
+    $mutex.Dispose()
+  }
 }
 
 

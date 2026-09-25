@@ -42,3 +42,29 @@ test("Code inference timeout is bounded and not blindly retried by worker", () =
   assert.match(planner, /AVANTIQO_CODE_OLLAMA_TIMEOUT/);
   assert.match(planner, /AVANTIQO_CODE_STRONG_MODEL_GPU_HEADROOM_REQUIRED/);
 });
+
+test("strong Code safely reclaims only idle Ollama residency before failing GPU headroom", () => {
+  assert.match(worker, /function ReleaseIdleOllamaModelsForStrongCode/);
+  assert.match(worker, /if \(-not \$name -or \$name -eq \$TargetModel -or \[int64\]\$entry\.size_vram -le 0\) \{ continue \}/);
+  assert.match(worker, /model=\$name; keep_alive=0/);
+  assert.match(worker, /\$codeGpuReclaimAttempted = \$true/);
+  assert.match(worker, /\$codeGpuReleasedModels = @\(ReleaseIdleOllamaModelsForStrongCode \$runtimeModel\)/);
+  assert.match(worker, /\$reclaimDeadline = \(Get-Date\)\.AddSeconds\(12\)/);
+  assert.match(worker, /if \(\$forceCpu\) \{ throw 'AVANTIQO_CODE_STRONG_MODEL_GPU_HEADROOM_REQUIRED' \}/);
+  assert.doesNotMatch(worker, /ReleaseIdleOllamaModelsForStrongCode[\s\S]{0,1800}StopImageServerForExclusiveGpu/);
+});
+
+test("all Ollama text inference is serialized across lanes before residency reclaim", () => {
+  assert.match(worker, /function RunTextJobUnlocked\(\$Job\)/);
+  assert.match(worker, /Global\\AvantiqoNode01OllamaTextGpu/);
+  assert.match(worker, /\$mutex\.WaitOne\(\[TimeSpan\]::FromSeconds\(\$waitSeconds\)\)/);
+  assert.match(worker, /if \(-not \$held\) \{ throw 'AVANTIQO_OLLAMA_TEXT_GPU_MUTEX_TIMEOUT' \}/);
+  assert.match(worker, /RunTextJobUnlocked \$Job/);
+  assert.match(worker, /\$mutex\.ReleaseMutex\(\)/);
+});
+
+test("Code metrics expose bounded GPU reclaim evidence", () => {
+  assert.match(worker, /code_gpu_reclaim_attempted=\[bool\]\$codeGpuReclaimAttempted/);
+  assert.match(worker, /code_gpu_reclaim_wait_ms=\[int\]\$codeGpuReclaimWaitMs/);
+  assert.match(worker, /code_gpu_released_model_count=@\(\$codeGpuReleasedModels\)\.Count/);
+});

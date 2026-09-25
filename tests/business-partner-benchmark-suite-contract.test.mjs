@@ -74,3 +74,36 @@ test("missing reference cases and stale evidence fail closed", () => {
   assert.equal(result.evidence_fresh, false);
   assert.equal(result.missing_reference_cases.claude.length, 1);
 });
+
+
+test("dimension aggregation scores only cases that declare the dimension", () => {
+  const selectiveCases = suite.cases.map((entry) => ({
+    case_id: entry.id,
+    scores: Object.fromEntries(entry.requires.map((dimension) => [dimension, 0.95])),
+  }));
+  const report = {
+    contract: "AVANTIQO_BUSINESS_PARTNER_BENCHMARK_EVIDENCE_V1",
+    generated_at: new Date().toISOString(),
+    matched_conditions: true,
+    same_case_prompts: true,
+    same_evidence_packets: true,
+    same_tool_contracts: true,
+    hidden_expected_outcomes_not_exposed: true,
+    candidate: { cases: selectiveCases },
+    references: {
+      chatgpt: { cases: selectiveCases },
+      claude: { cases: selectiveCases },
+      gemini: { cases: selectiveCases },
+    },
+  };
+
+  const result = evaluateBusinessPartnerBenchmarkEvidence({ report });
+  assert.equal(result.release_eligible, true);
+
+  const target = report.candidate.cases.find((item) =>
+    item.scores.contextual_continuity !== undefined
+  );
+  delete target.scores.contextual_continuity;
+  const missingRequired = evaluateBusinessPartnerBenchmarkEvidence({ report });
+  assert.equal(missingRequired.release_eligible, false);
+});

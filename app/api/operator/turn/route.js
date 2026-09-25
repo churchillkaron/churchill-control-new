@@ -621,6 +621,8 @@ export async function POST(request, internal = {}) {
             state_neutral_turn: externalFact,
             preflight_reused_without_durable_reclassification: true,
           };
+        } else {
+          preflightSemanticUnderstanding = null;
         }
       } catch (preflightError) {
         console.warn("OPERATOR_CONTEXT_FREE_PREFLIGHT_SKIPPED", {

@@ -153,7 +153,7 @@ const output = {
 };
 
 for (const testCase of suite.cases || []) {
-  const prompt = benchmarkPrompt(protocol, testCase);
+  const prompt = benchmarkPrompt(protocol, evidencePacket, testCase);
   const promptHash = sha256(prompt);
 
   for (const provider of providers) {

@@ -70,7 +70,8 @@
     "certify:business-partner:benchmark-floor:policy": "node scripts/certify-business-partner-benchmark-floor-policy.mjs",
     "certify:business-partner:benchmark-suite": "node scripts/certify-business-partner-benchmark-suite.mjs",
     "verify:business-partner:benchmark-evidence": "node scripts/verify-business-partner-benchmark-evidence.mjs",
-    "benchmark:business-partner:references:live": "node scripts/run-business-partner-reference-head-to-head.mjs"
+    "benchmark:business-partner:references:live": "node scripts/run-business-partner-reference-head-to-head.mjs",
+    "build:business-partner:benchmark-evidence": "node scripts/build-business-partner-benchmark-evidence.mjs"
   },
   "dependencies": {
     "@babel/parser": "^7.29.7",

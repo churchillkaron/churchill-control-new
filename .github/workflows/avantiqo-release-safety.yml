@@ -65,6 +65,8 @@ jobs:
           tests/business-partner-benchmark-release-gate-contract.test.mjs
           tests/business-partner-benchmark-suite-contract.test.mjs
           tests/business-partner-head-to-head-runner-contract.test.mjs
+          tests/business-partner-deterministic-benchmark-scorer.test.mjs
+          tests/business-partner-benchmark-expectation-coverage.test.mjs
 
       - name: Reject whitespace/conflict damage
         run: git diff --check origin/main...HEAD

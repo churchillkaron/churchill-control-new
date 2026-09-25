@@ -303,7 +303,10 @@ test("IDE actions bind directly to a validated device session without enqueueing
   assert.match(ideRoute, /CodeWorkspaceRuntime\.bind/);
   assert.match(agent, /p_limit:1,p_lease_seconds:DEVICE_JOB_LEASE_SECONDS/);
   assert.match(agent, /startDeviceJobLeaseRenewal/);
-  assert.match(agent, /handled\?75:350/);
+  assert.match(agent, /DEVICE_HEARTBEAT_INTERVAL_MS/);
+  assert.match(agent, /DEVICE_ACTIVE_POLL_INTERVAL_MS/);
+  assert.match(agent, /DEVICE_IDLE_POLL_INTERVAL_MS/);
+  assert.match(agent, /handled\?DEVICE_ACTIVE_POLL_INTERVAL_MS:DEVICE_IDLE_POLL_INTERVAL_MS/);
 });
 
 

@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { cache } from "react";
 import { headers } from "next/headers";
 
 import "./globals.css";
@@ -31,22 +32,21 @@ function requestHostname(requestHeaders) {
   );
 }
 
-async function requestHostContext(requestHeaders) {
-  const hostname = requestHostname(requestHeaders);
-
+const resolveRequestHostContext = cache(async (hostname) => {
   try {
-    return {
-      hostname,
-      context: await resolveRegisteredPlatformHostContext(hostname),
-    };
+    return await resolveRegisteredPlatformHostContext(hostname);
   } catch (error) {
     console.error("PLATFORM_HOST_BOOTSTRAP_ERROR", error);
-
-    return {
-      hostname,
-      context: resolvePlatformHostContext(hostname),
-    };
+    return resolvePlatformHostContext(hostname);
   }
+});
+
+async function requestHostContext(requestHeaders) {
+  const hostname = requestHostname(requestHeaders);
+  return {
+    hostname,
+    context: await resolveRequestHostContext(hostname),
+  };
 }
 
 export async function generateMetadata() {

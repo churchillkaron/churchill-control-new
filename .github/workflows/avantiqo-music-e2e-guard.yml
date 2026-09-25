@@ -39,7 +39,7 @@ jobs:
         run: |
           node --test \
             tests/avantiqo-audio-duration-governance.test.mjs \
-            tests/avantiqo-audio-modal-direct-transport.test.mjs \
+            tests/avantiqo-audio-local-only-transport.test.mjs \
             tests/avantiqo-audio-music-runtime-contract.test.mjs
 
       - name: Assert guard is mutation-free

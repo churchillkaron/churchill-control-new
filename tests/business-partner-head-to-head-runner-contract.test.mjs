@@ -23,16 +23,18 @@ test("reference benchmark is manual-only and requires explicit paid authorizatio
 test("all three reference families use the same protocol and suite", () => {
   assert.match(runner, /benchmarks\/business-partner\/suite\.v1\.json/);
   assert.match(runner, /benchmarks\/business-partner\/protocol\.v1\.json/);
+  assert.match(runner, /benchmarks\/business-partner\/evidence-packet\.v1\.json/);
   assert.match(runner, /family: "chatgpt"/);
   assert.match(runner, /family: "claude"/);
   assert.match(runner, /family: "gemini"/);
-  assert.match(runner, /const prompt = benchmarkPrompt\(protocol, testCase\)/);
+  assert.match(runner, /const prompt = benchmarkPrompt\(protocol, evidencePacket, testCase\)/);
 });
 
 test("raw evidence keeps measured provenance without logging secrets", () => {
   assert.match(runner, /raw_output_sha256/);
   assert.match(runner, /latency_ms/);
   assert.match(runner, /prompt_sha256/);
+  assert.match(runner, /evidence_packet_sha256/);
   assert.doesNotMatch(runner, /console\.log\([^\n]*API_KEY/);
   assert.match(workflow, /Upload raw measured reference evidence/);
 });

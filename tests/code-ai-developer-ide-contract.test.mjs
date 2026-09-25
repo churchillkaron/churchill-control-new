@@ -53,7 +53,7 @@ test("attached missions hold CODE lease and preserve developer session after mis
   assert.match(mission, /device_session_id = null/);
   assert.match(mission, /owner: "CODE"/);
   assert.match(mission, /ide_edit_lease/);
-  assert.match(mission, /if \(!device_session_id\) await workspace\.stop/);
+  assert.match(mission, /if \(!device_session_id && !preserveLocalWorkspace\) await workspace\.stop\(\)/);
 });
 
 test("device_session_id is a governed autonomous capability input", () => {

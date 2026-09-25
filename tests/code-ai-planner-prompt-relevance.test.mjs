@@ -44,3 +44,47 @@ test("planner prompt prioritizes changed and required source reads over unrelate
   assert.match(result.instruction, /TARGET_CHANGED_MARKER/);
   assert.ok(result.state_chars <= result.structured_specification.planner_state_max_chars);
 });
+
+
+test("planner prompt enters mutation focus after reproduced failure and established hypotheses", () => {
+  const result = buildCodeAIPlannerPromptTransport({
+    objective: "Repair the reproduced defect.",
+    iteration: 8,
+    state: {
+      mission_id: "mutation-focus-test",
+      base_commit: "b".repeat(40),
+      status: "repair_required",
+      objective_context: { implementation_required: true },
+      source_change_count: 0,
+      evidence: [
+        {
+          kind: "operation",
+          operation_id: "repro-op",
+          action: "record_reproduction",
+          status: "completed",
+          result: { status: "FAILED", source_revision: 0, same_reproduction_key: "fixture" },
+        },
+        {
+          kind: "operation",
+          operation_id: "hyp-op",
+          action: "record_hypotheses",
+          status: "completed",
+          result: {
+            hypotheses: [
+              { id: "H1", status: "PLAUSIBLE" },
+              { id: "H2", status: "PLAUSIBLE" },
+              { id: "H3", status: "PLAUSIBLE" },
+            ],
+          },
+        },
+      ],
+      source_read_evidence: [read("read-1", "lib/target.js", "TARGET")],
+      verification: [{ operation_id: "verify-1", passed: false }],
+      autonomy_control: { remaining_iterations: 5, evidence_revision: 8, source_revision: 0 },
+    },
+    allowed_actions: ["search", "run", "apply_files", "replace_range", "block"],
+  });
+  assert.match(result.instruction, /MUTATION FOCUS/);
+  assert.match(result.instruction, /apply_files or replace_range/);
+  assert.match(result.instruction, /replace_range: .*expected.*replacement/);
+});

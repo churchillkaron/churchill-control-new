@@ -91,3 +91,13 @@ test("read-only invoice language does not become a registered revision", () => {
   assert.equal(registeredRevisionIntent("show the last customer invoice", anchor), null);
   assert.equal(registeredRevisionIntent("how should the invoice workflow work", anchor), null);
 });
+
+
+test("registered revisions resolve before front cognition so local queue timeout cannot downgrade them", () => {
+  const deterministicIndex = understanding.indexOf("const deterministicRevision = registeredRevisionIntent(message, deterministicActionAnchor);");
+  const frontIndex = understanding.indexOf('const { runOperatorFrontCognition } = await import("./OperatorFrontCognitionRuntime.js");', deterministicIndex);
+  assert.ok(deterministicIndex >= 0 && frontIndex > deterministicIndex);
+  assert.match(understanding, /deterministic_registered_revision: true/);
+  assert.match(understanding, /registered_write_capability_key:/);
+  assert.match(understanding, /requires_mutation: true/);
+});

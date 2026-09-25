@@ -330,3 +330,58 @@ test("repair guard allows an owner-explicit data member migration", () => {
     item.to_property === "total"
   ));
 });
+
+test("quoted import paths do not become observed data-member obligations", () => {
+  const state = {
+    objective: "Repair the invoice summary implementation",
+    evidence: [read(
+      "tests/fixtures/invoice-summary.mjs",
+      'import { normalizeMoney } from "./normalize-money.mjs"; export function summarizeInvoice(lines){ return lines.map((line)=>line.amount); }',
+    )],
+  };
+  const result = assessCodeAIObservedContractCompatibility({
+    state,
+    writes: [{
+      path: "tests/fixtures/invoice-summary.mjs",
+      content: 'export function summarizeInvoice(lines){ return lines.map((line)=>line.amount); }',
+    }],
+  });
+  assert.ok(!result.obligations.some((item) => item.receiver === "money" && item.property === "mjs"));
+  assert.ok(!result.violations.some((item) => item.receiver === "money" && item.property === "mjs"));
+});
+
+test("authoritative verifier evidence can prove one coherent repair data-member migration", () => {
+  const normalizePath = "tests/fixtures/code-ai-autonomous-multifile/normalize-money.mjs";
+  const summaryPath = "tests/fixtures/code-ai-autonomous-multifile/invoice-summary.mjs";
+  const verifierPath = "scripts/code-ai-autonomous-multifile-fixture-test.mjs";
+  const state = {
+    objective: "Repair the intentionally broken autonomous multi-file fixture.",
+    objective_context: {
+      owner_objective: "Repair the intentionally broken autonomous multi-file fixture.",
+      evidence_path_1: normalizePath,
+      evidence_path_2: summaryPath,
+      evidence_path_3: verifierPath,
+      authoritative_verification_command: "node",
+      authoritative_verification_args: [verifierPath],
+    },
+    evidence: [
+      read(normalizePath, "export function normalizeMoney(value) { return Number.isFinite(value) ? value : 0; }"),
+      read(summaryPath, 'import { normalizeMoney } from "./normalize-money.mjs"; export function summarizeInvoice(lines){ const safeLines=Array.isArray(lines)?lines:[]; return { total:safeLines.reduce((sum,line)=>sum+normalizeMoney(line?.amount),0), valid_line_count:safeLines.length }; }'),
+      read(verifierPath, 'assert.deepEqual(summarizeInvoice([{ total: "12.50" }, { total: 7 }, { total: "not-a-number" }]), { total: 19.5, valid_line_count: 2 });'),
+    ],
+  };
+  const result = assessCodeAIObservedContractCompatibility({
+    state,
+    writes: [
+      { path: normalizePath, content: "export function normalizeMoney(value){ const parsed=typeof value==='string'?Number(value):value; return Number.isFinite(parsed)?parsed:0; }" },
+      { path: summaryPath, content: "export function summarizeInvoice(lines){ const safe=Array.isArray(lines)?lines:[]; const values=safe.map((line)=>Number(line?.total)).filter(Number.isFinite); return { total:values.reduce((sum,value)=>sum+value,0), valid_line_count:values.length }; }" },
+    ],
+  });
+  assert.equal(result.compatible, true);
+  assert.ok(result.coherent_contract_migrations.some((item) =>
+    item.kind === "AUTHORITATIVE_VERIFIER_DATA_MEMBER_MIGRATION" &&
+    item.from_property === "amount" &&
+    item.to_property === "total" &&
+    item.verifier_evidence_paths.includes(verifierPath)
+  ));
+});

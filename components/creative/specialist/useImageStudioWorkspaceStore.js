@@ -90,16 +90,23 @@ export const useImageStudioWorkspaceStore = create((set) => ({
   toggleGrid: () => set((state) => ({ ui: { ...state.ui, grid: !state.ui.grid } })),
   setRegion: (region) => set((state) => ({ ui: { ...state.ui, region } })),
   setCommentPoint: (comment_point) => set((state) => ({ ui: { ...state.ui, comment_point } })),
+  setRetouchSourceFromRegion: () => set((state) => {
+    if (!state.ui.region || state.selection.layer_ids.length !== 1) return state;
+    const layer = state.layers.find((item) => item.id === state.selection.layer_ids[0] && item.layer_type === "IMAGE" && !item.locked);
+    if (!layer || Math.abs(Number(layer.transform?.rotation || 0)) > .001) return state;
+    return { ui: { ...state.ui, retouch_source_region: { ...state.ui.region }, region: null } };
+  }),
+  clearRetouchSource: () => set((state) => ({ ui: { ...state.ui, retouch_source_region: null } })),
   addRetouchOperation: (kind, options = {}) => set((state) => {
     if (!state.ui.region || state.selection.layer_ids.length !== 1) return state;
     const id = state.selection.layer_ids[0];
     const layer = state.layers.find((item) => item.id === id && item.layer_type === "IMAGE" && !item.locked);
     if (!layer) return state;
     try {
-      const operation = buildImageStudioRetouchOperation({ kind, region: state.ui.region, layer, amount: options.amount, feather: options.feather });
+      const operation = buildImageStudioRetouchOperation({ kind, region: state.ui.region, source_region: options.source_region || state.ui.retouch_source_region || null, layer, amount: options.amount, feather: options.feather });
       return {
         layers: state.layers.map((item) => item.id === id ? { ...item, style: { ...(item.style || {}), retouch_operations: [...(Array.isArray(item.style?.retouch_operations) ? item.style.retouch_operations : []), operation] } } : item),
-        ui: { ...state.ui, region: null }, dirty: true,
+        ui: { ...state.ui, region: null, retouch_source_region: ["CLONE","HEAL"].includes(String(kind || "").toUpperCase()) ? null : state.ui.retouch_source_region }, dirty: true,
         historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)), historyFuture: [],
       };
     } catch { return state; }

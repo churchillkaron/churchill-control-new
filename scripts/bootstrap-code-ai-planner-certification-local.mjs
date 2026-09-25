@@ -6,7 +6,11 @@ register("./next-alias-loader.mjs", import.meta.url);
 loadAvantiqoEnv();
 
 const CONTRACT = "AVANTIQO_CODE_AI_PLANNER_CERTIFICATION_BOOTSTRAP_V1";
-const ORGANIZATION_NAME = "Avantiqo Code Planner Certification";
+const ORGANIZATION_NAME =
+  String(process.env.AVANTIQO_CODE_CERT_ORGANIZATION_NAME || "").trim() ||
+  "Avantiqo Code Planner Certification";
+const ORGANIZATION_ID =
+  String(process.env.AVANTIQO_CODE_CERT_ORGANIZATION_ID || "").trim() || null;
 const SERVICE_ID = "ai.code.debug";
 const PROVIDER = "avantiqo-code";
 const CURRENCY = "THB";
@@ -54,21 +58,32 @@ async function main() {
     throw new Error("CODE_AI_PLANNER_CERTIFICATION_PRODUCTION_ROUTING_MUST_REMAIN_DISABLED");
   }
 
-  const { data: organizations, error: organizationLookupError } = await supabase
+  let organizationLookup = supabase
     .from("organizations")
-    .select("id,name,organization_type,status,organization_status")
-    .eq("name", ORGANIZATION_NAME);
+    .select("id,name,organization_type,status,organization_status");
+  organizationLookup = ORGANIZATION_ID
+    ? organizationLookup.eq("id", ORGANIZATION_ID)
+    : organizationLookup.eq("name", ORGANIZATION_NAME);
+  const { data: organizations, error: organizationLookupError } = await organizationLookup;
   if (organizationLookupError) throw organizationLookupError;
   if ((organizations || []).length > 1) {
     throw new Error("CODE_AI_PLANNER_CERTIFICATION_ORGANIZATION_AMBIGUOUS");
   }
 
   let organization = organizations?.[0] || null;
+  if (
+    organization &&
+    ORGANIZATION_ID &&
+    String(organization.name || "").trim() !== ORGANIZATION_NAME
+  ) {
+    throw new Error("CODE_AI_PLANNER_CERTIFICATION_ORGANIZATION_ID_NAME_MISMATCH");
+  }
   let organizationCreated = false;
   if (!organization) {
     const { data, error } = await supabase
       .from("organizations")
       .insert({
+        ...(ORGANIZATION_ID ? { id: ORGANIZATION_ID } : {}),
         name: ORGANIZATION_NAME,
         legal_name: ORGANIZATION_NAME,
         organization_type: "direct_business",

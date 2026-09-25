@@ -88,3 +88,71 @@ test("planner prompt enters mutation focus after reproduced failure and establis
   assert.match(result.instruction, /apply_files or replace_range/);
   assert.match(result.instruction, /replace_range: .*expected.*replacement/);
 });
+
+
+test("planner transport preserves declared verifier source contents", () => {
+  const declaredReads = [
+    {
+      kind: "operation",
+      operation_id: "declared-source-1",
+      action: "read",
+      status: "completed",
+      result: {
+        file_path: "lib/normalize-money.mjs",
+        start_line: 1,
+        end_line: 3,
+        total_lines: 3,
+        content: "export function normalizeMoney(value) { return Number(value); }",
+      },
+    },
+    {
+      kind: "operation",
+      operation_id: "declared-source-2",
+      action: "read",
+      status: "completed",
+      result: {
+        file_path: "lib/invoice-summary.mjs",
+        start_line: 1,
+        end_line: 8,
+        total_lines: 8,
+        content: "export function summarizeInvoice(lines) { return lines; }",
+      },
+    },
+    {
+      kind: "operation",
+      operation_id: "declared-verifier",
+      action: "read",
+      status: "completed",
+      result: {
+        file_path: "scripts/fixture-test.mjs",
+        start_line: 1,
+        end_line: 10,
+        total_lines: 10,
+        content: "assert.equal(normalizeMoney(\"12.50\"), 12.5); assert.equal(summary.valid_line_count, 2);",
+      },
+    },
+  ];
+  const result = buildCodeAIPlannerPromptTransport({
+    objective: "Repair the declared fixture.",
+    iteration: 1,
+    state: {
+      mission_id: "declared-evidence-transport",
+      base_commit: "c".repeat(40),
+      status: "completed",
+      objective_context: {
+        implementation_required: true,
+        evidence_path_1: "lib/normalize-money.mjs",
+        evidence_path_2: "lib/invoice-summary.mjs",
+        evidence_path_3: "scripts/fixture-test.mjs",
+        authoritative_verification_command: "node",
+        authoritative_verification_args: ["scripts/fixture-test.mjs"],
+      },
+      source_read_evidence: declaredReads,
+      autonomy_control: { remaining_iterations: 8, evidence_revision: 0, source_revision: 0 },
+    },
+    allowed_actions: ["record_hypotheses", "verify", "apply_files", "replace_range", "block"],
+  });
+  assert.ok(result.instruction.includes('normalizeMoney(\\"12.50\\")'));
+  assert.match(result.instruction, /valid_line_count/);
+  assert.ok(result.state_chars <= result.structured_specification.planner_state_max_chars);
+});

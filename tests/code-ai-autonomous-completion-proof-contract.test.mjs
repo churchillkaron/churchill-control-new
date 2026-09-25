@@ -85,5 +85,48 @@ test("implementation-required missions do not offer diff or complete before the 
 
 test("autonomous planner can use replace_range and successful range edits advance source revision", () => {
   assert.match(source, /"replace_range"/);
-  assert.match(source, /decision\.action === "apply_files" \|\| decision\.action === "replace_range"/);
+  assert.match(source, /\["apply_files", "replace_range"\]\.includes\(decision\.action\)/);
+});
+
+
+test("implementation missions hydrate declared evidence before the first planner call", () => {
+  assert.match(source, /async function hydrateDeclaredEvidence/);
+  assert.match(source, /autonomy_declared_evidence_/);
+  assert.match(source, /Read declared mission evidence before planner reasoning/);
+  assert.match(source, /const hydration = await hydrateDeclaredEvidence/);
+  assert.match(source, /declared_evidence: list\(source\.evidence\)/);
+});
+
+test("preloaded declared evidence reads cannot be redundantly repeated before a source change", () => {
+  assert.match(source, /function duplicateActionGuard\(state, control, decision\)/);
+  assert.match(source, /decision\.action === "read" && currentSourceRevision === 0/);
+  assert.match(source, /duplicate_match_mode: "HYDRATED_READ_COVERED"/);
+  assert.match(source, /duplicateActionGuard\(state, control, decision\)/);
+});
+
+
+test("hydrated EOF reads cover later wider numeric ranges on the unchanged file", () => {
+  assert.match(source, /const previousTotalLines = Number\(previousInput\?\.total_lines\)/);
+  assert.match(source, /const previousReachedEof/);
+  assert.match(source, /Number\(previousInput\?\.end_line\) >= previousTotalLines/);
+  assert.match(source, /previous\.end_line >= requested\.end_line \|\| previousReachedEof/);
+});
+
+
+test("fresh implementation missions inspect and hydrate declared evidence in one initial workspace", () => {
+  assert.match(source, /const initialDeclaredEvidencePaths/);
+  assert.match(source, /objectiveContext\?\.implementation_required === true/);
+  assert.match(source, /operations: \[/);
+  assert.match(source, /id: "autonomy_initial_inspect"/);
+  assert.match(source, /\.\.\.initialDeclaredEvidencePaths\.map/);
+  assert.match(source, /id: `autonomy_declared_evidence_\$\{index \+ 1\}`/);
+  assert.match(source, /objective_context: objectiveContext/);
+});
+
+
+test("controller-hydrated declared reads are promoted into planner source evidence", () => {
+  assert.match(source, /const declaredEvidencePathSet = new Set/);
+  assert.match(source, /declaredEvidencePaths\(source\.objective_context\)/);
+  assert.match(source, /currentReadOperationIds\.has\(operationId\) \|\|/);
+  assert.match(source, /declaredEvidencePathSet\.has\(filePath\)/);
 });

@@ -8,6 +8,9 @@ test("local worktree creation uses a bounded cross-process repository lock", () 
   assert.match(source, /WORKTREE_LOCK_WAIT_MS = 12_000/);
   assert.match(source, /WORKTREE_LOCK_STALE_MS = 120_000/);
   assert.match(source, /open\(lockPath, "wx"\)/);
+  assert.match(source, /processStillAlive/);
+  assert.match(source, /process\.kill\(value, 0\)/);
+  assert.match(source, /owner\?\.pid && !processStillAlive\(owner\.pid\)/);
   assert.match(source, /CODE_AI_LOCAL_WORKTREE_LOCK_TIMEOUT/);
 });
 

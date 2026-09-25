@@ -36,6 +36,11 @@ jobs:
       - name: Repository mission safety audit
         run: node scripts/audit-repository-release-safety.mjs
 
+      - name: Business Partner competitive quality floor
+        run: |
+          node --test tests/business-partner-benchmark-floor.test.mjs
+          npm run certify:business-partner:benchmark-floor:policy
+
       - name: Protected architecture contracts
         run: >-
           node --test
@@ -45,6 +50,7 @@ jobs:
           tests/restaurant-pos-human-workflow-contract.test.mjs
           tests/staff-identity-document-lifecycle-contract.test.mjs
           tests/avantiqo-intelligence-certification-contract.test.mjs
+          tests/business-partner-benchmark-release-gate-contract.test.mjs
 
       - name: Reject whitespace/conflict damage
         run: git diff --check origin/main...HEAD

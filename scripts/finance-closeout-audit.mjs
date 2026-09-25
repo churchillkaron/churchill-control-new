@@ -312,7 +312,10 @@ for (const [id, definition] of Object.entries(manifest)) {
   if (!hasPolicy) reasons.push("missing primary action policy");
   if (!policyMode || !["create", "none", "action"].includes(policyMode)) reasons.push("invalid primary action mode");
   if (definition.kind === "process" && definition.renderer !== "FinanceOperationalWorkCenter") reasons.push("process renderer is not FinanceOperationalWorkCenter");
-  if (definition.kind === "report" && definition.renderer && definition.renderer !== "FinanceReportRuntimeWorkCenter") reasons.push("unexpected report renderer");
+  if (definition.kind === "report" && definition.renderer && definition.renderer !== "FinanceReportRuntimeWorkCenter") {
+    const registeredSpecializedRenderer = rendererRegistry.includes(`registerRenderer("${definition.renderer}"`);
+    if (!registeredSpecializedRenderer) reasons.push("unexpected or unregistered report renderer");
+  }
   if (definition.kind === "records" && !explicitApi && !contract && !/create\s*:/.test(block) && !hasPolicy) reasons.push("no executable record evidence");
 
   if (explicitApi) {

@@ -33,4 +33,10 @@ test("frontier local runner grades with the same canonical case grader used for 
   assert.match(source, /runner_repository_clean/);
   assert.match(source, /raw_reasoning_persisted: false/);
   assert.match(source, /raw_model_output_persisted: false/);
+  assert.match(source, /inference_elapsed_ms/);
+  assert.match(source, /model_total_duration_ms/);
+  assert.match(source, /model_load_duration_ms/);
+  assert.match(source, /code_gpu_wait_ms/);
+  assert.match(source, /code_cpu_fallback/);
+  assert.match(source, /code_runtime_model_already_gpu_resident/);
 });

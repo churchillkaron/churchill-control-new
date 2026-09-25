@@ -3,19 +3,19 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const provider = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeProviderV2.js", "utf8");
+const localQueue = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeLocalQueueProvider.js", "utf8");
 
-test("Code bypasses the Modal CPU gateway when direct Modal credentials are available", () => {
-  assert.match(provider, /MODAL_DIRECT_TRANSPORT = "modal-js-sdk-function-call-v1"/);
-  assert.match(provider, /MODAL_DIRECT_JOB_PREFIX = "modal-code-direct:"/);
-  assert.match(provider, /provider_job_id: `\$\{MODAL_DIRECT_JOB_PREFIX\}\$\{jobId\}`/);
-  assert.match(provider, /new sdk\.ModalClient/);
-  assert.match(provider, /client\.functions\.fromName\(MODAL_APP_NAME, functionName/);
-  assert.match(provider, /modal_gateway_used: false/);
-  assert.match(provider, /if \(direct\) return executeDirectModal\(direct, input\)/);
+test("Code uses the owned local-node queue as its only execution transport", () => {
+  assert.match(provider, /AvantiqoCodeLocalQueueProvider/);
+  assert.match(provider, /AVANTIQO_CODE_LOCAL_NODE_UNAVAILABLE/);
+  assert.match(provider, /return AvantiqoCodeLocalQueueProvider\.execute\(input\)/);
+  assert.match(localQueue, /INFRASTRUCTURE="AVANTIQO_LOCAL_NODE_V1"/);
+  assert.match(localQueue, /lane:"code"/);
+  assert.doesNotMatch(provider, /Modal|modal|RunPod|runpod/);
 });
 
-test("Code retains the legacy gateway only as compatibility fallback", () => {
-  assert.match(provider, /function modalConfig\(\)/);
-  assert.match(provider, /return executeModal\(modal, input\)/);
-  assert.match(provider, /return getModalStatus\(modal, input\)/);
+test("Code status and cancellation remain bound to exact local Code job ids", () => {
+  assert.match(provider, /if \(!isCodeLocalJob\(jobId\)\) throw new Error\("AVANTIQO_CODE_LOCAL_JOB_ID_REQUIRED"\)/);
+  assert.match(provider, /return AvantiqoCodeLocalQueueProvider\.getStatus\(input\)/);
+  assert.match(provider, /return AvantiqoCodeLocalQueueProvider\.cancel\(input\)/);
 });

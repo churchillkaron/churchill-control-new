@@ -150,7 +150,7 @@ for (const entry of prompts) {
   while (Date.now() < deadline) {
     settled = await AvantiqoCodeLocalQueueProvider.getStatus({ job_id: providerJobId });
     if (["completed", "failed"].includes(text(settled?.status).toLowerCase())) break;
-    await sleep(750);
+    await sleep(100);
   }
   const wallMs = Date.now() - startedAt;
   if (text(settled?.status).toLowerCase() !== "completed") {

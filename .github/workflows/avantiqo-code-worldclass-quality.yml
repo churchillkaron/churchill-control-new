@@ -90,7 +90,52 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Run repository regression suite
-        run: npm test
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            npm test
+            exit 0
+          fi
+
+          set +e
+          npm test > /tmp/code-head-tests.log 2>&1
+          head_rc=$?
+          set -e
+
+          git fetch --no-tags origin "${PR_BASE_SHA}" --depth=1
+          base_dir="${RUNNER_TEMP}/code-regression-base"
+          rm -rf "${base_dir}"
+          git worktree add --detach "${base_dir}" "${PR_BASE_SHA}"
+          ln -s "${GITHUB_WORKSPACE}/node_modules" "${base_dir}/node_modules"
+
+          set +e
+          (cd "${base_dir}" && npm test > /tmp/code-base-tests.log 2>&1)
+          base_rc=$?
+          set -e
+
+          grep '^✖ ' /tmp/code-head-tests.log | sed 's/ (.*ms)$//' | sort -u > /tmp/code-head-failures.txt || true
+          grep '^✖ ' /tmp/code-base-tests.log | sed 's/ (.*ms)$//' | sort -u > /tmp/code-base-failures.txt || true
+          comm -13 /tmp/code-base-failures.txt /tmp/code-head-failures.txt > /tmp/code-new-failures.txt
+
+          echo "PR test exit: ${head_rc}"
+          echo "Base test exit: ${base_rc}"
+          echo "PR unique failures: $(wc -l < /tmp/code-head-failures.txt | tr -d ' ')"
+          echo "Base unique failures: $(wc -l < /tmp/code-base-failures.txt | tr -d ' ')"
+
+          if [ -s /tmp/code-new-failures.txt ]; then
+            echo "New repository failures introduced by this PR:"
+            cat /tmp/code-new-failures.txt
+            exit 1
+          fi
+
+          if [ "${head_rc}" -ne 0 ] && [ "${base_rc}" -eq 0 ]; then
+            echo "Base was green but PR is red."
+            exit 1
+          fi
+
+          echo "AVANTIQO_CODE_REPOSITORY_REGRESSION_DELTA=PASS"
 
       - name: Assert regression job remains zero-GPU
         if: always()

@@ -31,3 +31,11 @@ test("the floor remains strongest-reference per dimension and fail closed", () =
   assert.match(runtime, /BENCHMARK_CONDITIONS_NOT_MATCHED/);
   assert.match(runtime, /regression_policy:\s*"BLOCK_RELEASE"/);
 });
+
+
+test("Business Partner runtime changes require fresh measured benchmark evidence", () => {
+  assert.match(releaseSafety, /Require fresh measured benchmark evidence for Business Partner runtime changes/);
+  assert.match(releaseSafety, /verify:business-partner:benchmark-evidence/);
+  assert.match(releaseSafety, /lib\/operator\/runtime/);
+  assert.match(releaseSafety, /app\/api\/operator\/turn/);
+});

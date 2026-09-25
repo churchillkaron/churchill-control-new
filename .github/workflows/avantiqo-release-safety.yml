@@ -38,8 +38,20 @@ jobs:
 
       - name: Business Partner competitive quality floor
         run: |
-          node --test tests/business-partner-benchmark-floor.test.mjs
+          node --test tests/business-partner-benchmark-floor.test.mjs tests/business-partner-benchmark-suite-contract.test.mjs
           npm run certify:business-partner:benchmark-floor:policy
+          npm run certify:business-partner:benchmark-suite
+
+      - name: Require fresh measured benchmark evidence for Business Partner runtime changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHANGED="$(git diff --name-only origin/main...HEAD)"
+          if printf '%s\n' "$CHANGED" | grep -Eq '^(app/api/operator/turn/|lib/operator/runtime/)'; then
+            npm run verify:business-partner:benchmark-evidence
+          else
+            echo "No Business Partner runtime behavior change; measured evidence gate not required."
+          fi
 
       - name: Protected architecture contracts
         run: >-
@@ -51,6 +63,7 @@ jobs:
           tests/staff-identity-document-lifecycle-contract.test.mjs
           tests/avantiqo-intelligence-certification-contract.test.mjs
           tests/business-partner-benchmark-release-gate-contract.test.mjs
+          tests/business-partner-benchmark-suite-contract.test.mjs
 
       - name: Reject whitespace/conflict damage
         run: git diff --check origin/main...HEAD

@@ -8,15 +8,34 @@ import {
   finalizeCodeAIEngineeringOperatingSystem,
 } from "../lib/code/runtime/CodeAIEngineeringOperatingSystemRuntime.js";
 
+function resolvedHypothesisDebugging(ids = ["pre-verify", "post-verify", "post-browser"]) {
+  return {
+    contract: "AVANTIQO_CODE_HYPOTHESIS_DEBUGGING_V1",
+    falsification_first: true,
+    hypotheses: [
+      { id: "H1", hypothesis: "authorization state is the root cause", status: "SUPPORTED", evidence_operation_ids: [ids[0]] },
+      { id: "H2", hypothesis: "client state is the root cause", status: "ELIMINATED", evidence_operation_ids: [ids[1] || ids[0]] },
+      { id: "H3", hypothesis: "render contract is the root cause", status: "ELIMINATED", evidence_operation_ids: [ids[2] || ids[1] || ids[0]] },
+    ],
+  };
+}
+
 function completedState(overrides = {}) {
   return {
+    contract: "AVANTIQO_CODE_AI_MISSION_V1",
     mission_id: "code-mission-test",
     objective: "Fix broken customer invoice form",
+    repository_url: "https://github.com/churchillkaron/churchill-control-new",
+    ref: "main",
     base_commit: "a".repeat(40),
+    completed_operation_ids: ["pre-verify", "apply", "post-verify", "post-browser"],
+    created_at: "2026-09-24T12:00:00.000Z",
+    updated_at: "2026-09-24T12:01:00.000Z",
     files_changed: ["app/invoices/page.jsx"],
     source_changes: [{ path: "app/invoices/page.jsx", operation: "write", content: "export default function Page(){}" }],
     verification: [{ passed: true, family: "browser" }],
     tests: [{ exit_code: 0, command: "node", args: ["--test", "tests/invoice.test.mjs"] }],
+    hypothesis_debugging: resolvedHypothesisDebugging(),
     evidence: [
       { kind: "operation", operation_id: "pre-verify", action: "verify", status: "completed", result: { exit_code: 1 } },
       { kind: "causal_hypothesis_record", hypotheses: ["auth", "state", "contract"] },
@@ -110,8 +129,8 @@ test("finalizer exposes missing required proof instead of declaring readiness by
 test("finalizer recognizes evidence-backed defect closure", () => {
   const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice form" });
   const state = completedState({
-    hypothesis_debugging: { hypotheses: ["auth", "state", "contract"] },
-    reproduction: { before_failure_observed: true, after_pass_observed: true },
+    hypothesis_debugging: resolvedHypothesisDebugging(),
+    reproduction: { exact_before_after_observed: true, exact_reproduction_key: "invoice-form" },
     security_review: { passed: true, scope: "authorization and tenant isolation", evidence_operation_ids: ["post-verify"] },
   });
   const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
@@ -249,7 +268,7 @@ test("legacy reproduction booleans alone cannot satisfy exact defect closure", (
   assert.ok(final.missing_required_departments.some((item) => item.key === "reproduction_first"));
 });
 
-test("broad program cannot satisfy hidden benchmark gate with held_out label alone", () => {
+test("broad program requires a real independently verified hidden benchmark contract", () => {
   const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Make the whole platform world-class" });
   const state = {
     mission_id: "broad-benchmark-test",
@@ -259,9 +278,17 @@ test("broad program cannot satisfy hidden benchmark gate with held_out label alo
     evidence: [],
     verification: [],
     tests: [],
-    parallel_specialist_review: { complete: true },
+    parallel_specialist_review: {
+      completed: true,
+      reviewer_count_requested: 2,
+      reviewer_count_succeeded: 2,
+      architecture_performance_review_present: true,
+      adversarial_risk_review_present: true,
+    },
+    final_independent_review: { verified: true, status: "APPROVED" },
+    final_independent_review_gate: { verified: true },
     program_plan: { active: true },
-    benchmark_scorecard: { held_out: true, verified: false },
+    benchmark_scorecard: { held_out: true, verified: true },
   };
   const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
   assert.equal(final.engineering_os_ready, false);
@@ -269,7 +296,21 @@ test("broad program cannot satisfy hidden benchmark gate with held_out label alo
 
   const verified = finalizeCodeAIEngineeringOperatingSystem({
     prepared_control: prepared.control,
-    result: { success: true, state: { ...state, benchmark_scorecard: { held_out: true, verified: true } } },
+    result: {
+      success: true,
+      state: {
+        ...state,
+        hidden_benchmark_certification: {
+          contract: "AVANTIQO_CODE_AI_HIDDEN_BENCHMARK_V2",
+          held_out: true,
+          verified: true,
+          case_count: 20,
+          pass_rate: 0.95,
+          independent_verification_required: true,
+          candidate_self_report_authority: false,
+        },
+      },
+    },
   });
   assert.ok(!verified.missing_required_departments.some((item) => item.key === "hidden_benchmark"));
 });
@@ -503,4 +544,95 @@ test("partial specialist council cannot satisfy high-risk multi-agent gate", () 
   });
   const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
   assert.ok(final.missing_required_departments.some((item) => item.key === "multi_agent_team"));
+});
+
+
+test("generic failing-before and passing-after operations cannot replace keyed reproduction", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice form" });
+  const state = completedState({
+    reproduction: null,
+    hypothesis_debugging: { hypotheses: ["auth", "state", "contract"] },
+    evidence: [
+      { kind: "operation", operation_id: "before", action: "verify", status: "completed", result: { exit_code: 1 } },
+      { kind: "causal_hypothesis_record", hypotheses: ["auth", "state", "contract"] },
+      { kind: "operation", operation_id: "apply", action: "apply_files", status: "completed", result: {} },
+      { kind: "operation", operation_id: "after", action: "verify", status: "completed", result: { exit_code: 0 } },
+      { kind: "operation", operation_id: "browser", action: "browser_verify", status: "completed", result: { passed: true } },
+    ],
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(final.missing_required_departments.some((item) => item.key === "reproduction_first"));
+});
+
+
+test("mission id alone cannot satisfy durable runtime proof", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Inspect invoice runtime" });
+  const state = completedState({
+    contract: null,
+    repository_url: null,
+    ref: null,
+    base_commit: null,
+    completed_operation_ids: null,
+    created_at: null,
+    updated_at: null,
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(final.missing_required_departments.some((item) => item.key === "durable_runtime"));
+});
+
+test("broad program requires the real bounded Product Engineering portfolio contract", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Make the whole platform world-class" });
+  const fake = completedState({
+    program_plan: { active: true },
+    product_portfolio: null,
+    hidden_benchmark_certification: {
+      contract: "AVANTIQO_CODE_AI_HIDDEN_BENCHMARK_V2",
+      held_out: true,
+      verified: true,
+      case_count: 20,
+      pass_rate: 0.95,
+      independent_verification_required: true,
+      candidate_self_report_authority: false,
+    },
+  });
+  const fakeFinal = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state: fake } });
+  assert.ok(fakeFinal.missing_required_departments.some((item) => item.key === "program_manager"));
+
+  const real = completedState({
+    product_portfolio: {
+      contract: "AVANTIQO_PRODUCT_ENGINEERING_PORTFOLIO_V1",
+      portfolio_id: "product-portfolio:test",
+      business_goal: "Make the whole platform world-class",
+      repository_url: "https://github.com/churchillkaron/churchill-control-new",
+      ref: "main",
+      current_main_head: "b".repeat(40),
+      roadmap: [{
+        node_id: "portfolio-node:test",
+        objective: "Harden Code Studio evidence gates",
+        dependencies: [],
+        evidence_paths: ["lib/code/runtime/CodeAIEngineeringOperatingSystemRuntime.js"],
+        execution_serialized_by_main_only: true,
+      }],
+      executor_policy: {
+        maximum_active_engineering_cycles: 1,
+        parallel_code_execution_allowed: false,
+        main_only: true,
+        branch_or_worktree_fanout_allowed: false,
+        automatic_commit_allowed: false,
+        automatic_deploy_allowed: false,
+        automatic_migration_execution_allowed: false,
+      },
+    },
+    hidden_benchmark_certification: {
+      contract: "AVANTIQO_CODE_AI_HIDDEN_BENCHMARK_V2",
+      held_out: true,
+      verified: true,
+      case_count: 20,
+      pass_rate: 0.95,
+      independent_verification_required: true,
+      candidate_self_report_authority: false,
+    },
+  });
+  const realFinal = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state: real } });
+  assert.ok(!realFinal.missing_required_departments.some((item) => item.key === "program_manager"));
 });

@@ -23,6 +23,14 @@ function creativeProjectId(input = {}) {
   );
 }
 
+function productionGraphId(input = {}) {
+  return (
+    input.production_graph_id ||
+    input.productionGraphId ||
+    null
+  );
+}
+
 function errorStatus(error) {
   const status = Number(error?.status);
   return Number.isFinite(status) && status >= 400 && status <= 599 ? status : 500;
@@ -35,6 +43,15 @@ export async function GET(req) {
     const projectId =
       searchParams.get("creativeProjectId") ||
       searchParams.get("creative_project_id");
+    const graphId =
+      searchParams.get("productionGraphId") ||
+      searchParams.get("production_graph_id");
+    if (!graphId) {
+      return NextResponse.json(
+        { success: false, error: "PRODUCTION_GRAPH_SCOPE_REQUIRED" },
+        { status: 400 },
+      );
+    }
 
     const access = await requireOrganizationAccess({
       organizationId,
@@ -49,6 +66,7 @@ export async function GET(req) {
     const queue = await ProductionQueueRuntime.build({
       organization_id: organizationId,
       creative_project_id: projectId,
+      production_graph_id: graphId,
     });
     const readiness = await CreativeVideoProductionReadinessRuntime.inspect({ queue });
 
@@ -76,6 +94,13 @@ export async function PATCH(req) {
       body.organization_id ||
       body.organizationId;
     const projectId = creativeProjectId(body);
+    const graphId = productionGraphId(body);
+    if (!graphId) {
+      return NextResponse.json(
+        { success: false, error: "PRODUCTION_GRAPH_SCOPE_REQUIRED" },
+        { status: 400 },
+      );
+    }
 
     const access = await requireOrganizationAccess({
       organizationId,
@@ -90,6 +115,7 @@ export async function PATCH(req) {
     const result = await ProductionRuntime.pollProduction({
       organization_id: organizationId,
       creative_project_id: projectId,
+      production_graph_id: graphId,
     });
 
     return NextResponse.json({
@@ -115,6 +141,13 @@ export async function POST(req) {
       body.organization_id ||
       body.organizationId;
     const projectId = creativeProjectId(body);
+    const graphId = productionGraphId(body);
+    if (!graphId) {
+      return NextResponse.json(
+        { success: false, error: "PRODUCTION_GRAPH_SCOPE_REQUIRED" },
+        { status: 400 },
+      );
+    }
 
     const access = await requireOrganizationAccess({
       organizationId,
@@ -129,6 +162,7 @@ export async function POST(req) {
     const result = await ProductionRuntime.runProduction({
       organization_id: organizationId,
       creative_project_id: projectId,
+      production_graph_id: graphId,
     });
 
     return NextResponse.json({

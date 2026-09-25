@@ -42,6 +42,17 @@ function activeProjectVideo(readiness) {
   return Number(readiness?.running_task_count || 0) > 0;
 }
 
+function dominantProductionGraphId(tasks = []) {
+  const counts = new Map();
+  for (const task of Array.isArray(tasks) ? tasks : []) {
+    const graphId = String(task?.production_graph_id || "").trim();
+    if (!graphId) continue;
+    counts.set(graphId, (counts.get(graphId) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+}
+
 function shouldContinue(summary) {
   if (!summary || summary.complete) return false;
   const counts = queueCounts(summary.queue);
@@ -87,14 +98,27 @@ export default function RunProductionButton({ runtime }) {
   const continuationRef = useRef(false);
   const projectId = runtime.projectRuntime?.current?.id || null;
   const organizationId = runtime.organizationId || null;
+  const productionGraphId = useMemo(
+    () => dominantProductionGraphId(runtime.taskRuntime?.items || []),
+    [runtime.taskRuntime?.items],
+  );
   const message = useMemo(() => productionMessage(summary), [summary]);
   const readinessState = useMemo(() => readinessMessage(readiness, readinessLoading), [readiness, readinessLoading]);
   const providerWork = activeProviderWork(queueState, readiness);
 
   const inspectReadiness = useCallback(async ({ quiet = false } = {}) => {
-    if (!organizationId || !projectId) {
+    if (!organizationId || !projectId || !productionGraphId) {
       setReadiness(null);
       setQueueState(null);
+      if (organizationId && projectId && !productionGraphId) {
+        setReadiness({
+          required: true,
+          ready: false,
+          status: "BLOCKED",
+          running_task_count: 0,
+          error: "Approved production graph is still resolving.",
+        });
+      }
       return null;
     }
     if (!quiet) setReadinessLoading(true);
@@ -102,6 +126,7 @@ export default function RunProductionButton({ runtime }) {
       const params = new URLSearchParams({
         organizationId,
         creativeProjectId: projectId,
+        productionGraphId,
       });
       const response = await fetch(`/api/creative/production/queue?${params.toString()}`, {
         method: "GET",
@@ -130,17 +155,21 @@ export default function RunProductionButton({ runtime }) {
     } finally {
       if (!quiet) setReadinessLoading(false);
     }
-  }, [organizationId, projectId]);
+  }, [organizationId, projectId, productionGraphId]);
 
   const dispatchProduction = useCallback(async ({ automatic = false } = {}) => {
-    if (!organizationId || !projectId || continuationRef.current) return null;
+    if (!organizationId || !projectId || !productionGraphId || continuationRef.current) return null;
     continuationRef.current = true;
     if (automatic) setContinuing(true);
     try {
       const response = await fetch("/api/creative/production/queue", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organization_id: organizationId, creative_project_id: projectId }),
+        body: JSON.stringify({
+          organization_id: organizationId,
+          creative_project_id: projectId,
+          production_graph_id: productionGraphId,
+        }),
       });
       const json = await response.json();
       if (!response.ok || !json.success) {
@@ -162,16 +191,20 @@ export default function RunProductionButton({ runtime }) {
       continuationRef.current = false;
       if (automatic) setContinuing(false);
     }
-  }, [organizationId, projectId, runtime]);
+  }, [organizationId, projectId, productionGraphId, runtime]);
 
   const pollActiveProduction = useCallback(async () => {
-    if (!organizationId || !projectId || pollingRef.current) return null;
+    if (!organizationId || !projectId || !productionGraphId || pollingRef.current) return null;
     pollingRef.current = true;
     try {
       const response = await fetch("/api/creative/production/queue", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ organization_id: organizationId, creative_project_id: projectId }),
+        body: JSON.stringify({
+          organization_id: organizationId,
+          creative_project_id: projectId,
+          production_graph_id: productionGraphId,
+        }),
       });
       const json = await response.json();
       if (!response.ok || !json.success) throw new Error(json.error || "Production check failed.");
@@ -194,22 +227,22 @@ export default function RunProductionButton({ runtime }) {
     } finally {
       pollingRef.current = false;
     }
-  }, [organizationId, projectId, runtime, dispatchProduction]);
+  }, [organizationId, projectId, productionGraphId, runtime, dispatchProduction]);
 
   useEffect(() => {
     void inspectReadiness();
   }, [inspectReadiness]);
 
   useEffect(() => {
-    if (!providerWork || !organizationId || !projectId) return undefined;
+    if (!providerWork || !organizationId || !projectId || !productionGraphId) return undefined;
     const timer = window.setInterval(() => {
       void pollActiveProduction();
     }, ACTIVE_POLL_MS);
     return () => window.clearInterval(timer);
-  }, [providerWork, organizationId, projectId, pollActiveProduction]);
+  }, [providerWork, organizationId, projectId, productionGraphId, pollActiveProduction]);
 
   async function run() {
-    if (!organizationId || !projectId || running || continuing || readinessLoading) return;
+    if (!organizationId || !projectId || !productionGraphId || running || continuing || readinessLoading) return;
     if (providerWork) {
       await pollActiveProduction();
       return;

@@ -33,6 +33,7 @@ import ImageStudioConflictBanner from "./ImageStudioConflictBanner";
 import ImageStudioLayerInspector from "./ImageStudioLayerInspector";
 import ImageStudioQualityPanel from "./ImageStudioQualityPanel";
 import ImageStudioVisualBiblePanel from "./ImageStudioVisualBiblePanel";
+import ImageStudioFinishingPanel from "./ImageStudioFinishingPanel";
 import ImageStudioKeyboardShortcuts from "./ImageStudioKeyboardShortcuts";
 
 function assetUrl(asset) {
@@ -264,6 +265,7 @@ export default function ImageStudioWorkspace({ runtime }) {
         </section>
 
         <ImageStudioVisualBiblePanel bible={operating.visual_bible} />
+        <ImageStudioFinishingPanel chain={operating.finishing_chain} />
         <ImageStudioLayerInspector workspace={workspace} />
         <ImageStudioLayerPanel workspace={workspace} />
         <ImageStudioReferencePanel workspace={workspace} persistence={persistence} assets={images} />

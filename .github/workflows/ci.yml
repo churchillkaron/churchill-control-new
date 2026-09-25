@@ -68,6 +68,9 @@ jobs:
       - name: Guard against automatic paid workflows
         run: node scripts/audit-no-automatic-paid-workflows.mjs
 
+      - name: Certify Business Partner benchmark floor policy
+        run: npm run certify:business-partner:benchmark-floor:policy
+
       - name: Audit Finance capability closure
         run: node scripts/finance-closeout-audit.mjs
 

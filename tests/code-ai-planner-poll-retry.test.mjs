@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { executeCodeAIPlannerRequest } from "../lib/code/runtime/CodeAIPlannerExecutionRuntime.js";
 
 function deterministicUsageId(missionId, iteration, recoveryCount = 0) {
@@ -137,4 +138,11 @@ test("pending planner resume rejects another iteration before settlement", async
     }),
     /CODE_AI_PLANNER_PENDING_ITERATION_MISMATCH/,
   );
+});
+
+
+test("planner polling defaults to 250ms for low-latency local completion", async () => {
+  const source = await readFile(new URL("../lib/code/runtime/CodeAIPlannerExecutionRuntime.js", import.meta.url), "utf8");
+  assert.match(source, /DEFAULT_POLL_INTERVAL_MS = 250/);
+  assert.match(source, /Math\.max\(250, Math\.min\(5000/);
 });

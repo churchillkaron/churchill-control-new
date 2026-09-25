@@ -348,21 +348,24 @@ test("Image Studio effects normalize safely and preserve preview/export parity",
   assert.match(preview.filter, /blur\(4px\)/);
 });
 
-test("Image Studio exposes Photoshop-class non-destructive image adjustments in canvas and deterministic export", () => {
+test("Image Studio exposes professional non-destructive tonal adjustments in canvas and deterministic export", () => {
   const canvas = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url), "utf8");
   const inspector = fs.readFileSync(new URL("../components/creative/specialist/ImageStudioLayerInspector.jsx", import.meta.url), "utf8");
   const exportRuntime = fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js", import.meta.url), "utf8");
   assert.match(canvas, /imageStudioPreviewEffectStyle/);
   assert.match(canvas, /mixBlendMode:effects\.mixBlendMode/);
   assert.match(inspector, /Non-destructive effects/);
-  assert.match(inspector, /Brightness %/);
-  assert.match(inspector, /Saturation %/);
-  assert.match(inspector, /Reset effects/);
+  assert.match(inspector, /Professional tonal adjustments/);
+  assert.match(inspector, /Exposure EV/);
+  assert.match(inspector, /Temperature/);
+  assert.match(inspector, /Shadows/);
+  assert.match(inspector, /Highlights/);
+  assert.match(inspector, /Gamma/);
   assert.match(exportRuntime, /applyImageStudioEffects/);
-  assert.match(exportRuntime, /\.modulate\(/);
-  assert.match(exportRuntime, /\.linear\(/);
-  assert.match(exportRuntime, /sharp_blend_mode/);
-  assert.match(exportRuntime, /CREATIVE_IMAGE_STUDIO_EFFECTS_V1/);
+  assert.match(exportRuntime, /applyImageStudioPixelAdjustments/);
+  assert.match(exportRuntime, /deterministic_pixel_pipeline: true/);
+  assert.match(exportRuntime, /CREATIVE_IMAGE_STUDIO_EFFECTS_V2/);
+  assert.match(exportRuntime, /CREATIVE_IMAGE_STUDIO_ADJUSTMENT_V1/);
 });
 
 test("Image Studio smart format adaptation preserves full bleed, safe typography, focal identity and exact styles", async () => {

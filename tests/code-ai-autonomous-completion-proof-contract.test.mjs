@@ -130,3 +130,25 @@ test("controller-hydrated declared reads are promoted into planner source eviden
   assert.match(source, /currentReadOperationIds\.has\(operationId\) \|\|/);
   assert.match(source, /declaredEvidencePathSet\.has\(filePath\)/);
 });
+
+
+test("evidence-complete failing implementation missions enter a mutation-focused phase", () => {
+  assert.match(source, /const repairReadyForMutation/);
+  assert.match(source, /declaredEvidenceHydrated/);
+  assert.match(source, /observedFailingExecution/);
+  assert.match(source, /reproductionAlreadyRecordedAtCurrentSourceRevision/);
+  assert.match(source, /currentHypothesesComplete/);
+  assert.match(source, /const mutationPhaseActions = new Set/);
+  assert.match(source, /"apply_files"/);
+  assert.match(source, /"replace_range"/);
+  assert.match(source, /allowedActions = allowedActions\.filter\(\(action\) => mutationPhaseActions\.has\(action\)\)/);
+});
+
+
+test("observed failure enters a reproduction-capture phase before mutation", () => {
+  assert.match(source, /const reproductionCaptureRequired/);
+  assert.match(source, /reproductionExecutionAtCurrentSourceRevision/);
+  assert.match(source, /!reproductionAlreadyRecordedAtCurrentSourceRevision/);
+  assert.match(source, /const reproductionPhaseActions = new Set\(\["record_reproduction", "block"\]\)/);
+  assert.match(source, /allowedActions = allowedActions\.filter\(\(action\) => reproductionPhaseActions\.has\(action\)\)/);
+});

@@ -26,7 +26,7 @@ test("rotated layer retouch fails closed until coordinate transform is explicit"
 test("deterministic export applies retouch operations and records contract",()=>{
   const source=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js","utf8");
   assert.match(source,/applyImageStudioRetouchOperations/);
-  assert.match(source,/CREATIVE_IMAGE_STUDIO_RETOUCH_V1/);
+  assert.match(source,/CREATIVE_IMAGE_STUDIO_RETOUCH_V2/);
   assert.match(source,/bounded_region_operations: true/);
 });
 

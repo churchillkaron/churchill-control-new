@@ -82,7 +82,7 @@ const requiredMarkers = [
   "readRangeCovered",
   "READ_RANGE_COVERED",
   "advanceSourceRevision",
-  "duplicateActionGuard(control, decision)",
+  "duplicateActionGuard(state, control, decision)",
   "control.planner_iterations_used >= MAX_ITERATIONS",
   "productive_planner_iterations_used",
   "recoveredProductivePlannerIterations",
@@ -219,7 +219,7 @@ if (inspectionPolicy < 0 || inspectReplanGate <= inspectionPolicy || inspectGuid
 }
 const dynamicAllowedGuard = source.indexOf("const currentAllowedActions = plannerAllowedActions(state)", plannerDecision);
 const dynamicAllowedReject = source.indexOf("status: \"rejected_suppressed_action\"", dynamicAllowedGuard);
-const duplicateGuard = source.indexOf("const duplicate = duplicateActionGuard(control, decision)");
+const duplicateGuard = source.indexOf("const duplicate = duplicateActionGuard(state, control, decision)");
 if (
   plannerDecision < 0 ||
   dynamicAllowedGuard <= plannerDecision ||
@@ -313,7 +313,7 @@ if (genericEvidenceWindow <= compactReadExport) {
 }
 
 const operationObservation = source.indexOf("const operationObserved =");
-const sourceAdvanceOnApply = source.indexOf('decision.action === "apply_files"', operationObservation);
+const sourceAdvanceOnApply = source.indexOf('["apply_files", "replace_range"].includes(decision.action)', operationObservation);
 const sourceAdvanceOnReplan = source.indexOf('execution.status === "replan_required"', sourceAdvanceOnApply);
 if (operationObservation < 0 || sourceAdvanceOnApply < operationObservation || sourceAdvanceOnReplan < sourceAdvanceOnApply) {
   throw new Error("CODE_AI_AUTONOMY_SOURCE_REVISION_ADVANCE_POLICY_REQUIRED");

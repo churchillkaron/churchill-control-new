@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -142,6 +142,13 @@ export default function ProductionWorkspace({ runtime }) {
   const [revisionWorking, setRevisionWorking] = useState(false);
   const [revisionMessage, setRevisionMessage] = useState("");
   const [revisionError, setRevisionError] = useState("");
+  const pipelineStage = String(runtime.stateRuntime?.current?.stage || "").toUpperCase();
+
+  useEffect(() => {
+    if (["WAITING_APPROVAL", "PLANNING_PRODUCTION", "READY_FOR_EXECUTION"].includes(pipelineStage)) {
+      setProducerOpen(true);
+    }
+  }, [pipelineStage]);
 
   const taskMap = useMemo(() => {
     const map = new Map();
@@ -284,7 +291,7 @@ export default function ProductionWorkspace({ runtime }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setProducerOpen((open) => !open)} className="hidden h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[8px] font-semibold text-[#716B63] md:inline-flex">Direction & approvals <ArrowRight size={9} className={producerOpen ? "rotate-90" : ""} /></button>
+            <button type="button" onClick={() => setProducerOpen((open) => !open)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[8px] font-semibold text-[#716B63]">Direction & approvals <ArrowRight size={9} className={producerOpen ? "rotate-90" : ""} /></button>
             <Link href={`/workspace/${runtime.organizationId}/creative/studio/production`} className="hidden h-8 items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-2.5 text-[8px] font-semibold text-[#716B63] lg:inline-flex">Production plan <ArrowRight size={9} /></Link>
             <RunProductionButton runtime={runtime} />
           </div>

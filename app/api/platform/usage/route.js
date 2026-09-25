@@ -52,7 +52,7 @@ export async function GET(request) {
 
     const { data, error } = await supabaseAdmin
       .from("platform_service_usage")
-      .select("*")
+      .select("id,organization_id,entity_id,category,provider,capability,operation,quantity,unit,supplier_cost,platform_markup,customer_price,currency,status,latency_ms,invoice_status,error_message,created_at,execution_status,provider_model,provider_latency_ms,retry_count,reserved_amount,charged_amount,refunded_amount,billing_completed,finance_posted")
       .eq("organization_id", access.organizationId)
       .order("created_at", {
         ascending: false,

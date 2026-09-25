@@ -28,3 +28,22 @@ test("malformed mutating output still fails closed", () => {
     /CODE_AI_AUTONOMOUS_PLANNER_JSON_INVALID/,
   );
 });
+
+
+test("evidence-only first object can discard malformed read-only trailing action", () => {
+  const raw = '{"action":"record_hypotheses","input":{"hypotheses":[{"id":"H1","hypothesis":"a","status":"PLAUSIBLE","evidence_operation_ids":[]},{"id":"H2","hypothesis":"b","status":"PLAUSIBLE","evidence_operation_ids":[]},{"id":"H3","hypothesis":"c","status":"PLAUSIBLE","evidence_operation_ids":[]}]}}' +
+    ',{"action":"read","input":{"file_path":"tests/example.mjs"}}]}}';
+  const parsed = parseCodeAIPlannerOutput(raw);
+  assert.equal(parsed.parsed.action, "record_hypotheses");
+  assert.equal(parsed.normalization.mode, "evidence_first_with_read_only_trailing_junk");
+  assert.deepEqual(parsed.normalization.discarded_actions, ["read"]);
+});
+
+test("evidence-first recovery refuses trailing mutation actions", () => {
+  const raw = '{"action":"record_hypotheses","input":{"hypotheses":[{"id":"H1","hypothesis":"a","status":"PLAUSIBLE","evidence_operation_ids":[]},{"id":"H2","hypothesis":"b","status":"PLAUSIBLE","evidence_operation_ids":[]},{"id":"H3","hypothesis":"c","status":"PLAUSIBLE","evidence_operation_ids":[]}]}}' +
+    ',{"action":"apply_files","input":{"files":[{"path":"x","content":"y"}]}}]}}';
+  assert.throws(
+    () => parseCodeAIPlannerOutput(raw),
+    /CODE_AI_AUTONOMOUS_PLANNER/,
+  );
+});

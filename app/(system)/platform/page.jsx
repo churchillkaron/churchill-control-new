@@ -91,7 +91,7 @@ async function loadPlatformAdminConsole() {
     supabaseAdmin.from("system_events").select("id,organization_id,type,payload,created_at,processed,processed_at,processing,processing_started_at,attempt_count,last_error,last_failed_at").eq("processed", false).order("created_at", { ascending: true }).limit(250),
     supabaseAdmin.from("platform_modules").select("*"),
     supabaseAdmin.from("staff_accounts").select("id,email,role,active,auth_user_id,organization_id").order("email", { ascending: true }).limit(1000),
-    supabaseAdmin.from("platform_service_usage").select("*").order("created_at", { ascending: false }).limit(500),
+    supabaseAdmin.from("platform_service_usage").select("id,organization_id,provider,capability,status,execution_status,billing_status:invoice_status,error:error_message,customer_price,supplier_cost,currency,model:provider_model,created_at").order("created_at", { ascending: false }).limit(500),
     supabaseAdmin.rpc("platform_operator_usage_failure_groups", { p_since: since24h }),
     supabaseAdmin.from("platform_operator_cases").select("id,signal_key,status,severity,first_seen_at,last_seen_at,occurrence_count,acknowledged_at,resolved_at,resolution_note,evidence_version,updated_at").order("updated_at", { ascending: false }).limit(500),
     supabaseAdmin.from("organization_wallets").select("*").order("organization_id", { ascending: true }),

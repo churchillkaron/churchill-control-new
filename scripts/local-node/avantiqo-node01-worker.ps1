@@ -1564,6 +1564,7 @@ while ($true) {
   } catch {
     Start-Sleep -Seconds 5
   }
-  Start-Sleep -Seconds 2
+  $pollSleepSeconds = $(if ($jobs.Count -gt 0) { 1 } else { 5 })
+  Start-Sleep -Seconds $pollSleepSeconds
 }
 

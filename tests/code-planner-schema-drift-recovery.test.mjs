@@ -32,9 +32,13 @@ test("record_reproduction requires the same key for exact before-after closure",
   assert.match(source, /exact_reproduction_key/);
 });
 
-test("supported or eliminated hypotheses require observed operation evidence", () => {
+test("supported or eliminated hypotheses accept observed failed verification evidence without weakening other review evidence", () => {
   assert.match(source, /CODE_AI_HYPOTHESIS_STATUS_INVALID/);
   assert.match(source, /\["ELIMINATED", "SUPPORTED"\]\.includes\(status\)/);
-  assert.match(source, /"CODE_AI_HYPOTHESIS"/);
-  assert.match(source, /assertObservedEvidenceOperationIds/);
+  assert.match(source, /function assertObservedHypothesisEvidenceOperationIds/);
+  assert.match(source, /state\?\.verification/);
+  assert.match(source, /state\?\.tests/);
+  assert.match(source, /state\?\.failures/);
+  assert.match(source, /assertObservedHypothesisEvidenceOperationIds/);
+  assert.match(source, /function assertObservedEvidenceOperationIds/);
 });

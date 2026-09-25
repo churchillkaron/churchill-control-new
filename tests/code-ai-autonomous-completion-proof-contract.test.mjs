@@ -141,6 +141,11 @@ test("evidence-complete failing implementation missions enter a mutation-focused
   assert.match(source, /const mutationPhaseActions = new Set/);
   assert.match(source, /"apply_files"/);
   assert.match(source, /"replace_range"/);
+  assert.match(source, /const mutationPhaseActions = new Set\(\[\s*"apply_files",\s*"replace_range",\s*"block",\s*\]\)/);
+  assert.doesNotMatch(
+    source.match(/const mutationPhaseActions = new Set\(\[[\s\S]*?\]\);/)?.[0] || "",
+    /"precision_analyze"|"history"|"run"|"verify"|"read"/,
+  );
   assert.match(source, /allowedActions = allowedActions\.filter\(\(action\) => mutationPhaseActions\.has\(action\)\)/);
 });
 
@@ -151,4 +156,14 @@ test("observed failure enters a reproduction-capture phase before mutation", () 
   assert.match(source, /!reproductionAlreadyRecordedAtCurrentSourceRevision/);
   assert.match(source, /const reproductionPhaseActions = new Set\(\["record_reproduction", "block"\]\)/);
   assert.match(source, /allowedActions = allowedActions\.filter\(\(action\) => reproductionPhaseActions\.has\(action\)\)/);
+});
+
+
+test("every source revision must be verified before another edit is allowed", () => {
+  assert.match(source, /const successfulVerifyAtCurrentSourceRevision/);
+  assert.match(source, /const verificationObservedAtCurrentSourceRevision/);
+  assert.match(source, /const postEditVerificationActions = new Set\(\["verify", "block"\]\)/);
+  assert.match(source, /!verificationObservedAtCurrentSourceRevision/);
+  assert.match(source, /const postVerifyRepairActions = new Set\(\["apply_files", "replace_range", "block"\]\)/);
+  assert.match(source, /failedVerifyAtCurrentSourceRevision/);
 });

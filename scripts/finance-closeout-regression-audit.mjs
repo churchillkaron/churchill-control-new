@@ -72,7 +72,7 @@ check("revenue recognition atomic post", has("app/api/finance/revenue-recognitio
 check("revenue methods truthful", has(config, "STRAIGHT_LINE", "MANUAL", "recognize_revenue", "/api/finance/revenue-recognition/recognize") && !/recognition_method[\s\S]{0,700}MILESTONE/.test(read(config)));
 
 const fx = read("app/api/finance/fx-revaluation/execute/route.js");
-check("FX governed execution", fx.includes("export async function POST") && fx.includes("resolveFinanceExchangeRate") && fx.includes("financeGateway") && (fx.includes("account_ids") || fx.includes("accountIds")));
+check("FX governed execution", fx.includes("export async function POST") && fx.includes("buildFxRevaluationPlan") && fx.includes("financeGateway") && fx.includes("plan.can_post") && (fx.includes("account_ids") || fx.includes("accountIds")));
 check("FX row action", has(config, "execute_fx_revaluation", "/api/finance/fx-revaluation/execute"));
 
 check("tax rules org/global model", has("lib/finance/tax-codes/repositories/taxCodeRepository.js", "organizationRules", "globalRules", "inherited", "tax_type"));
@@ -100,7 +100,7 @@ check("filing duplicate/archive blocked", has(mutation, '"vat_returns"', '"statu
 
 check("e-invoice source table exists", exists("supabase/migrations/20260822073122_finance_e_invoicing_settings_convergence.sql"));
 check("e-invoice avoids fake transmission claim", has(taxVat, "does not claim that a government or network transmission connection is active"));
-check("bank integration truthful pending setup", has("app/api/finance/banking-integrations/route.js", "PENDING_SETUP", "AVANTIQO_MANAGED", "credential_reference: null"));
+check("bank integration truthful pending setup", has("app/api/finance/banking-integrations/route.js", "PENDING_SETUP", "AVANTIQO_MANAGED", "credential_reference: providerCredentialId", "PENDING_CREDENTIAL", "PENDING_CONSENT"));
 check("bank integration exact create contract", has(taxVat, 'bankingIntegrations.createEndpoint = "/api/finance/banking-integrations"'));
 check("bank integration sanitized list binding", has(manifest, '"banking_integrations"', '"api": "/api/finance/banking-integrations"'));
 check("government connection governed request", has("app/api/finance/government-connections/route.js", "finance.tax.manage", "PENDING_SETUP", "PENDING_CONFIGURATION", "credential_reference: null"));

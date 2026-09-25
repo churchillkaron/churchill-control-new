@@ -7,6 +7,7 @@ const ROOT = process.cwd();
 const files = {
   engagementApi: "app/api/workspace/finance/engagement-file/route.js",
   engagementUi: "components/workspace/finance/FinanceEngagementFile.jsx",
+  workProgramUi: "components/workspace/finance/FinanceEngagementWorkProgram.jsx",
   evidenceApi: "app/api/workspace/finance/work-programs/evidence/route.js",
   verifyApi: "app/api/workspace/finance/work-programs/verify/route.js",
   gates: "lib/finance/practice/workProgramGates.js",
@@ -49,9 +50,18 @@ requireTokens("engagementApi", [
 ]);
 
 requireTokens("engagementUi", [
-  "Digital engagement file",
-  "Work program & workpapers",
-  "Workpaper evidence",
+  "Client accounting file",
+  "FinanceEngagementWorkProgram",
+  "Evidence documents",
+  "Open workpapers",
+  "Missing evidence",
+  "Verify attention",
+  "Prior accounting cycles",
+  "Accounting truth gates",
+]);
+
+requireTokens("workProgramUi", [
+  "Workpaper",
   "Evidence coverage",
   "Verify now",
   "Link existing document",
@@ -61,8 +71,6 @@ requireTokens("engagementUi", [
   "Financial statement truth",
   "Dependency audit chain",
   "Historical system clearance snapshot retained at final lock.",
-  "Missing evidence",
-  "Verify attention",
   "/api/workspace/finance/work-programs/verify",
   "/api/workspace/finance/work-programs/evidence",
   "verification_state",
@@ -121,5 +129,5 @@ if (failures.length) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log("PASS: The Digital Engagement File is an operational, governed workpaper surface with visible evidence readiness, canonical document classification, explicit current-truth verification, locked historical snapshots and no duplicate document silo.");
+  console.log("PASS: The client accounting file and delegated work-program component form an operational, governed workpaper surface with visible evidence readiness, canonical document classification, explicit current-truth verification, locked historical snapshots and no duplicate document silo.");
 }

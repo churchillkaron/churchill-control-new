@@ -475,12 +475,7 @@ function RunTextJob($Job) {
     stream = $false
     think = ([string]$Job.lane -eq 'deep')
     keep_alive = '30m'
-    options = @{ temperature = $temperature; num_predict = $numPredict; num_ctx = $ContextTokens }
-  }
-  if ($liveConversation) {
-    $body.options.num_ctx = 2048
-  } elseif ($Lane -eq 'code') {
-    $body.options.num_ctx = $codeContextTokens
+    options = @{ temperature = $temperature; num_predict = $numPredict; num_ctx = $(if ($liveConversation) { 2048 } elseif ($Lane -eq 'code') { $codeContextTokens } else { $ContextTokens }) }
   }
   if ($forceCpu) {
     $body.options.num_gpu = 0

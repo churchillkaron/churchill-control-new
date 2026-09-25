@@ -55,6 +55,16 @@ test("device workspaces share bounded worktree locking and source-bound range mu
   assert.match(device, /replaceRange: \(input\) => call\("workspace\.replace_range"/);
 });
 
+test("device session resume is bound to expected repository ref and base commit", () => {
+  assert.match(device, /repository_url = null/);
+  assert.match(device, /ref = null/);
+  assert.match(device, /base_commit = null/);
+  assert.match(device, /CODE_AI_DEVICE_SESSION_REPOSITORY_MISMATCH/);
+  assert.match(device, /CODE_AI_DEVICE_SESSION_REF_MISMATCH/);
+  assert.match(device, /CODE_AI_DEVICE_SESSION_BASE_COMMIT_MISMATCH/);
+  assert.match(device, /normalizeRepository\(attachedRepositoryUrl\) !== normalizeRepository\(expectedRepositoryUrl\)/);
+});
+
 test("device command policy supports the exact shell-free isolated Next.js build environment", () => {
   assert.match(agent, /function exactIsolatedBuildEnvironment/);
   assert.match(agent, /CODE_DEVICE_COMMAND_ENVIRONMENT_NOT_ALLOWED/);

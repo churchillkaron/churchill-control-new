@@ -1,0 +1,112 @@
+{
+  "contract": "AVANTIQO_BUSINESS_PARTNER_BENCHMARK_EVIDENCE_PACKET_V1",
+  "synthetic_only": true,
+  "current_context": {
+    "organization_id": "benchmark-org",
+    "organization_name": "Benchmark Hospitality Co.",
+    "entity_id": "benchmark-entity",
+    "entity_name": "Benchmark Venue",
+    "period_id": "2026-09",
+    "timezone": "Asia/Bangkok",
+    "today": "2026-09-25",
+    "user_role": "organization_owner",
+    "avantiqo_core_owner_authority": false
+  },
+  "durable_conversation": {
+    "prior_user_request": "Create an invoice for Customer A with Trio band on 2026-09-24 for THB 10,000 and Full band on 2026-09-27 for THB 15,000. Invoice date and due date 2026-09-28.",
+    "last_completed_business_action": {
+      "capability_key": "finance.accounts_receivable.CreateCustomerInvoice",
+      "status": "completed",
+      "party_id": "party-customer-a",
+      "result_id": "invoice-1001",
+      "invoice_number": "INV-1001"
+    },
+    "pending_action": null
+  },
+  "current_evidence": {
+    "customer_invoices": [
+      {
+        "id": "invoice-1001",
+        "invoice_number": "INV-1001",
+        "party_id": "party-customer-a",
+        "customer_name": "Customer A",
+        "invoice_date": "2026-09-28",
+        "due_date": "2026-09-28",
+        "status": "OPEN",
+        "currency_code": "THB",
+        "total_amount": 25000,
+        "lines": [
+          {"description": "Trio band — 2026-09-24", "quantity": 1, "unit_price": 10000, "line_total": 10000},
+          {"description": "Full band — 2026-09-27", "quantity": 1, "unit_price": 15000, "line_total": 15000}
+        ]
+      },
+      {
+        "id": "invoice-1000",
+        "invoice_number": "INV-1000",
+        "party_id": "party-customer-b",
+        "customer_name": "Customer B",
+        "invoice_date": "2026-09-20",
+        "due_date": "2026-09-27",
+        "status": "OPEN",
+        "currency_code": "THB",
+        "total_amount": 12000,
+        "lines": [
+          {"description": "Event service — 2026-09-19", "quantity": 1, "unit_price": 12000, "line_total": 12000}
+        ]
+      }
+    ],
+    "trial_balance": {
+      "period_id": "2026-09",
+      "total_debits": 350000,
+      "total_credits": 350000,
+      "balanced": true
+    },
+    "bank_accounts": [
+      {"id":"bank-main","name":"Main Operating Account","currency_code":"THB","current_balance":182450}
+    ],
+    "restaurant_sales": {
+      "2026-09-25": 86500,
+      "2026-09-24": 74200
+    },
+    "bookings_tonight": {
+      "covers": 148,
+      "peak_window": "19:00-21:00"
+    },
+    "staff_schedule_tonight": [
+      {"role":"floor","count":5},
+      {"role":"bar","count":3},
+      {"role":"kitchen","count":6}
+    ],
+    "supplier_invoice_impact": {
+      "supplier_invoice_id":"supplier-invoice-55",
+      "affected_dishes":[
+        {"dish":"Benchmark Curry","old_cost":95,"new_cost":102},
+        {"dish":"Benchmark Pasta","old_cost":88,"new_cost":91}
+      ]
+    }
+  },
+  "registered_capabilities": {
+    "reads": [
+      "finance.customer_invoices.read",
+      "finance.trial_balance.read",
+      "finance.bank_balances.read",
+      "commercial.bookings.read",
+      "people.workforce.attendance.read",
+      "people.roster.availability.read",
+      "operations.restaurant_sales.read",
+      "supply_chain.food_cost.read"
+    ],
+    "writes": [
+      "finance.accounts_receivable.CreateCustomerInvoice",
+      "finance.accounts_receivable.CorrectCustomerInvoice",
+      "finance.accounts_receivable.MarkCustomerInvoicePaid"
+    ]
+  },
+  "governance": {
+    "writes_require_registered_capability": true,
+    "high_risk_finance_write_requires_confirmation": true,
+    "fresh_read_required_before_mutation": true,
+    "independent_verification_required_after_mutation": true,
+    "core_code_change_requires_avantiqo_core_owner": true
+  }
+}

@@ -1,0 +1,107 @@
+name: Avantiqo Business Partner Head-to-Head
+
+on:
+  workflow_dispatch:
+    inputs:
+      authorize_external_spend:
+        description: "Type I_AUTHORIZE_EXTERNAL_REFERENCE_SPEND to allow paid ChatGPT/Claude/Gemini benchmark calls."
+        required: true
+        type: string
+      openai_model:
+        description: "OpenAI reference model id"
+        required: true
+        type: string
+      claude_model:
+        description: "Anthropic Claude reference model id"
+        required: true
+        type: string
+      gemini_model:
+        description: "Google Gemini reference model id"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avantiqo-business-partner-head-to-head
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Require explicit paid-reference authorization
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.authorize_external_spend }}" != "I_AUTHORIZE_EXTERNAL_REFERENCE_SPEND" ]]; then
+            echo "Explicit external benchmark spend authorization missing." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Validate benchmark suite before paid calls
+        run: |
+          npm run certify:business-partner:benchmark-floor:policy
+          npm run certify:business-partner:benchmark-suite
+
+      - name: Validate reference credentials are present
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${OPENAI_API_KEY:-}" || { echo "OPENAI_API_KEY missing" >&2; exit 1; }
+          test -n "${ANTHROPIC_API_KEY:-}" || { echo "ANTHROPIC_API_KEY missing" >&2; exit 1; }
+          test -n "${GEMINI_API_KEY:-}" || { echo "GEMINI_API_KEY missing" >&2; exit 1; }
+
+      - name: Run matched external reference benchmark
+        env:
+          AVANTIQO_BENCHMARK_EXECUTE_EXTERNAL: "1"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BUSINESS_PARTNER_OPENAI_REFERENCE_MODEL: ${{ inputs.openai_model }}
+          BUSINESS_PARTNER_CLAUDE_REFERENCE_MODEL: ${{ inputs.claude_model }}
+          BUSINESS_PARTNER_GEMINI_REFERENCE_MODEL: ${{ inputs.gemini_model }}
+        run: node scripts/run-business-partner-reference-head-to-head.mjs
+
+      - name: Verify raw benchmark completeness
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const suite = JSON.parse(fs.readFileSync("benchmarks/business-partner/suite.v1.json", "utf8"));
+          const raw = JSON.parse(fs.readFileSync("artifacts/business-partner-reference-raw.json", "utf8"));
+          if (raw.contract !== "AVANTIQO_BUSINESS_PARTNER_REFERENCE_RAW_V1") {
+            throw new Error("REFERENCE_RAW_CONTRACT_INVALID");
+          }
+          const expected = (suite.cases || []).length * 3;
+          if ((raw.cases || []).length !== expected) {
+            throw new Error("REFERENCE_RAW_CASE_COUNT_INVALID:" + (raw.cases || []).length + "/" + expected);
+          }
+          if (!(raw.cases || []).every((item) => item.parse_success === true)) {
+            throw new Error("REFERENCE_RAW_PARSE_FAILURE");
+          }
+          console.log("BUSINESS_PARTNER_REFERENCE_RAW_COMPLETE=" + expected);
+          NODE
+
+      - name: Upload raw measured reference evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: business-partner-reference-raw-${{ github.run_id }}
+          path: artifacts/business-partner-reference-raw.json
+          if-no-files-found: warn
+          retention-days: 14

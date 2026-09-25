@@ -11,6 +11,8 @@ import {
 } from "react";
 
 const ACTIVE_POLL_MS = 3000;
+const ACTIVE_REFRESH_BURST_POLL_MS = 500;
+const ACTIVE_REFRESH_BURST_POLLS = 4;
 const IDLE_POLL_MS = 15000;
 const HIDDEN_POLL_MS = 60000;
 const ACTIVE_DETAIL_REFRESH_EVERY = 20;
@@ -83,6 +85,7 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
   const [deviceSessionScope, setDeviceSessionScope] = useState(null);
   const mounted = useRef(false);
   const refreshSignal = useRef(0);
+  const burstPollsRemaining = useRef(0);
 
   const patchProgress = useCallback((updater) => {
     setProgress((current) =>
@@ -108,6 +111,10 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
 
   const requestRefresh = useCallback(() => {
     refreshSignal.current += 1;
+    burstPollsRemaining.current = Math.max(
+      burstPollsRemaining.current,
+      ACTIVE_REFRESH_BURST_POLLS,
+    );
     window.dispatchEvent(new CustomEvent("avantiqo:code-progress-refresh"));
   }, []);
 
@@ -204,8 +211,15 @@ export function CodeProgressFeedProvider({ organizationId, children }) {
 
       if (!controller.signal.aborted && mounted.current) {
         const visible = document.visibilityState === "visible";
+        const burstActive =
+          visible &&
+          active &&
+          burstPollsRemaining.current > 0;
+        if (burstActive) burstPollsRemaining.current -= 1;
         const baseDelay = visible
-          ? (active ? ACTIVE_POLL_MS : IDLE_POLL_MS)
+          ? (active
+              ? (burstActive ? ACTIVE_REFRESH_BURST_POLL_MS : ACTIVE_POLL_MS)
+              : IDLE_POLL_MS)
           : HIDDEN_POLL_MS;
         const failureDelay = consecutiveFailures
           ? Math.min(60000, baseDelay * (2 ** Math.min(consecutiveFailures, 4)))

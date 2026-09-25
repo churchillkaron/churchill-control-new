@@ -19,6 +19,10 @@ test("live Code progress stays local on the hot path and checkpoints durably", (
 
 test("shared progress polling is throttled and expensive details are sampled", () => {
   assert.match(feed, /ACTIVE_POLL_MS = 3000/);
+  assert.match(feed, /ACTIVE_REFRESH_BURST_POLL_MS = 500/);
+  assert.match(feed, /ACTIVE_REFRESH_BURST_POLLS = 4/);
+  assert.match(feed, /burstPollsRemaining\.current = Math\.max/);
+  assert.match(feed, /burstPollsRemaining\.current -= 1/);
   assert.match(feed, /IDLE_POLL_MS = 15000/);
   assert.match(feed, /ACTIVE_DETAIL_REFRESH_EVERY = 20/);
   assert.match(feed, /consecutiveFailures/);

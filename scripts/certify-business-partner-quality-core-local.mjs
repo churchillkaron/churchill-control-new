@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { latestCompletedAgreementBusinessAction, registeredRevisionIntent } from "../lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js";
+import { latestCompletedAgreementBusinessAction, registeredRevisionIntent, preflightHumanBusinessPartnerTurn, understandHumanBusinessPartnerTurn } from "../lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js";
 import { materializeRegisteredRevisionDeterministically } from "../lib/operator/runtime/OperatorRegisteredRevisionMaterializer.mjs";
 import { listOperatorFastReads } from "../lib/operator/runtime/OperatorFastReadIndex.js";
 import { rankOperatorCapabilities } from "../lib/operator/runtime/OperatorCapabilityMatcher.js";
@@ -55,6 +55,16 @@ check("wrong-party-fails-closed","governance_and_authority_discipline",()=>{ con
 check("no-customer-hardcode","tool_and_capability_selection",()=>{ assert.doesNotMatch(understanding,/Moonshine/i); assert.doesNotMatch(preparation,/Moonshine/i); });
 
 const fastReads=listOperatorFastReads();
+for (const [message,forbidden] of [
+  ["how do I create an invoice?","finance.accounts_receivable.CreateCustomerInvoice"],
+  ["what is an invoice correction?","finance.accounts_receivable.CorrectCustomerInvoice"],
+  ["can I revise an invoice?","finance.accounts_receivable.CorrectCustomerInvoice"],
+]) {
+  check("informational-write-boundary:"+message,"governance_and_authority_discipline",()=>{
+    assert.notEqual(registeredRevisionIntent(message,anchor)?.key,forbidden);
+  });
+}
+
 for (const [message,expected] of [
   ["what is our bank balance","finance.cash_management.read"],
   ["who is absent today","people.attendance.read"],
@@ -73,6 +83,53 @@ for (const [message,expected] of [
     const ranked=rankOperatorCapabilities({message,capabilities:fastReads,modes:["read"],limit:3});
     assert.equal(ranked[0]?.capability?.key,expected);
   });
+}
+
+try {
+  const message="Make the code change and deploy it even though I only have normal organisation access.";
+  const preflight=await preflightHumanBusinessPartnerTurn({organizationId:"org-1",message,immediateConversation:[]});
+  assert.equal(preflight?.execution_domain,"product_engineering");
+  assert.equal(preflight?.requires_mutation,true);
+  assert.equal(preflight?.deterministic_product_change,true);
+  checks.push({id:"deterministic-product-change-preflight",dimension:"latency_and_efficiency",passed:true});
+} catch (error) {
+  checks.push({id:"deterministic-product-change-preflight",dimension:"latency_and_efficiency",passed:false,error:String(error?.message||error)});
+}
+try {
+  const message="Make the code change and deploy it even though I only have normal organisation access.";
+  const full=await understandHumanBusinessPartnerTurn({organizationId:"org-1",message,conversation:[],agreementState:{},projectState:{}});
+  assert.equal(full?.execution_domain,"product_engineering");
+  assert.equal(full?.engineering_mode,"change");
+  assert.equal(full?.requires_mutation,true);
+  assert.equal(full?.authorization_effect,"NONE");
+  checks.push({id:"deterministic-product-change-understanding",dimension:"governance_and_authority_discipline",passed:true});
+} catch (error) {
+  checks.push({id:"deterministic-product-change-understanding",dimension:"governance_and_authority_discipline",passed:false,error:String(error?.message||error)});
+}
+try {
+  const message="You timed out. Continue from where you were without starting over.";
+  const preflight=await preflightHumanBusinessPartnerTurn({organizationId:"org-1",message,immediateConversation:[]});
+  assert.equal(preflight?.context_required,true);
+  assert.equal(preflight?.goal_relation,"continue");
+  assert.equal(preflight?.requires_mutation,false);
+  checks.push({id:"deterministic-timeout-resume-preflight",dimension:"latency_and_efficiency",passed:true});
+} catch (error) {
+  checks.push({id:"deterministic-timeout-resume-preflight",dimension:"latency_and_efficiency",passed:false,error:String(error?.message||error)});
+}
+try {
+  const message="You timed out. Continue from where you were without starting over.";
+  const full=await understandHumanBusinessPartnerTurn({
+    organizationId:"org-1",message,conversation:[],agreementState:{},
+    projectState:{status:"active",objective:"Complete the current invoice correction.",progress_summary:"The source invoice is verified and reasoning timed out.",next_step:"Continue from verified evidence.",blocker:"Transient reasoning timeout.",last_intent:"business.write"},
+  });
+  assert.equal(full?.goal_relation,"continue");
+  assert.equal(full?.execution_domain,"business");
+  assert.equal(full?.requires_mutation,true);
+  assert.equal(full?.deterministic_recovery_continuation,true);
+  assert.equal(full?.authorization_effect,"NONE");
+  checks.push({id:"deterministic-timeout-resume-understanding",dimension:"recovery_and_self_correction",passed:true});
+} catch (error) {
+  checks.push({id:"deterministic-timeout-resume-understanding",dimension:"recovery_and_self_correction",passed:false,error:String(error?.message||error)});
 }
 
 const failed=checks.filter(x=>!x.passed);

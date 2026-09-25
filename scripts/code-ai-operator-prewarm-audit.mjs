@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_OPERATOR_PREWARM_AUDIT_V1";
+const CONTRACT = "AVANTIQO_CODE_AI_OPERATOR_PREWARM_AUDIT_V2_LOCAL";
 
 const files = {
   route: "app/api/operator/code/prewarm/route.js",
-  ui: "components/operator/HomeAvantiqoIntelligence.jsx",
-  worker: "lib/code/runtime/CodeAIWorkerSessionRuntime.js",
+  localProvider: "lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeLocalQueueProvider.js",
+  canonical: "lib/code/runtime/CodeAIEmployeeCanonicalExecutionRuntime.js",
+  zeroIdle: "lib/code/runtime/CodeAIEmployeeZeroIdleFastStartRuntime.js",
+  businessPartnerUi: "components/operator/HomeAvantiqoIntelligence.jsx",
 };
 
 const source = Object.fromEntries(
@@ -17,79 +19,77 @@ const source = Object.fromEntries(
 
 function requireMarkers(label, content, markers) {
   const missing = markers.filter((marker) => !content.includes(marker));
-  if (missing.length) {
-    throw new Error(`${CONTRACT}_${label}_MISSING:${missing.join("|")}`);
-  }
+  if (missing.length) throw new Error(`${CONTRACT}_${label}_MISSING:${missing.join("|")}`);
 }
 
 requireMarkers("ROUTE", source.route, [
   "requireOrganizationAccess",
-  "ensureCodeAIWorkerSession",
-  "AVANTIQO_CODE_OPERATOR_PREWARM_V1",
-  "AVANTIQO_CODE_WORKER_SESSION_ENABLED",
-  'status: worker?.ready === true ? "ready" : "warming"',
+  "AvantiqoCodeLocalQueueProvider",
+  "AvantiqoCodeLocalQueueProvider.available()",
+  "AVANTIQO_CODE_OPERATOR_LOCAL_READINESS_V4",
+  'status: localReady ? "local_ready" : "local_unavailable"',
+  'execution_transport_mode: "AVANTIQO_LOCAL_NODE_V1"',
+  "local_only: true",
+  "external_compute_available: false",
+  "external_compute_checked: false",
+  "external_worker_started: false",
+  "worker_session_created: false",
   "reasoning_calls_used: 0",
   "customer_inference_performed: false",
   "wallet_mutation_performed: false",
   "source_mutation_performed: false",
   "github_write_performed: false",
   "production_deploy_performed: false",
-  "contains_worker_token: false",
   "raw_reasoning_persisted: false",
 ]);
 
-requireMarkers("UI", source.ui, [
-  "CODE_PREWARM_POLL_MS = 5000",
-  "CODE_PREWARM_MAX_POLLS = 90",
-  'fetch("/api/operator/code/prewarm"',
-  'method: "POST"',
-  'credentials: "same-origin"',
-  'body: JSON.stringify({ organizationId })',
-  'result?.ready === true || result?.status === "disabled"',
-  "window.setTimeout(advanceCodePrewarm, CODE_PREWARM_POLL_MS)",
-  "controller.abort()",
+requireMarkers("LOCAL_PROVIDER", source.localProvider, [
+  'const INFRASTRUCTURE="AVANTIQO_LOCAL_NODE_V1"',
+  'lane:"code"',
+  'workload:"code_text"',
+  "INTERACTIVE_CODE_PRIORITY=90",
+  "strongCodeModelRequired",
+  "raw_reasoning_persisted:false",
 ]);
 
-requireMarkers("WORKER", source.worker, [
-  "engine_ready: true",
-  "body?.engine_loaded === true",
-  "reasoning_call_consumed_by_warmup: false",
-  "wallet_mutation_performed_by_warmup: false",
-  "contains_worker_token: false",
+requireMarkers("CANONICAL", source.canonical, [
+  'mode: "SERVERLESS_ZERO_IDLE"',
+  'mode: "DIRECT_GOVERNED"',
+  "executeCodeAIEmployeeZeroIdleFastStartMission",
+  "executeCodeAIEmployeeFinalReviewMission",
 ]);
 
-assert.equal(/executeCodeAIPlannerRequest|ServiceExecutionRuntime/.test(source.route), false);
+requireMarkers("ZERO_IDLE", source.zeroIdle, [
+  "deterministic_start: true",
+  "model_call_required_to_start: false",
+  "gpu_worker_required_to_start: false",
+  "worker_session_created: false",
+  "provider_execution_submitted_by_fast_start: false",
+  "wallet_mutation_performed_by_fast_start: false",
+  "source_mutation_performed_by_fast_start: false",
+]);
+
+assert.doesNotMatch(source.route, /ensureCodeAIWorkerSession|Modal|RunPod|runpod|ServiceExecutionRuntime|executeCodeAIPlannerRequest/);
+assert.doesNotMatch(source.businessPartnerUi, /\/api\/operator\/code\/prewarm|CODE_PREWARM_POLL_MS|CODE_PREWARM_MAX_POLLS/);
 assert.equal(source.route.includes("[deploy-production-final]"), false);
-assert.equal(source.ui.includes("[deploy-production-final]"), false);
 assert.equal(source.route.includes("executeCodeAIMission"), false);
 assert.equal(source.route.includes("apply_files"), false);
-
-const fetchIndex = source.ui.indexOf('fetch("/api/operator/code/prewarm"');
-const restoreIndex = source.ui.indexOf("async function restoreConversation()");
-assert.ok(fetchIndex >= 0, "prewarm request must exist in Operator UI");
-assert.ok(restoreIndex >= 0, "conversation restore must remain present");
-assert.notEqual(fetchIndex, restoreIndex, "prewarm must not replace conversation restore");
 
 console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
   verified: {
-    authenticated_organization_scoped_prewarm_route: true,
-    prewarm_bypasses_code_planner_reasoning: true,
-    prewarm_bypasses_service_runtime_wallet: true,
-    prewarm_cannot_mutate_source: true,
-    prewarm_cannot_write_github: true,
-    prewarm_cannot_deploy_production: true,
-    worker_token_not_exposed: true,
-    operator_starts_prewarm_without_user_instruction: true,
-    operator_polls_until_ready_or_disabled: true,
-    operator_chat_remains_separate_from_prewarm: true,
-    bounded_background_polling: true,
-    model_provider_call_performed_by_audit: false,
-    reasoning_call_consumed_by_audit: false,
-    wallet_mutation_performed_by_audit: false,
-    runpod_mutation_performed_by_audit: false,
-    source_mutation_performed_by_audit: false,
+    authenticated_organization_scoped_readiness_route: true,
+    readiness_checks_owned_local_queue_only: true,
+    readiness_bypasses_reasoning_and_wallet: true,
+    readiness_cannot_mutate_source_or_github: true,
+    readiness_cannot_deploy_production: true,
+    business_partner_does_not_poll_code_readiness: true,
+    code_fast_start_begins_deterministic_repository_work_without_model_wait: true,
+    zero_idle_fast_start_does_not_start_gpu_worker: true,
+    local_queue_is_canonical_code_inference_transport: true,
+    raw_reasoning_persisted: false,
+    provider_call_performed_by_audit: false,
     production_deploy_performed: false,
   },
 }, null, 2));

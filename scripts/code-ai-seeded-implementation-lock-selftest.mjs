@@ -75,7 +75,7 @@ assert.equal(CodeAIWorkPackageRuntime.live_progress, true);
 assert.equal(CodeAIWorkPackageRuntime.max_package_operations, 12);
 assert.deepEqual(
   CodeAIWorkPackageRuntime.implementation_actions,
-  ["apply_files", "verify", "diff"],
+  ["apply_files", "replace_range", "verify", "browser_verify", "diff"],
 );
 assert.equal(CODE_AI_WORK_PACKAGE_MAX_INSTRUCTION_CHARS, 24000);
 assert.equal(CODE_AI_WORKER_INSTRUCTION_HARD_LIMIT_CHARS, 30000);
@@ -95,7 +95,7 @@ assert.equal(seededPolicy.repair_state, false);
 assert.equal(seededPolicy.implementation_present, false);
 assert.equal(seededPolicy.verification_failed, false);
 assert.equal(seededPolicy.implementation_required, true);
-assert.deepEqual(seededPolicy.allowed_actions, ["apply_files", "verify", "diff"]);
+assert.deepEqual(seededPolicy.allowed_actions, ["apply_files", "replace_range"]);
 assert.deepEqual(
   new Set(seededPolicy.observed_read_paths),
   new Set([objectiveContext.evidence_path_1, objectiveContext.evidence_path_2]),
@@ -135,7 +135,7 @@ const longSessionPolicy = resolveCodeAIWorkPackageActionPolicy({
 assert.equal(longSessionPolicy.all_declared_evidence_loaded, true);
 assert.equal(longSessionPolicy.discovery_locked, true);
 assert.equal(longSessionPolicy.implementation_required, true);
-assert.deepEqual(longSessionPolicy.allowed_actions, ["apply_files", "verify", "diff"]);
+assert.deepEqual(longSessionPolicy.allowed_actions, ["apply_files", "replace_range"]);
 
 const controllerCompletedMutation = parseCodeAIWorkPackage(
   JSON.stringify({
@@ -206,7 +206,15 @@ assert.equal(
 
 const failedRepairState = {
   ...seededState,
-  evidence: [],
+  evidence: [
+    {
+      kind: "operation",
+      operation_id: "apply-1",
+      action: "apply_files",
+      status: "completed",
+      result: { changed_paths: [objectiveContext.evidence_path_1] },
+    },
+  ],
   source_changes: [
     {
       path: objectiveContext.evidence_path_1,
@@ -241,7 +249,7 @@ assert.equal(repairPolicy.verification_failed, true);
 assert.equal(repairPolicy.implementation_present, true);
 assert.equal(repairPolicy.implementation_required, true);
 assert.equal(repairPolicy.discovery_locked, true);
-assert.deepEqual(repairPolicy.allowed_actions, ["apply_files", "verify", "diff"]);
+assert.deepEqual(repairPolicy.allowed_actions, ["apply_files", "replace_range", "verify", "diff"]);
 
 const recoveredState = {
   ...failedRepairState,
@@ -272,7 +280,7 @@ assert.equal(recoveredPolicy.verification_failed, false);
 assert.equal(recoveredPolicy.implementation_present, true);
 assert.equal(recoveredPolicy.implementation_required, false);
 assert.equal(recoveredPolicy.discovery_locked, true);
-assert.deepEqual(recoveredPolicy.allowed_actions, ["apply_files", "verify", "diff"]);
+assert.deepEqual(recoveredPolicy.allowed_actions, ["apply_files", "replace_range", "verify", "diff"]);
 
 const implementationOwnedMarkers = [
   [runtimeSources.live, "CODE_AI_WORK_PACKAGE_ACTION_NOT_ALLOWED_FOR_PHASE", "live action guard"],

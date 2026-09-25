@@ -6,6 +6,7 @@ import { buildImageStudioGroupPatch } from "@/lib/creative/stills/runtime/Creati
 import { applyImageStudioStyleDefinition, buildImageStudioComponentDefinition, buildImageStudioStyleDefinition, instantiateImageStudioComponent } from "@/lib/creative/stills/runtime/CreativeImageStudioReusableDesignRuntime.js";
 import { captureImageStudioHistoryState, pushImageStudioHistory, restoreImageStudioHistoryState } from "@/lib/creative/stills/runtime/CreativeImageStudioHistoryRuntime.js";
 import { buildImageStudioRetouchOperation } from "@/lib/creative/stills/runtime/CreativeImageStudioRetouchRuntime.js";
+import { buildImageStudioAdjustmentLayer } from "@/lib/creative/stills/runtime/CreativeImageStudioAdjustmentLayerRuntime.js";
 
 export const useImageStudioWorkspaceStore = create((set) => ({
   ...buildImageStudioWorkspaceState(),
@@ -76,9 +77,22 @@ export const useImageStudioWorkspaceStore = create((set) => ({
     const board=state.artboards.find((item)=>item.id===state.selection.artboard_id); const definition=board?.metadata?.design_components?.find((item)=>item.id===componentId); if(!board||!definition)return state; const copies=instantiateImageStudioComponent(definition,{artboard_id:board.id,x:Math.round(board.width*.1),y:Math.round(board.height*.1)}).map((layer,index)=>({...layer,sort_order:state.layers.filter((item)=>item.artboard_id===board.id).length+index}));
     return { layers:[...state.layers,...copies], selection:{...state.selection,layer_ids:copies.map((item)=>item.id)}, dirty:true, historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)), historyFuture:[] };
   }),
+  createAdjustmentLayerFromSelected: () => set((state) => {
+    const board=state.artboards.find((item)=>item.id===state.selection.artboard_id);
+    const targets=state.layers.filter((layer)=>state.selection.layer_ids.includes(layer.id)&&layer.artboard_id===board?.id&&layer.layer_type==="IMAGE");
+    if(!board||!targets.length)return state;
+    const layer=buildImageStudioAdjustmentLayer({id:`adjustment-${crypto.randomUUID()}`,artboard_id:board.id,target_layer_ids:targets.map((item)=>item.id),sort_order:Math.max(-1,...state.layers.filter((item)=>item.artboard_id===board.id).map((item)=>Number(item.sort_order||0)))+1,name:`Adjustment · ${targets.length} target${targets.length===1?"":"s"}`});
+    return {layers:[...state.layers,layer],selection:{...state.selection,layer_ids:[layer.id]},dirty:true,historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[]};
+  }),
   createClippingMask: () => set((state) => {
     const chosen=state.layers.filter((layer)=>state.selection.layer_ids.includes(layer.id)&&layer.artboard_id===state.selection.artboard_id).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)); if(chosen.length!==2)return state; const target=chosen[0],mask=chosen[1];
     return { layers:state.layers.map((layer)=>layer.id===target.id?{...layer,metadata:{...(layer.metadata||{}),clip_mask_layer_id:mask.id}}:layer.id===mask.id?{...layer,metadata:{...(layer.metadata||{}),is_clip_mask:true,clip_mask_target_id:target.id}}:layer), selection:{...state.selection,layer_ids:[target.id]}, dirty:true, historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)), historyFuture:[] };
+  }),
+  updateSelectedMaskSemantics: (patch = {}) => set((state) => {
+    if(state.selection.layer_ids.length!==1)return state;
+    const target=state.layers.find((layer)=>layer.id===state.selection.layer_ids[0]&&layer.metadata?.clip_mask_layer_id);
+    if(!target)return state; const maskId=target.metadata.clip_mask_layer_id;
+    return {layers:state.layers.map((layer)=>layer.id===maskId?{...layer,metadata:{...(layer.metadata||{}),...patch}}:layer),dirty:true,historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[]};
   }),
   releaseClippingMask: () => set((state) => {
     const target=state.layers.find((layer)=>state.selection.layer_ids.includes(layer.id)&&layer.metadata?.clip_mask_layer_id); if(!target)return state; const maskId=target.metadata.clip_mask_layer_id;

@@ -108,7 +108,7 @@ test("Image Studio clipping mask geometry is shared by preview and deterministic
   const reusable = await import("../lib/creative/stills/runtime/CreativeImageStudioReusableDesignRuntime.js");
   const target={bounds:{x:100,y:100,width:200,height:200}};
   const mask={bounds:{x:150,y:125,width:100,height:150}};
-  assert.deepEqual(reusable.imageStudioMaskGeometry(target,mask),{visible:true,x:50,y:25,width:100,height:150,target_width:200,target_height:200});
+  assert.deepEqual(reusable.imageStudioMaskGeometry(target,mask),{visible:true,x:50,y:25,width:100,height:150,target_width:200,target_height:200,feather:0,opacity:1,invert:false});
   assert.match(reusable.imageStudioMaskPreviewStyle(target,mask).clipPath,/inset\(/);
   const canvas=fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url),"utf8");
   const exporter=fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js", import.meta.url),"utf8");

@@ -363,7 +363,32 @@ test("ordinary post-mutation verification cannot satisfy adversarial testing", (
   assert.ok(final.missing_required_departments.some((item) => item.key === "adversarial_testing"));
 });
 
-test("verified mutation or fuzz evidence satisfies adversarial testing", () => {
+test("verified mutation or fuzz evidence satisfies adversarial testing only with real observed provenance", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice form" });
+  for (const precision_evidence of [
+    { mutation_testing: { contract: "AVANTIQO_CODE_MUTATION_TEST_V1", passed: true, verified: true, evidence_operation_ids: ["adversarial-op"] } },
+    { property_fuzz: { contract: "AVANTIQO_CODE_FUZZ_TEST_V1", passed: true, verified: true, evidence_operation_ids: ["adversarial-op"] } },
+  ]) {
+    const state = completedState({
+      behavioral_verification: null,
+      employee_completion: { verified: true, behavioral_verification: { verified: false }, final_review: { complete: true } },
+      precision_evidence,
+      reproduction: { exact_before_after_observed: true, exact_reproduction_key: "invoice-form" },
+      hypothesis_debugging: { hypotheses: ["auth", "state", "contract"] },
+      evidence: [
+        { kind: "causal_hypothesis_record", hypotheses: ["auth", "state", "contract"] },
+        { kind: "operation", operation_id: "apply-op", action: "apply_files", status: "completed", result: {} },
+        { kind: "operation", operation_id: "verify-op", action: "verify", status: "completed", result: { exit_code: 0 } },
+        { kind: "operation", operation_id: "adversarial-op", action: "mutation_test", status: "completed", result: { passed: true } },
+        { kind: "operation", operation_id: "browser-op", action: "browser_verify", status: "completed", result: { passed: true } },
+      ],
+    });
+    const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+    assert.ok(!final.missing_required_departments.some((item) => item.key === "adversarial_testing"));
+  }
+});
+
+test("spoofed mutation or fuzz flags without contract and operation provenance cannot satisfy adversarial testing", () => {
   const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice form" });
   for (const precision_evidence of [
     { mutation_testing: { passed: true, verified: true } },
@@ -377,13 +402,13 @@ test("verified mutation or fuzz evidence satisfies adversarial testing", () => {
       hypothesis_debugging: { hypotheses: ["auth", "state", "contract"] },
       evidence: [
         { kind: "causal_hypothesis_record", hypotheses: ["auth", "state", "contract"] },
-        { kind: "operation", action: "apply_files", status: "completed", result: {} },
-        { kind: "operation", action: "verify", status: "completed", result: { exit_code: 0 } },
-        { kind: "operation", action: "browser_verify", status: "completed", result: { passed: true } },
+        { kind: "operation", operation_id: "apply-op", action: "apply_files", status: "completed", result: {} },
+        { kind: "operation", operation_id: "verify-op", action: "verify", status: "completed", result: { exit_code: 0 } },
+        { kind: "operation", operation_id: "browser-op", action: "browser_verify", status: "completed", result: { passed: true } },
       ],
     });
     const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
-    assert.ok(!final.missing_required_departments.some((item) => item.key === "adversarial_testing"));
+    assert.ok(final.missing_required_departments.some((item) => item.key === "adversarial_testing"));
   }
 });
 

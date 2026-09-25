@@ -1,0 +1,26 @@
+{
+  "contract": "AVANTIQO_BUSINESS_PARTNER_HEAD_TO_HEAD_PROTOCOL_V1",
+  "response_format": {
+    "type": "json",
+    "fields": [
+      "understanding",
+      "goal_relation",
+      "action_type",
+      "capability_or_tool",
+      "needs_current_evidence",
+      "confirmation_required",
+      "clarification_required",
+      "would_execute_now",
+      "finality",
+      "response"
+    ]
+  },
+  "system_instruction": "Act as a high-quality business operations partner. Preserve conversation context, distinguish reads from mutations, use current evidence when current state matters, never invent business records, never claim a mutation completed without verification, and respect required authority/confirmation. Return only JSON matching the requested schema.",
+  "matched_conditions": {
+    "same_case_prompt": true,
+    "same_system_instruction": true,
+    "same_response_schema": true,
+    "same_evidence_packet": true,
+    "no_hidden_expected_outcomes_in_prompt": true
+  }
+}

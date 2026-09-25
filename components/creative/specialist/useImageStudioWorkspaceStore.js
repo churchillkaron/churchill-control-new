@@ -5,6 +5,7 @@ import { adaptLayerToArtboard, alignLayers, distributeLayers, reorderNormalizedL
 import { buildImageStudioGroupPatch } from "@/lib/creative/stills/runtime/CreativeImageStudioInteractionRuntime.js";
 import { applyImageStudioStyleDefinition, buildImageStudioComponentDefinition, buildImageStudioStyleDefinition, instantiateImageStudioComponent } from "@/lib/creative/stills/runtime/CreativeImageStudioReusableDesignRuntime.js";
 import { captureImageStudioHistoryState, pushImageStudioHistory, restoreImageStudioHistoryState } from "@/lib/creative/stills/runtime/CreativeImageStudioHistoryRuntime.js";
+import { buildImageStudioRetouchOperation } from "@/lib/creative/stills/runtime/CreativeImageStudioRetouchRuntime.js";
 
 export const useImageStudioWorkspaceStore = create((set) => ({
   ...buildImageStudioWorkspaceState(),
@@ -89,6 +90,27 @@ export const useImageStudioWorkspaceStore = create((set) => ({
   toggleGrid: () => set((state) => ({ ui: { ...state.ui, grid: !state.ui.grid } })),
   setRegion: (region) => set((state) => ({ ui: { ...state.ui, region } })),
   setCommentPoint: (comment_point) => set((state) => ({ ui: { ...state.ui, comment_point } })),
+  addRetouchOperation: (kind, options = {}) => set((state) => {
+    if (!state.ui.region || state.selection.layer_ids.length !== 1) return state;
+    const id = state.selection.layer_ids[0];
+    const layer = state.layers.find((item) => item.id === id && item.layer_type === "IMAGE" && !item.locked);
+    if (!layer) return state;
+    try {
+      const operation = buildImageStudioRetouchOperation({ kind, region: state.ui.region, layer, amount: options.amount, feather: options.feather });
+      return {
+        layers: state.layers.map((item) => item.id === id ? { ...item, style: { ...(item.style || {}), retouch_operations: [...(Array.isArray(item.style?.retouch_operations) ? item.style.retouch_operations : []), operation] } } : item),
+        ui: { ...state.ui, region: null }, dirty: true,
+        historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)), historyFuture: [],
+      };
+    } catch { return state; }
+  }),
+  clearRetouchOperations: () => set((state) => {
+    if (state.selection.layer_ids.length !== 1) return state;
+    const id = state.selection.layer_ids[0];
+    const target = state.layers.find((item) => item.id === id);
+    if (!target || !(target.style?.retouch_operations || []).length) return state;
+    return { layers: state.layers.map((item) => item.id === id ? { ...item, style: { ...(item.style || {}), retouch_operations: [] } } : item), dirty: true, historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)), historyFuture: [] };
+  }),
   updateLayerLocal: (id, patch) => set((state) => { const historyPast = state.historyTransaction ? state.historyPast : pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)); return { layers: state.layers.map((layer) => layer.id === id ? { ...layer, ...patch } : layer), dirty: true, historyPast, historyFuture: state.historyTransaction ? state.historyFuture : [] }; }),
   addLayerLocal: (layer) => set((state) => ({ layers: [...state.layers, layer], selection: { ...state.selection, layer_ids: [layer.id] }, dirty: true, historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)), historyFuture: [] })),
   reorderLayer: (id, delta) => set((state) => { const target = state.layers.find((layer) => layer.id === id); if (!target) return state; const scoped = state.layers.filter((layer) => layer.artboard_id === target.artboard_id); const normalized = reorderNormalizedLayers(scoped, id, delta); const unchanged = normalized.every((layer, index) => layer.id === scoped.slice().sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0))[index]?.id && Number(layer.sort_order||0) === index); if (unchanged) return state; const byId = new Map(normalized.map((layer) => [layer.id, layer])); return { layers: state.layers.map((layer) => byId.get(layer.id) || layer), dirty: true, historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)), historyFuture: [] }; }),

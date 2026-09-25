@@ -35,7 +35,12 @@ const ROOT = "app/api";
 // Empty on purpose. The webhook and OAuth-callback routes that would belong here already refuse callers
 // on their own, so an exemption for them would describe a permission nobody is using. Add an entry only
 // when a route genuinely cannot refuse and the reason is about how its caller is verified.
-const PUBLIC_ROUTES = new Map();
+const PUBLIC_ROUTES = new Map([
+  [
+    "public/finance/bank-feed/[integrationId]/callback",
+    "Bank OAuth callback is verified by exact integration+organization lookup and a timing-safe SHA-256 match against the stored one-time consent_state_hash before any sync or failure-state mutation.",
+  ],
+]);
 
 // How a route reads an organization the caller chose.
 const CALLER_SUPPLIED_ORGANIZATION = [

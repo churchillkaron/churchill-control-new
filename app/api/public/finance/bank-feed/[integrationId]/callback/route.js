@@ -16,7 +16,8 @@ export async function GET(request, { params }) {
   const integrationId = text(resolved?.integrationId);
   const organizationId = text(url.searchParams.get("organizationId"));
   const state = text(url.searchParams.get("state"));
-  const workspaceUrl = `/workspace/${encodeURIComponent(organizationId)}/finance/banking-integrations`;
+  let verifiedCallback = false;
+  let workspaceUrl = "/";
   try {
     if (!organizationId || !integrationId || !state) throw new Error("BANK_FEED_CALLBACK_INVALID");
     const { data: integration, error } = await supabaseAdmin.from("finance_banking_integrations").select("id,organization_id,metadata").eq("id", integrationId).eq("organization_id", organizationId).maybeSingle();
@@ -24,13 +25,17 @@ export async function GET(request, { params }) {
     if (!integration) throw new Error("BANK_FEED_INTEGRATION_NOT_FOUND");
     const expected = text(integration.metadata?.consent_state_hash);
     if (!expected || !safeEqual(hash(state), expected)) throw new Error("BANK_FEED_CALLBACK_STATE_INVALID");
-    const result = await syncBankFeedIntegration({ organizationId, integrationId, syncMode: "INITIAL" });
+    verifiedCallback = true;
+    workspaceUrl = `/workspace/${encodeURIComponent(integration.organization_id)}/finance/banking-integrations`;
+    const result = await syncBankFeedIntegration({ organizationId: integration.organization_id, integrationId, syncMode: "INITIAL" });
     const redirect = new URL(workspaceUrl, url.origin);
     redirect.searchParams.set("bankFeed", result?.sync_run?.status || "COMPLETED");
     return NextResponse.redirect(redirect, 307);
   } catch (error) {
-    await supabaseAdmin.from("finance_banking_integrations").update({ sync_status: "FAILED", last_error_code: "BANK_FEED_CALLBACK_FAILED", last_error_message: text(error?.message).slice(0,1000), updated_at: new Date().toISOString() }).eq("id", integrationId).eq("organization_id", organizationId);
-    const redirect = new URL(workspaceUrl || "/", url.origin);
+    if (verifiedCallback) {
+      await supabaseAdmin.from("finance_banking_integrations").update({ sync_status: "FAILED", last_error_code: "BANK_FEED_CALLBACK_FAILED", last_error_message: text(error?.message).slice(0,1000), updated_at: new Date().toISOString() }).eq("id", integrationId).eq("organization_id", organizationId);
+    }
+    const redirect = new URL(workspaceUrl, url.origin);
     redirect.searchParams.set("bankFeed", "FAILED");
     return NextResponse.redirect(redirect, 307);
   }

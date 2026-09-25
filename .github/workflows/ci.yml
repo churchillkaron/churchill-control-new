@@ -16,6 +16,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  business-partner-benchmark-floor:
+    name: Business Partner benchmark floor certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Verify immutable competitive floor
+        run: |
+          node --test tests/business-partner-benchmark-floor.test.mjs
+          npm run certify:business-partner:benchmark-floor:policy
+
   finance-worldclass:
     name: Finance world-class certification
     runs-on: ubuntu-latest
@@ -67,9 +86,6 @@ jobs:
 
       - name: Guard against automatic paid workflows
         run: node scripts/audit-no-automatic-paid-workflows.mjs
-
-      - name: Certify Business Partner benchmark floor policy
-        run: npm run certify:business-partner:benchmark-floor:policy
 
       - name: Audit Finance capability closure
         run: node scripts/finance-closeout-audit.mjs

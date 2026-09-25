@@ -899,7 +899,6 @@ export default function HomeAvantiqoIntelligence({
           >
             <Loader2 size={12} className="animate-spin text-[#A69F96]" />
             <span>{busyRequestStatus(liveExecution, busyElapsedSeconds, activeRequestStartedAt)}</span>
-            <span aria-label="elapsed time">· {busyElapsedSeconds}s</span>
           </div>
         ) : null}
       </div>

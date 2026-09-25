@@ -77,6 +77,9 @@ test("bank consent has CSRF-like state and returns to governed sync", () => {
   assert.match(consent, /crypto\.randomBytes\(32\)/);
   assert.match(consent, /consentStateHash: hash\(state\)/);
   assert.match(callback, /timingSafeEqual/);
+  assert.match(callback, /verifiedCallback = true/);
+  assert.match(callback, /if \(verifiedCallback\)/);
+  assert.match(callback, /organizationId: integration\.organization_id/);
   assert.match(callback, /syncBankFeedIntegration/);
   assert.match(callback, /bankFeed/);
 });

@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 
 const SUITE_PATH = "benchmarks/business-partner/suite.v1.json";
 const PROTOCOL_PATH = "benchmarks/business-partner/protocol.v1.json";
+const EVIDENCE_PACKET_PATH = "benchmarks/business-partner/evidence-packet.v1.json";
 const OUTPUT_PATH = process.env.AVANTIQO_BP_HEAD_TO_HEAD_OUTPUT || "artifacts/business-partner-reference-raw.json";
 
 function required(name) {
@@ -49,10 +50,13 @@ async function postJson(url, { headers = {}, body }) {
   return JSON.parse(text);
 }
 
-function benchmarkPrompt(protocol, testCase) {
+function benchmarkPrompt(protocol, evidencePacket, testCase) {
   const schema = protocol.response_format?.fields || [];
   return [
     protocol.system_instruction,
+    "",
+    "Synthetic benchmark context and evidence packet:",
+    JSON.stringify(evidencePacket),
     "",
     "Benchmark case:",
     testCase.prompt,
@@ -113,6 +117,8 @@ if (!execute) {
 
 const suite = JSON.parse(await fs.readFile(SUITE_PATH, "utf8"));
 const protocol = JSON.parse(await fs.readFile(PROTOCOL_PATH, "utf8"));
+const evidencePacket = JSON.parse(await fs.readFile(EVIDENCE_PACKET_PATH, "utf8"));
+const evidencePacketHash = sha256(JSON.stringify(evidencePacket));
 
 const providers = [
   {
@@ -137,6 +143,8 @@ const output = {
   generated_at: nowIso(),
   suite_contract: suite.contract,
   protocol_contract: protocol.contract,
+  evidence_packet_contract: evidencePacket.contract,
+  evidence_packet_sha256: evidencePacketHash,
   same_case_prompts: true,
   same_system_instruction: true,
   same_response_schema: true,
@@ -161,6 +169,7 @@ for (const testCase of suite.cases || []) {
       measured_at: nowIso(),
       latency_ms: latencyMs,
       prompt_sha256: promptHash,
+      evidence_packet_sha256: evidencePacketHash,
       raw_output_sha256: sha256(raw),
       parsed_output_sha256: parsed ? sha256(JSON.stringify(parsed)) : null,
       parse_success: Boolean(parsed),

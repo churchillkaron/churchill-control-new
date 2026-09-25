@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { latestCompletedAgreementBusinessAction, registeredRevisionIntent } from "../lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js";
 import { materializeRegisteredRevisionDeterministically } from "../lib/operator/runtime/OperatorRegisteredRevisionMaterializer.mjs";
+import { listOperatorFastReads } from "../lib/operator/runtime/OperatorFastReadIndex.js";
+import { rankOperatorCapabilities } from "../lib/operator/runtime/OperatorCapabilityMatcher.js";
 
 const CONTRACT = "AVANTIQO_BUSINESS_PARTNER_QUALITY_CORE_V1";
 const understanding = fs.readFileSync("lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js","utf8");
@@ -51,6 +53,28 @@ check("user-facing-summary","communication_quality",()=>{ const summary=compile(
 check("ambiguous-does-not-guess","recovery_and_self_correction",()=>assert.equal(compile("change the dates"),null));
 check("wrong-party-fails-closed","governance_and_authority_discipline",()=>{ const r=compile("change the last invoice 7 days back","party-2"); assert.equal(r.clarification_required,true); assert.equal(r.payload.source_invoice_id,undefined); });
 check("no-customer-hardcode","tool_and_capability_selection",()=>{ assert.doesNotMatch(understanding,/Moonshine/i); assert.doesNotMatch(preparation,/Moonshine/i); });
+
+const fastReads=listOperatorFastReads();
+for (const [message,expected] of [
+  ["what is our bank balance","finance.cash_management.read"],
+  ["who is absent today","people.attendance.read"],
+  ["show the employee directory","people.employees.read"],
+  ["hotel arrivals today","solutions.hotel_bookings.read"],
+  ["show latest quotation","commercial.quotations.read"],
+  ["find customer moonshine","commercial.customers.read"],
+  ["show inventory items","supply_chain.inventory_items.read"],
+  ["how much stock do we have","supply_chain.stock_position.read"],
+  ["show current operational assignments","operations.command_center.read"],
+  ["show latest studio video","creative.assets.read"],
+  ["show documents","documents.documents.read"],
+  ["show work permits","compliance.work_permits.read"],
+]) {
+  check("cross-domain-read:"+message,"tool_and_capability_selection",()=>{
+    const ranked=rankOperatorCapabilities({message,capabilities:fastReads,modes:["read"],limit:3});
+    assert.equal(ranked[0]?.capability?.key,expected);
+  });
+}
+
 const failed=checks.filter(x=>!x.passed);
 const dimensions={};
 for (const row of checks) { dimensions[row.dimension] ||= {checks:0,passed:true}; dimensions[row.dimension].checks++; dimensions[row.dimension].passed &&= row.passed; }

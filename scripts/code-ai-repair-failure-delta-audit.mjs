@@ -6,11 +6,11 @@ const runtimePath = "lib/code/runtime/CodeAIWorkPackageRuntimeLive.js";
 const source = await readFile(runtimePath, "utf8");
 
 for (const marker of [
-  "Treat the authoritative verifier source and latest_failed_verification as executable specification.",
-  "identify the precise semantic mismatch",
-  "return a materially changed correction",
-  "Do not repeat equivalent source that already produced this failure.",
-  "the authoritative verifier and its observed expected/actual assertion behavior disambiguate it",
+  "EXACT FAILED VERIFICATION EVIDENCE:",
+  "Do not return file content that is semantically equivalent to the failed patch.",
+  "The next apply_files payload must change the cause of the last failure.",
+  "Do not reread stale source.",
+  "Apply one coherent repair, run the authoritative verifier, then review diff.",
   "const effectiveRepairState = actionPolicy.repair_state || Boolean(sourceQualityFailure);",
   "repair_requires_material_change: effectiveRepairState",
   "code_ai_repair_requires_material_change: effectiveRepairState",

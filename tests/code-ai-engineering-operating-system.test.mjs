@@ -44,15 +44,24 @@ function completedState(overrides = {}) {
       { kind: "operation", operation_id: "post-browser", action: "browser_verify", status: "completed", result: { passed: true } },
     ],
     verified_engineering_memory: {
-      contract: "AVANTIQO_CODE_VERIFIED_ENGINEERING_MEMORY_V1",
+      contract: "AVANTIQO_CODE_AI_VERIFIED_ENGINEERING_MEMORY_V1",
       evaluated: true,
+      attestation_required: true,
+      verified_completion_required: true,
       current_head_revalidation_required: true,
+      patch_replay_allowed: false,
+      automatic_knowledge_promotion: false,
+      authorization_effect: "NONE",
     },
     formed_engineering_skills: {
-      contract: "AVANTIQO_CODE_ENGINEERING_SKILL_V1",
+      contract: "AVANTIQO_CODE_AI_ENGINEERING_SKILL_V1",
       evaluated: true,
       lifecycle_evaluated: true,
+      current_head_revalidation_required: true,
+      patch_replay_allowed: false,
+      persisted_as_trusted_rule: false,
       automatic_knowledge_promotion: false,
+      authorization_effect: "NONE",
     },
     employee_completion: {
       verified: true,
@@ -72,7 +81,7 @@ function completedState(overrides = {}) {
       reviews: [{ role: "architecture_performance", success: true }, { role: "adversarial_risk", success: true }],
     },
     final_independent_review: { verified: true, status: "APPROVED" },
-    final_independent_review_gate: { verified: true },
+    final_independent_review_gate: { contract: "AVANTIQO_CODE_AI_FINAL_INDEPENDENT_REVIEW_V1", verified: true, fingerprint_matches: true, required_approvals: 2, observed_approvals: 2, blocking_finding_count: 0, blocker: null },
     ...overrides,
   };
 }
@@ -286,7 +295,7 @@ test("broad program requires a real independently verified hidden benchmark cont
       adversarial_risk_review_present: true,
     },
     final_independent_review: { verified: true, status: "APPROVED" },
-    final_independent_review_gate: { verified: true },
+    final_independent_review_gate: { contract: "AVANTIQO_CODE_AI_FINAL_INDEPENDENT_REVIEW_V1", verified: true, fingerprint_matches: true, required_approvals: 2, observed_approvals: 2, blocking_finding_count: 0, blocker: null },
     program_plan: { active: true },
     benchmark_scorecard: { held_out: true, verified: true },
   };
@@ -519,7 +528,7 @@ test("high-risk multi-agent gate requires both specialist and independent final 
 
   const specialistOnly = finalizeCodeAIEngineeringOperatingSystem({
     prepared_control: prepared.control,
-    result: { success: true, state: { ...base, parallel_specialist_review: { completed: true, reviewer_count_requested: 2, reviewer_count_succeeded: 2, architecture_performance_review_present: true, adversarial_risk_review_present: true }, final_independent_review: { verified: false, status: "UNAVAILABLE" }, final_independent_review_gate: { verified: false } } },
+    result: { success: true, state: { ...base, parallel_specialist_review: { completed: true, reviewer_count_requested: 2, reviewer_count_succeeded: 2, architecture_performance_review_present: true, adversarial_risk_review_present: true }, final_independent_review: { verified: false, status: "UNAVAILABLE" }, final_independent_review_gate: { contract: "AVANTIQO_CODE_AI_FINAL_INDEPENDENT_REVIEW_V1", verified: false, fingerprint_matches: false, required_approvals: 2, observed_approvals: 0, blocking_finding_count: 0, blocker: "CODE_AI_FINAL_INDEPENDENT_REVIEW_UNAVAILABLE" } } },
   });
   assert.ok(specialistOnly.missing_required_departments.some((item) => item.key === "multi_agent_team"));
 
@@ -635,4 +644,72 @@ test("broad program requires the real bounded Product Engineering portfolio cont
   });
   const realFinal = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state: real } });
   assert.ok(!realFinal.missing_required_departments.some((item) => item.key === "program_manager"));
+});
+
+test("multi-repository department requires verified independent heads and dependency order", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Coordinate multi-repo changes across API and web" });
+  const fake = completedState({ multi_repository_coordination: { all_verified: true } });
+  const fakeFinal = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state: fake } });
+  assert.ok(fakeFinal.missing_required_departments.some((item) => item.key === "scm_multi_repo"));
+
+  const real = completedState({
+    multi_repository_coordination: {
+      contract: "AVANTIQO_CODE_AI_MULTI_REPOSITORY_MISSION_V1",
+      repositories: [
+        { id: "api", repository_url: "https://github.com/x/api", base_commit: "a".repeat(40), verified: true },
+        { id: "web", repository_url: "https://github.com/x/web", base_commit: "b".repeat(40), verified: true },
+      ],
+      dependency_order: ["api", "web"],
+      independent_heads_required: true,
+      independent_verification_required: true,
+      all_verified: true,
+      commit_authority: false,
+      merge_authority: false,
+      deploy_authority: false,
+    },
+  });
+  const realFinal = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state: real } });
+  assert.ok(!realFinal.missing_required_departments.some((item) => item.key === "scm_multi_repo"));
+});
+
+test("architecture brain cannot certify a changed path without observed source content", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Refactor invoice runtime" });
+  const state = completedState({
+    files_changed: ["lib/unobserved.js"],
+    source_changes: [],
+    source_read_evidence: [],
+    evidence: [{ kind: "operation", operation_id: "post-verify", action: "verify", status: "completed", result: { exit_code: 0 } }],
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(final.missing_required_departments.some((item) => item.key === "architecture_brain"));
+});
+
+
+test("stale independent review fingerprint cannot satisfy high-risk multi-agent gate", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Fix broken invoice authorization" });
+  const state = completedState({
+    final_independent_review_gate: {
+      contract: "AVANTIQO_CODE_AI_FINAL_INDEPENDENT_REVIEW_V1",
+      verified: true,
+      fingerprint_matches: false,
+      required_approvals: 2,
+      observed_approvals: 2,
+      blocking_finding_count: 0,
+      blocker: null,
+    },
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(final.missing_required_departments.some((item) => item.key === "multi_agent_team"));
+});
+
+
+test("spoofed engineering memory and skill contracts cannot satisfy learning departments", () => {
+  const prepared = prepareCodeAIEngineeringOperatingSystem({ objective: "Inspect invoice runtime" });
+  const state = completedState({
+    verified_engineering_memory: { contract: "FAKE", evaluated: true, current_head_revalidation_required: true },
+    formed_engineering_skills: { contract: "FAKE", evaluated: true, lifecycle_evaluated: true, automatic_knowledge_promotion: false },
+  });
+  const final = finalizeCodeAIEngineeringOperatingSystem({ prepared_control: prepared.control, result: { success: true, state } });
+  assert.ok(final.missing_required_departments.some((item) => item.key === "engineering_memory"));
+  assert.ok(final.missing_required_departments.some((item) => item.key === "self_improvement"));
 });

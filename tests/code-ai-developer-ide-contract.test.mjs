@@ -306,7 +306,10 @@ test("IDE actions bind directly to a validated device session without enqueueing
   assert.match(agent, /DEVICE_HEARTBEAT_INTERVAL_MS/);
   assert.match(agent, /DEVICE_ACTIVE_POLL_INTERVAL_MS/);
   assert.match(agent, /DEVICE_IDLE_POLL_INTERVAL_MS/);
-  assert.match(agent, /handled\?DEVICE_ACTIVE_POLL_INTERVAL_MS:DEVICE_IDLE_POLL_INTERVAL_MS/);
+  assert.match(agent, /CODE_DEVICE_AGENT_ALREADY_RUNNING/);
+  assert.match(agent, /DEVICE_INTERACTIVE_BURST_MS=.*30000/);
+  assert.match(agent, /const interactive=handled>0\|\|Date\.now\(\)<interactiveUntil/);
+  assert.match(agent, /interactive\?DEVICE_ACTIVE_POLL_INTERVAL_MS:DEVICE_IDLE_POLL_INTERVAL_MS/);
 });
 
 

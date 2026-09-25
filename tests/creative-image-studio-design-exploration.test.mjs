@@ -33,8 +33,9 @@ test("art direction selection rejects near-duplicate candidate sets", () => {
   assert.match(exploration, /premium_visual_authorship_score/);
   assert.match(exploration, /continuity_fidelity_score/);
   assert.match(exploration, /production_usability_score/);
-  assert.match(exploration, /minimum_premium_visual_authorship_score:94/);
-  assert.match(exploration, /minimum_continuity_fidelity_score:96/);
+  assert.match(exploration, /minimum_premium_visual_authorship_score:96/);
+  assert.match(exploration, /minimum_continuity_fidelity_score:97/);
+  assert.match(exploration, /minimum_production_usability_score:96/);
 });
 
 test("only selected exploration asset can leave Image Studio", () => {

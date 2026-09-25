@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BadgeCheck,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { buildCreativeImageStudioOperatingState } from "@/lib/creative/stills/runtime/CreativeImageStudioOperatingRuntime";
+import { classifyStillStudioHandoff } from "@/lib/creative/image/runtime/CreativeStillStudioHandoffRuntime";
 import { useImageStudioWorkspaceStore } from "./useImageStudioWorkspaceStore";
 import { useImageStudioWorkspacePersistence } from "./useImageStudioWorkspacePersistence";
 import ImageStudioCanvasToolbar from "./ImageStudioCanvasToolbar";
@@ -30,6 +32,7 @@ import ImageStudioCommentsPanel from "./ImageStudioCommentsPanel";
 import ImageStudioConflictBanner from "./ImageStudioConflictBanner";
 import ImageStudioLayerInspector from "./ImageStudioLayerInspector";
 import ImageStudioQualityPanel from "./ImageStudioQualityPanel";
+import ImageStudioVisualBiblePanel from "./ImageStudioVisualBiblePanel";
 import ImageStudioKeyboardShortcuts from "./ImageStudioKeyboardShortcuts";
 
 function assetUrl(asset) {
@@ -141,6 +144,10 @@ export default function ImageStudioWorkspace({ runtime }) {
   const [leftMode, setLeftMode] = useState("production");
   const selected = images.find((item) => item.id === selectedId) || images[0] || null;
   const previewUrl = assetUrl(selected);
+  const studioHandoff = useMemo(() => classifyStillStudioHandoff({ asset: selected || {} }), [selected]);
+  const organizationId = runtime.projectRuntime?.current?.organization_id || runtime.organization_id || null;
+  const projectId = runtime.projectRuntime?.current?.id || null;
+  const videoHref = organizationId && projectId && selected?.id ? `/workspace/${organizationId}/creative/video?project_id=${projectId}&source_asset_id=${selected.id}&source_lineage=${studioHandoff.lineage_digest}` : null;
 
   const siblingVersions = useMemo(() => {
     if (!selected) return [];
@@ -256,6 +263,7 @@ export default function ImageStudioWorkspace({ runtime }) {
           </div>
         </section>
 
+        <ImageStudioVisualBiblePanel bible={operating.visual_bible} />
         <ImageStudioLayerInspector workspace={workspace} />
         <ImageStudioLayerPanel workspace={workspace} />
         <ImageStudioReferencePanel workspace={workspace} persistence={persistence} assets={images} />
@@ -263,6 +271,30 @@ export default function ImageStudioWorkspace({ runtime }) {
         <ImageStudioVersionHistoryPanel workspace={workspace} />
         <ImageStudioExportPanel workspace={workspace} persistence={persistence} />
         <ImageStudioQualityPanel workspace={workspace} />
+
+        <section className="mt-5">
+          <div className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#948D84]">Studio handoff</div>
+          <div className="mt-2 rounded-xl border border-[#DDD8D0] bg-[#FBFAF8] p-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-[#D6A66A]/20 bg-white px-3 py-2">
+                <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#D6A66A]">Image Studio</div>
+                <div className="mt-1 text-[8px] leading-4 text-[#817A72]">Still master · retouch · composite · typography · campaign variants.</div>
+              </div>
+              {videoHref && studioHandoff.destinations.video_studio.ready ? (
+                <Link href={videoHref} className="rounded-lg border border-[#D6A66A]/25 bg-[#D6A66A]/[0.06] px-3 py-2 transition hover:bg-[#D6A66A]/[0.1]">
+                  <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#D6A66A]">Video Studio →</div>
+                  <div className="mt-1 text-[8px] leading-4 text-[#817A72]">Animate this approved master with its exact lineage and quality evidence.</div>
+                </Link>
+              ) : (
+                <div className="rounded-lg border border-[#E5E1DA] bg-white px-3 py-2">
+                  <div className="text-[8px] font-semibold uppercase tracking-[0.12em] text-[#A09A92]">Video Studio locked</div>
+                  <div className="mt-1 text-[8px] leading-4 text-[#918B83]">Approve and seal this still for video source use first.</div>
+                </div>
+              )}
+            </div>
+            <div className="mt-2 text-[8px] leading-4 text-[#9A938B]">Video Studio never overwrites the still master. Source-image repair returns to Image Studio.</div>
+          </div>
+        </section>
 
         <section className="mt-5 rounded-xl border border-[#D6A66A]/15 bg-[#D6A66A]/[0.035] p-3">
           <div className="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#D6A66A]/70">Production rule</div>

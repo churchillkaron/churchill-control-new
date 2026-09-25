@@ -25,7 +25,7 @@ test("image studio progresses through references, creation, composition and revi
     strategyRuntime: { current: { id: "strategy-1" } },
     assetRuntime: { items: [
       { id: "reference-1", asset_type: "image", role: "STYLE_REFERENCE", url: "https://example.com/ref.jpg" },
-      { id: "image-1", asset_type: "image", url: "https://example.com/image.jpg", revision: 2, approval_state: "APPROVED", metadata: { design_document_id: "design-1" } },
+      { id: "image-1", asset_type: "image", url: "https://example.com/image.jpg", revision: 2, approval_state: "APPROVED", metadata: { design_document_id: "design-1", image_asset_perceptual_qc_sealed: true, release_approved: true } },
     ] },
     taskRuntime: { items: [
       { id: "review-1", type: "QUALITY_REVIEW", status: "COMPLETED", capability: "creative.still.validate" },

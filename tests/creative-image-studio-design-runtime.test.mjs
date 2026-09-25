@@ -404,7 +404,7 @@ test("Image Studio world-class preflight catches collisions, weak hierarchy and 
     ],
   });
   assert.equal(result.contract, "CREATIVE_IMAGE_STUDIO_QUALITY_PREFLIGHT_V2");
-  assert.equal(result.release_threshold, 90);
+  assert.equal(result.release_threshold, 95);
   assert.ok(result.warnings.some((item) => item.startsWith("TEXT_COLLISION")));
   assert.ok(result.warnings.some((item) => item.startsWith("TYPOGRAPHIC_HIERARCHY_WEAK")));
   assert.ok(result.warnings.some((item) => item.startsWith("TEXT_CONTRAST_LOW")));

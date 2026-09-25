@@ -42,14 +42,15 @@ test("media quality and size are carried into reservation pricing", () => {
   assert.match(executionSource, /pricing_dimensions: pricingDimensions/);
 });
 
-test("actual token settlement preserves execution quantity and pricing dimensions", () => {
+test("actual settlement preserves pricing dimensions and uses the governed settled quantity", () => {
+  assert.match(executionSource, /const settledQuantity = providerSettlementQuantity\(\{/);
   assert.match(
     executionSource,
-    /const actualUsage = \{[\s\S]*?\.\.\.usage,[\s\S]*?\.\.\.pricingDimensions,[\s\S]*?quantity,[\s\S]*?actual: true,[\s\S]*?\};/,
+    /const actualUsage = \{[\s\S]*?\.\.\.usage,[\s\S]*?\.\.\.pricingDimensions,[\s\S]*?quantity: settledQuantity,[\s\S]*?actual: true,[\s\S]*?\};/,
   );
   assert.match(
     executionSource,
-    /const settledPricing = await actualPricing\(\{[\s\S]*?quantity,[\s\S]*?pricingDimensions,[\s\S]*?\}\);/,
+    /let settledPricing = await actualPricing\(\{[\s\S]*?quantity,[\s\S]*?pricingDimensions,[\s\S]*?\}\);/,
   );
 });
 

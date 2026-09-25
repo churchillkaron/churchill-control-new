@@ -177,6 +177,19 @@ for (const entry of prompts) {
     wall_ms: wallMs,
     input_tokens: tokenMetric(metrics, ["input_tokens", "prompt_tokens", "prompt_eval_count"]),
     output_tokens: tokenMetric(metrics, ["output_tokens", "completion_tokens", "eval_count"]),
+    inference_elapsed_ms: tokenMetric(metrics, ["elapsed_ms"]),
+    model_total_duration_ms: tokenMetric(metrics, ["total_duration_ns"]) !== null
+      ? Math.round(tokenMetric(metrics, ["total_duration_ns"]) / 1e6)
+      : null,
+    model_load_duration_ms: tokenMetric(metrics, ["load_duration_ns"]) !== null
+      ? Math.round(tokenMetric(metrics, ["load_duration_ns"]) / 1e6)
+      : null,
+    code_gpu_wait_ms: tokenMetric(metrics, ["code_gpu_wait_ms"]),
+    code_gpu_reclaim_wait_ms: tokenMetric(metrics, ["code_gpu_reclaim_wait_ms"]),
+    code_gpu_reclaim_attempted: metrics.code_gpu_reclaim_attempted === true,
+    code_gpu_released_model_count: tokenMetric(metrics, ["code_gpu_released_model_count"]),
+    code_cpu_fallback: metrics.code_cpu_fallback === true,
+    code_runtime_model_already_gpu_resident: metrics.code_runtime_model_already_gpu_resident === true,
     provider_job_id: providerJobId,
     provider: text(output.provider, 120) || "avantiqo-code",
     model: text(output.model, 160) || "avantiqo-code-v1",

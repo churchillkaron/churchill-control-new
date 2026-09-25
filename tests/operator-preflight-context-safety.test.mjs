@@ -32,3 +32,12 @@ test("unsafe preflight candidates are explicitly cleared before historical-conte
   const skipIndex = source.indexOf("const skipHistoricalContext = Boolean(preflightSemanticUnderstanding);");
   assert.ok(clearIndex >= 0 && skipIndex > clearIndex);
 });
+
+
+test("the exact Moonshine-style correction phrasing bypasses read presemantic routing", () => {
+  const correction = resolvePreSemanticReadIntent({
+    message: "the last invoice for moonshine need to change 7 days back on all 3 dates",
+    immediateConversation: [],
+  });
+  assert.equal(correction, null);
+});

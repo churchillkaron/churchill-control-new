@@ -68,3 +68,12 @@ test("Code metrics expose bounded GPU reclaim evidence", () => {
   assert.match(worker, /code_gpu_reclaim_wait_ms=\[int\]\$codeGpuReclaimWaitMs/);
   assert.match(worker, /code_gpu_released_model_count=@\(\$codeGpuReleasedModels\)\.Count/);
 });
+
+
+test("dedicated Code and live lanes poll sub-second while media lanes keep conservative idle polling", () => {
+  assert.match(worker, /if \(\$Lane -eq 'code' -or \$Lane -eq 'live'\)/);
+  assert.match(worker, /\$pollSleepMilliseconds = \$\(if \(\$jobs\.Count -gt 0\) \{ 250 \} else \{ 750 \}\)/);
+  assert.match(worker, /Start-Sleep -Milliseconds \$pollSleepMilliseconds/);
+  assert.match(worker, /\$pollSleepSeconds = \$\(if \(\$jobs\.Count -gt 0\) \{ 1 \} else \{ 5 \}\)/);
+  assert.match(worker, /Start-Sleep -Seconds \$pollSleepSeconds/);
+});

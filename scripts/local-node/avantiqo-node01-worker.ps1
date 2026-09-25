@@ -1663,7 +1663,12 @@ while ($true) {
   } catch {
     Start-Sleep -Seconds 5
   }
-  $pollSleepSeconds = $(if ($jobs.Count -gt 0) { 1 } else { 5 })
-  Start-Sleep -Seconds $pollSleepSeconds
+  if ($Lane -eq 'code' -or $Lane -eq 'live') {
+    $pollSleepMilliseconds = $(if ($jobs.Count -gt 0) { 250 } else { 750 })
+    Start-Sleep -Milliseconds $pollSleepMilliseconds
+  } else {
+    $pollSleepSeconds = $(if ($jobs.Count -gt 0) { 1 } else { 5 })
+    Start-Sleep -Seconds $pollSleepSeconds
+  }
 }
 

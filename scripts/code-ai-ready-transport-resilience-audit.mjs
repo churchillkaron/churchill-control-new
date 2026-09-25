@@ -16,24 +16,18 @@ function requireMarkers(label, source, markers) {
   }
 }
 
-requireMarkers("WORKER_READY_RETRY", worker, [
-  "READY_TRANSPORT_HEALTH_TIMEOUT_MS = 5000",
-  "READY_TRANSPORT_HEALTH_ATTEMPTS = 3",
-  "READY_TRANSPORT_HEALTH_RETRY_DELAY_MS = 500",
-  "async function confirmReadyTransportHealth(session)",
-  "AVANTIQO_CODE_READY_TRANSPORT_HEALTH_RETRY",
-  "worker_lifecycle_mutation_performed: false",
-  "provider_execution_submitted: false",
-  "reasoning_call_consumed: false",
-  "await confirmReadyTransportHealth(session)",
+requireMarkers("LOCAL_DURABLE_TRANSPORT", worker, [
+  '"AVANTIQO_CODE_AI_WORKER_SESSION_V4_LOCAL"',
+  'infrastructure_provider:"AVANTIQO_LOCAL_NODE_V1"',
+  'execution_transport_mode:"LOCAL_DURABLE_QUEUE"',
+  'ready, warming:false',
+  'worker_started:false',
+  'worker_session_created:false',
+  'scale_to_zero_required:false',
 ]);
-
-const resolverIndex = worker.indexOf("export async function resolveCodeAIWorkerSessionTransport");
-const retryIndex = worker.indexOf("await confirmReadyTransportHealth(session)", resolverIndex);
-const tokenIndex = worker.indexOf("token: tokenForSession(session.session_id)", resolverIndex);
-assert.ok(resolverIndex >= 0, "worker session transport resolver must exist");
-assert.ok(retryIndex > resolverIndex, "ready transport must use bounded confirmation retries");
-assert.ok(tokenIndex > retryIndex, "transport credentials must only be returned after confirmation succeeds");
+assert.equal(worker.includes("confirmReadyTransportHealth"), false);
+assert.equal(worker.includes("tokenForSession"), false);
+assert.match(worker, /resolveCodeAIWorkerSessionTransport\(\)[^{]*\{[^}]*current\.ready \? current : null/s);
 
 requireMarkers("PRE_PROVIDER_ACCOUNTING", workPackage, [
   "PRE_PROVIDER_RESUMABLE_PLANNER_ERRORS",
@@ -72,11 +66,10 @@ console.log(JSON.stringify({
   success: true,
   contract: CONTRACT,
   verified: {
-    ready_worker_transport_health_retry_is_bounded: true,
-    ready_worker_transport_health_retry_is_non_mutating: true,
-    ready_worker_transport_health_retry_does_not_submit_provider_work: true,
-    ready_worker_transport_health_retry_does_not_consume_reasoning: true,
-    transport_credentials_require_confirmed_ready_health: true,
+    local_durable_transport_is_direct_and_bounded: true,
+    local_transport_has_no_remote_health_retry_loop: true,
+    local_transport_has_no_session_credentials: true,
+    local_transport_requires_ready_configuration: true,
     warm_session_not_ready_is_explicitly_pre_provider: true,
     warm_session_not_ready_rolls_back_attempted_reasoning_call: true,
     warm_session_not_ready_returns_resumable_planner_pending: true,

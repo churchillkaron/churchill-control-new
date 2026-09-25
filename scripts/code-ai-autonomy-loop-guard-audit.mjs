@@ -68,7 +68,7 @@ assert.throws(
 
 const requiredMarkers = [
   "AVANTIQO_CODE_AI_AUTONOMY_CONTROL_V1",
-  'DUPLICATE_GUARDED_ACTIONS = new Set(["read", "search", "run"])',
+  'DUPLICATE_GUARDED_ACTIONS = new Set(["read", "search", "run", "verify"])',
   "CODE_AI_AUTONOMOUS_DUPLICATE_ACTION_WITHOUT_NEW_EVIDENCE",
   "normalizedAutonomyControl",
   "recoveredPlannerIterations",

@@ -28,3 +28,12 @@ test("completion requires the exact declared authoritative verifier", () => {
   assert.match(source, /CODE_AI_AUTONOMOUS_AUTHORITATIVE_VERIFICATION_REQUIRED/);
   assert.match(source, /authoritativeVerificationProof\(state\)/);
 });
+
+
+test("identical verifier retries are suppressed until evidence or source revision changes", () => {
+  assert.match(source, /DUPLICATE_GUARDED_ACTIONS = new Set\(\["read", "search", "run", "verify"\]\)/);
+  assert.match(source, /decision\.action === "verify"/);
+  assert.match(source, /entry\.source_revision === currentSourceRevision/);
+  assert.match(source, /recordGuardedAction\(/);
+  assert.match(source, /CODE_AI_AUTONOMOUS_DUPLICATE_ACTION_WITHOUT_NEW_EVIDENCE/);
+});

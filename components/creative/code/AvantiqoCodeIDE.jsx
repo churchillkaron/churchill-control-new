@@ -37,6 +37,7 @@ const LOCAL_REASONING_BUDGET_TRANCHE = 4;
 const MAX_LOCAL_REASONING_BUDGET = 32;
 const MISSION_IDLE_DEADLINE_MS = 45 * 1000;
 const MISSION_ABSOLUTE_DEADLINE_MS = 30 * 60 * 1000;
+const MISSION_RESUME_SETTLE_MS = 250;
 const DEFAULT_REPOSITORY = "https://github.com/churchillkaron/churchill-control-new.git";
 
 function text(value) {
@@ -1823,7 +1824,7 @@ export default function AvantiqoCodeIDE({
           if (Date.now() >= missionAbsoluteDeadline) throw new Error("Code mission absolute deadline exceeded");
           if (Date.now() >= missionIdleDeadline) throw new Error("Code mission stalled without progress");
           resumeState = responseState;
-          await wait(1200);
+          await wait(MISSION_RESUME_SETTLE_MS);
           continue;
         }
         const terminalReason = text(body.reason || responseState?.blockers?.[0] || responseState?.failures?.[0]?.reason || "", 2000);

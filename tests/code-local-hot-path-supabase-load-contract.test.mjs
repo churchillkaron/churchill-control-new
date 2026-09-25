@@ -24,7 +24,7 @@ test("shared progress polling stays sub-second while expensive details remain sa
   assert.match(feed, /burstPollsRemaining\.current = Math\.max/);
   assert.match(feed, /burstPollsRemaining\.current -= 1/);
   assert.match(feed, /IDLE_POLL_MS = 15000/);
-  assert.match(feed, /ACTIVE_DETAIL_REFRESH_EVERY = 20/);
+  assert.match(feed, /ACTIVE_DETAIL_REFRESH_EVERY = 80/);
   assert.match(feed, /consecutiveFailures/);
   assert.match(feed, /Math\.min\(60000, baseDelay \* \(2 \*\* Math\.min\(consecutiveFailures, 4\)\)\)/);
   assert.match(feed, /details=\$\{includeDetails \? "1" : "0"\}/);

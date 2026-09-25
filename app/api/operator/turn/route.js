@@ -609,7 +609,9 @@ export async function POST(request, internal = {}) {
         const immediateContextSufficient = Boolean(
           preflight &&
           preflight.immediate_context_sufficient === true &&
-          preflight.requires_mutation !== true
+          preflight.context_required !== true &&
+          preflight.requires_mutation !== true &&
+          text(preflight.goal_relation).toLowerCase() === "new"
         );
         if (selfContained || immediateContextSufficient) {
           const externalFact =

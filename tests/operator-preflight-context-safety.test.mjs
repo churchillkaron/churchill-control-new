@@ -41,3 +41,12 @@ test("the exact Moonshine-style correction phrasing bypasses read presemantic ro
   });
   assert.equal(correction, null);
 });
+
+
+test("context-dependent preflight is never reused without durable reclassification", () => {
+  const source = fs.readFileSync("app/api/operator/turn/route.js", "utf8");
+  assert.match(
+    source,
+    /preflight\.immediate_context_sufficient === true[\s\S]*preflight\.context_required !== true[\s\S]*text\(preflight\.goal_relation\)\.toLowerCase\(\) === "new"/,
+  );
+});

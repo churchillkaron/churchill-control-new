@@ -183,8 +183,9 @@ assertContains(
     "const entity = context?.entity || null",
     "entity,",
     "entities:",
-    "entityId: resolveId(entity",
-    "legalEntityId: resolveId(entity",
+    "const entityId = resolveId(entity",
+    "entityId,",
+    "legalEntityId: entityId",
   ],
   "Organization runtime legal entity context"
 );

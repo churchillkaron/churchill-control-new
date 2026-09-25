@@ -338,41 +338,36 @@ requireMatch(
   "Staff home latest-payroll money currency"
 );
 
-for (const [label, file] of [
-  ["Staff earnings", source.staffEarningsUi],
-  ["Workforce payroll", source.workforcePayrollUi],
-]) {
-  requireMatch(
-    file,
-    /ACCOUNTING_CLOSED[\s\S]*CERTIFIED[\s\S]*ARCHIVED/,
-    `${label} terminal paid-state coverage`
-  );
-  requireMatch(
-    file,
-    /currency_code/,
-    `${label} per-record payroll currency`
-  );
-  requireNoMatch(
-    file,
-    /staff\?\.payroll_currency|staff\.payroll_currency|payroll\?\.payroll_currency/,
-    `${label} legacy staff payroll currency fallback`
-  );
-}
+requireMatch(
+  source.staffEarningsUi,
+  /ACCOUNTING_CLOSED[\s\S]*CERTIFIED[\s\S]*ARCHIVED/,
+  "Staff earnings terminal paid-state coverage"
+);
+requireMatch(
+  source.staffEarningsUi,
+  /currency_code/,
+  "Staff earnings per-record payroll currency"
+);
+requireNoMatch(
+  source.staffEarningsUi,
+  /staff\?\.payroll_currency|staff\.payroll_currency|payroll\?\.payroll_currency/,
+  "Staff earnings legacy staff payroll currency fallback"
+);
 
 requireMatch(
   source.workforcePayrollUi,
+  /redirect\("\/staff\/earnings"\)/,
+  "Legacy workforce payroll redirects to canonical staff earnings"
+);
+requireMatch(
+  source.staffEarningsUi,
   /REVIEWABLE_STATUSES[\s\S]*employee_acknowledged[\s\S]*record\.status === "PAID"/,
-  "Workforce payroll pre-approval and post-payment dispute lifecycle"
+  "Staff earnings pre-approval and post-payment dispute lifecycle"
 );
 requireMatch(
-  source.workforcePayrollUi,
-  /canAcknowledge[\s\S]*reviewable[\s\S]*pendingManagerReview[\s\S]*unresolvedDispute/,
-  "Workforce payroll acknowledgement lifecycle gate"
-);
-requireMatch(
-  source.workforcePayrollUi,
-  /paymentComplete[\s\S]*Open payslip/,
-  "Workforce payroll payslip payment gate"
+  source.staffEarningsUi,
+  /paymentComplete[\s\S]*Payslip/,
+  "Staff earnings payslip payment gate"
 );
 requireMatch(
   source.staffEarningsUi,

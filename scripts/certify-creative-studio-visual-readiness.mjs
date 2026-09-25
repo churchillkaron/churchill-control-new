@@ -186,7 +186,26 @@ const storyboardMeasured = Boolean(
 );
 const eliteDepartmentBenchmarkPlan = {
   visual_world: { name: "Certified authored world", visual_thesis: "A physically authored premium temporal world with clear visual logic.", taste_gate: { passed: true, overall: 100, art_direction: 100, cinematic_invention: 100 }, signature_images: ["a", "b", "c", "d"], anti_flatness_rules: ["depth evolves", "light evolves", "blocking evolves"] },
-  scenes: [{ id: "scene-1", shots: [{ camera: { platform: "dolly", platform_motivation: "Controlled parallax reveals subject and environment with physical depth." }, cinematic_beauty_intent: { required: true, composition: "Layered foreground, hero midground and evolving background geometry." }, audio: { mix_intent: "Physical sync sound drives the cut and reveal.", sync_events: ["impact-to-cut"] } }] }],
+  scenes: [{ id: "scene-1", shots: [{
+    camera: { platform: "dolly", platform_motivation: "Controlled parallax reveals subject and environment with physical depth." },
+    cinematic_beauty_intent: { required: true, composition: "Layered foreground, hero midground and evolving background geometry." },
+    signature_frame_design: {
+      required: true,
+      hero_frame: "A restrained hero frame holds the worker, machine and weather system in one legible causal composition.",
+      graphic_silhouette: "Foreground structure creates a strong asymmetrical silhouette without turning the frame into graphic abstraction.",
+      foreground_midground_background: "Foreground weather detail, human midground action and industrial background geometry remain distinctly layered.",
+      material_light_event: "Cold daylight catches wet metal exactly as the decisive human action changes the machine state.",
+      controlled_palette: "Cool steel, weathered neutrals and restrained warm practicals maintain disciplined hierarchy.",
+      natural_irregularity: "Wind, moisture, worn surfaces and small human adjustments prevent sterile procedural symmetry.",
+      atmosphere_physics: "Visible spray and suspended moisture move consistently with wind, gravity and nearby machinery.",
+      optical_character: "Natural perspective, restrained flare and physically plausible depth preserve a premium photographed feel.",
+      performance_microtruth: "The worker braces the note with a thumb before changing the machine setting without acknowledging camera.",
+      fear_or_desire_focus: "The frame holds attention on whether the fragile handoff survives the environment and changes the next action.",
+      anti_game_camera_rule: "Camera motion stays physically motivated and observational, never orbiting or drifting like a game spectator.",
+      board_comparison_test: "The frame must remain recognizably stronger in material truth, causality and composition than generic premium coverage.",
+    },
+    audio: { mix_intent: "Physical sync sound drives the cut and reveal.", sync_events: ["impact-to-cut"] },
+  }] }],
   shot_invention_map: [{ scene_id: "scene-1", invention_thesis: "A restrained physical reveal uses motivated camera movement and material detail to build anticipation.", shot_ideas: ["parallax reveal"] }],
   cinematic_coverage: { film_coverage: { contrast_architecture: "Dark-to-warm contrast evolves with the reveal and preserves clear focal hierarchy.", material_world: "Glass metal stone and atmosphere carry tactile physical response under motivated light.", vfx_philosophy: "Invisible compositing supports physical truth and never becomes decorative spectacle.", sound_picture_causality: "Every major visual transition is caused or reinforced by a concrete synchronized sound event." } },
 };
@@ -219,7 +238,16 @@ const humanPlacePatiencePlan = {
     task_truth: { real_problem: "A fragmented organization cannot see how thousands of daily human decisions connect into one operating system.", human_tension: "People need to do meaningful work while administrative complexity steals attention and creates uncertainty.", brand_reason_to_exist: "The platform exists to absorb operational fragmentation so people can stay focused on the work and relationships that matter.", evidence_refs: ["cert-fixture:mission"] },
     human_truth: { lived_behavior_or_ritual: "A worker checks a handwritten note, adjusts the task in front of them and continues without ever acknowledging a camera.", emotional_contradiction: "Competence and pressure coexist: the person knows the work intimately while the surrounding system still creates friction.", why_it_matters: "The audience recognizes ordinary responsibility rather than a performer demonstrating a category for an advertisement.", evidence_refs: ["cert-fixture:human-observation"] },
     place_truth: { why_here_not_anywhere: "The physical environment changes the work itself through weather, distance, machinery, architecture and local operating conditions.", environmental_pressures: ["weather alters surfaces and movement", "distance changes coordination and timing"], cultural_or_working_details: ["paper and physical handoffs remain part of the workflow", "people coordinate around local tools and spatial constraints"], evidence_refs: ["cert-fixture:place-observation"] },
+    signature_images: ["human handoff", "weather pressure", "machine response", "place scale", "earned system reveal"],
     patience_strategy: { what_to_withhold: "Do not explain the system before the audience has felt the fragmented human reality it must solve.", what_to_let_breathe: "Allow a real work action and its consequence to complete before moving to the next category or geography.", exit_trigger: "Cut only when a gesture, sound, environmental change or completed action changes what the audience understands.", anti_stasis_rule: "During every held moment, performance, sound, weather, depth, focus or composition must continue to evolve." },
+    world_class_execution_design: {
+      human_consequence: "A fragile physical handoff changes the next machine action, proving that small human decisions propagate into larger operational outcomes.",
+      physical_evidence: [{ detail: "A damp handwritten note buckles under wind pressure while a gloved thumb holds the final instruction in view.", material_behavior: "Moist paper softens and curls while wet painted steel carries directional beads and uneven reflections.", story_consequence: "The worker changes the machine setting only after securing and reading the final instruction, making the physical evidence causal." }],
+      sound_tension: { sonic_motif: "Paper snap, glove friction and a restrained machine pulse form one recurring causal motif.", silence_strategy: "Drop broad ambience immediately before the decisive handoff so the small physical sounds carry narrative weight.", picture_locked_punctuation: "The machine engagement lands exactly on the visual completion of the worker's setting change.", escalation: "Sound grows from intimate paper and cloth detail toward machine energy only as the causal chain expands." },
+      causal_connection: { opening_question: "Will this fragile human handoff survive the physical environment and still change the next action?", propagation_rule: "Each completed action must visibly or sonically alter the next state before the film is allowed to change geography.", proof_chain: ["note survives wind and is read", "machine state changes because of the instruction", "later system reveal connects the local consequence to the larger operating network"], connection_reveal: "The final reveal is earned by showing that separate human actions were already causally linked before the platform is named." },
+      pacing: { breathing_space: "Hold long enough for the audience to register material behavior, human hesitation and the consequence of the completed action.", minimum_hero_hold_seconds: 5, location_change_rule: "Change location only after the present place has completed one causal action and transferred a clear unresolved consequence.", anti_montage_rule: "No rapid category montage; every geography must earn its cut through a completed human or physical event." },
+      payoff_realization: "The system reveal resolves the accumulated human and physical consequences by showing that the previously separate actions belong to one coherent operational intelligence.",
+    },
   },
 };
 const humanPlacePatienceScene = { human_place_patience: {
@@ -289,6 +317,66 @@ const technicalScoutPass = evaluateTechnicalScout({
   },
 });
 const technicalScoutWeak = evaluateTechnicalScout({ shots: [preciseShot()] });
+const benchmarkStudyAnalysis = Object.freeze({
+  narrative: "Study how consequence, withheld information and an earned reveal create forward narrative pressure without exposition.",
+  editing: "Study how varied shot duration, causal cut triggers and deliberate holds create rhythm without collapsing into montage.",
+  cinematography: "Study motivated camera placement, physical lens behavior, layered depth and scale contrast across intimate and large views.",
+  visual_beauty: "Study signature compositions, material response, controlled palette and natural irregularity that prevent synthetic flatness.",
+  humanity: "Study observed behavior, micro gestures, responsibility and contradiction instead of posed performance or generic lifestyle acting.",
+  place: "Study how weather, architecture, distance, tools and local working conditions materially change behavior and story consequence.",
+  sound: "Study evolving source sound, silence, picture-locked punctuation and spatial perspective as causal storytelling rather than decoration.",
+  production_craft: "Study how production design, VFX restraint, continuity, editorial, finishing and sound collaborate around one authored visual idea.",
+});
+const benchmarkLabFixture = {
+  contract: "CREATIVE_BENCHMARK_LAB_V1",
+  studies: ["reference-a", "reference-b", "reference-c"].map((id, index) => ({
+    title: `Certified film reference ${index + 1}`,
+    source_ref: `cert-fixture:${id}`,
+    analysis: benchmarkStudyAnalysis,
+    craft_scores: {
+      narrative: 96,
+      editing: 96,
+      cinematography: 96,
+      visual_beauty: 96,
+      humanity: 96,
+      place: 96,
+      sound: 96,
+      production_craft: 96,
+    },
+  })),
+  craft_dna: {
+    transferable_principles: [
+      "withhold explanation until consequence is felt",
+      "motivate every camera move physically",
+      "let human behavior complete before cutting",
+      "make place alter action rather than decorate it",
+      "alternate intimate material detail with legible scale",
+      "use sound as causal punctuation",
+      "preserve natural irregularity inside controlled composition",
+      "earn the final reveal through prior visual proof",
+    ],
+    anti_copy_rules: [
+      "transfer craft principles rather than recognizable shots",
+      "do not reproduce reference geography or blocking",
+      "do not inherit reference brand devices or signature motifs",
+    ],
+    sound_principles: [
+      "source sound precedes decorative score",
+      "silence is used structurally before decisive events",
+      "spatial perspective follows camera and physical distance",
+    ],
+    editorial_principles: [
+      "cut on causal state change",
+      "vary duration according to story pressure",
+      "protect deliberate hero holds from montage compression",
+    ],
+    cinematography_principles: [
+      "camera motion requires physical motivation",
+      "layer foreground midground and background",
+      "preserve material and lens truth under atmospheric conditions",
+    ],
+  },
+};
 const creativeFloorPass = evaluateCreativeFloor({
   plan: {
     ...humanPlacePatiencePlan,
@@ -297,8 +385,16 @@ const creativeFloorPass = evaluateCreativeFloor({
       emotional_arc: "Move from intimate responsibility through mounting complexity toward calm systemic clarity without losing the human scale.",
     },
     anti_cliche_rules: ["no posed teamwork", "no generic dashboard montage"],
+    signature_images: [
+      "human consequence close detail",
+      "place-defining wide geography",
+      "material-light event",
+      "system-scale transition",
+      "earned final reveal",
+    ],
   },
   reference_strategy: { benchmark_archetypes: ["DOCUMENTARY_TRUTH_PLACE_HUMANITY", "MYSTERY_REVEAL_EFFECTS"] },
+  benchmark_lab: benchmarkLabFixture,
   taste_learning: { authority: "ADVISORY_ONLY" },
 });
 const creativeFloorWeak = evaluateCreativeFloor({ plan: { story: {}, anti_cliche_rules: [] }, reference_strategy: {}, taste_learning: {} });
@@ -441,9 +537,29 @@ const productionTakeIntentInvalid = buildTakeExecutionIntent({
   editorial_objective: "Invalid take deliberately exceeds the bounded planned take menu for certification.",
   continuity_keys: ["same subject identity"],
 });
-const dailiesFamilies = ["DIRECTING", "CINEMATOGRAPHY", "CONTINUITY", "TECHNICAL_TRUTH", "PERCEPTUAL_QUALITY"];
-const dailiesPass = evaluateDailiesTake({ take: { id: "cert-take" }, reviews: dailiesFamilies.map((family) => ({ reviewer_id: `cert-${family.toLowerCase()}`, family, score: 97, passed: true, evidence: ["cert:dailies"] })) });
-const dailiesWeak = evaluateDailiesTake({ take: { id: "cert-weak-take" }, reviews: dailiesFamilies.map((family) => ({ reviewer_id: `cert-${family.toLowerCase()}`, family, score: family === "CONTINUITY" ? 90 : 97, passed: family !== "CONTINUITY", evidence: ["cert:dailies"] })) });
+const dailiesFamilies = ["DIRECTING", "CINEMATOGRAPHY", "CONTINUITY", "TECHNICAL_TRUTH", "PERCEPTUAL_QUALITY", "INTENT_FIDELITY"];
+const dailiesReview = (family, { weak = false } = {}) => ({
+  reviewer_id: `cert-${family.toLowerCase()}`,
+  family,
+  score: weak && family === "CONTINUITY" ? 90 : 97,
+  passed: !(weak && family === "CONTINUITY"),
+  evidence: ["cert:dailies"],
+  ...(family === "INTENT_FIDELITY" ? {
+    comparison: Object.fromEntries(
+      ["frame_design", "dp_intent", "physical_world", "visual_journey", "benchmark_craft"]
+        .map((dimension) => [dimension, { score: 97, passed: true }]),
+    ),
+    rendered_against_authored_contracts: true,
+  } : {}),
+});
+const dailiesPass = evaluateDailiesTake({
+  take: { id: "cert-take" },
+  reviews: dailiesFamilies.map((family) => dailiesReview(family)),
+});
+const dailiesWeak = evaluateDailiesTake({
+  take: { id: "cert-weak-take" },
+  reviews: dailiesFamilies.map((family) => dailiesReview(family, { weak: true })),
+});
 const editorialPass = evaluateEditorialRoom({ approved_take_ids: ["cert-take"], assembly: { clips: [{ take_id: "cert-take", story_reason: "advances the verified story state", cut_reason: "action resolves and next state begins" }], coverage_gaps: [], pacing_strategy: "alternate punctuation with earned holds" } });
 const editorialWeak = evaluateEditorialRoom({ approved_take_ids: ["cert-take"], assembly: { clips: [{ take_id: "rejected-take", story_reason: "generic coverage", cut_reason: "arbitrary" }], coverage_gaps: [], pacing_strategy: "generic" } });
 const releasePass = evaluateReleaseRoom({ master_qc: { checksum_verified: true, duration_verified: true, audio_verified: true, video_verified: true, no_rejected_assets_in_master: true }, rights: { cleared: true, evidence: ["cert:rights-manifest"] }, delivery: { approved: true, profile_id: "cert-master", master_digest: "cert-master-digest" } });

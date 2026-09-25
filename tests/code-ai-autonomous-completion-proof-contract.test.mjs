@@ -167,3 +167,21 @@ test("every source revision must be verified before another edit is allowed", ()
   assert.match(source, /const postVerifyRepairActions = new Set\(\["apply_files", "replace_range", "block"\]\)/);
   assert.match(source, /failedVerifyAtCurrentSourceRevision/);
 });
+
+
+test("successful source mutations automatically run the exact authoritative verifier before replanning", () => {
+  assert.match(source, /Automatic authoritative verification after source mutation/);
+  assert.match(source, /const verificationOperationId =/);
+  assert.match(source, /action: "verify"/);
+  assert.match(source, /command: authoritativeCommand/);
+  assert.match(source, /args: authoritativeArgs/);
+  assert.match(source, /kind: "automatic_authoritative_verification"/);
+  assert.match(source, /planner_request_submitted: false/);
+});
+
+test("automatic authoritative verification is bound to the current source revision and guarded history", () => {
+  assert.match(source, /control = advanceSourceRevision\(control\)/);
+  assert.match(source, /verificationExecution\.success \? "completed" : "failed"/);
+  assert.match(source, /source_revision: nonNegativeInteger\(control\.source_revision\)/);
+  assert.match(source, /recordGuardedAction\([\s\S]*action: "verify"/);
+});

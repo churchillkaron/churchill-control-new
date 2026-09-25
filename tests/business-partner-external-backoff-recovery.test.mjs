@@ -85,7 +85,6 @@ test("event continuation cannot be swallowed by fast chat", () => {
   assert.match(core, /Retry exact original read after durable external backoff/);
 });
 
-test("external wait worker uses bounded two-minute source cadence", () => {
-  assert.match(vercel, /"\/api\/internal\/operator\/external-waits\/process"/);
-  assert.match(vercel, /"schedule": "\*\/2 \* \* \* \*"/);
+test("external wait worker is no longer driven by Vercel polling", () => {
+  assert.doesNotMatch(vercel, /"\/api\/internal\/operator\/external-waits\/process"/);
 });

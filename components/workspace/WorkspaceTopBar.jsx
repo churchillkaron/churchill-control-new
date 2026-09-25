@@ -447,14 +447,14 @@ function PeriodSelector({ organizationId, entity, period }) {
           </div>
 
           <div className="mt-1 grid grid-cols-2 gap-2 border-t border-black/[0.06] p-2 pt-3">
-            <Link
+            <Link prefetch={false}
               href={fiscalPeriodsHref}
               onClick={() => setOpen(false)}
               className="rounded-xl border border-black/[0.07] bg-[#F7F6F3] px-3 py-2.5 text-center text-[10px] font-medium text-[#5F5B55] transition hover:bg-[#F1EFEA]"
             >
               Manage periods
             </Link>
-            <Link
+            <Link prefetch={false}
               href={fiscalPeriodsHref}
               onClick={() => setOpen(false)}
               className="rounded-xl bg-[#171716] px-3 py-2.5 text-center text-[10px] font-medium text-[#191919] transition hover:bg-[#F7F6F3]"
@@ -475,7 +475,7 @@ function HeaderAction({ item, organizationId, userName }) {
 
   if (item.type === "user") {
     return (
-      <Link
+      <Link prefetch={false}
         href={platformHref(organizationId, item.route)}
         title={item.name}
         className="flex h-9 max-w-[150px] items-center gap-2 rounded-xl border border-black/[0.07] bg-white px-3 text-[11px] font-medium text-[#5E5A54] transition hover:border-[#D6A66A]/40 hover:text-[#7A5633]"
@@ -487,7 +487,7 @@ function HeaderAction({ item, organizationId, userName }) {
   }
 
   return (
-    <Link
+    <Link prefetch={false}
       href={platformHref(organizationId, item.route)}
       title={item.name}
       aria-label={item.name}
@@ -545,7 +545,7 @@ export default function WorkspaceTopBar() {
     <header className="sticky top-0 z-50 h-[61px] border-b border-black/[0.07] bg-white/95 backdrop-blur-xl">
       <div className="grid h-full grid-cols-[minmax(150px,210px)_minmax(0,1fr)_auto] items-center gap-3 px-4 md:px-5 lg:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <Link
+          <Link prefetch={false}
             href={`/workspace/${encodeURIComponent(organizationId)}`}
             className="flex min-w-0 items-center gap-2.5"
           >
@@ -573,7 +573,7 @@ export default function WorkspaceTopBar() {
             {areasOpen ? (
               <div className="absolute left-0 top-11 z-[90] w-[260px] rounded-2xl border border-black/[0.08] bg-white p-2 shadow-[0_20px_60px_rgba(34,30,24,0.16)]">
                 {domains.map((domain) => (
-                  <Link
+                  <Link prefetch={false}
                     key={domain.id}
                     href={domain.href}
                     onClick={() => setAreasOpen(false)}

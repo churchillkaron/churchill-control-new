@@ -68,7 +68,7 @@ function openUniversalOperator() {
 
 function RailLink({ href, label, active, Icon, expanded }) {
   return (
-    <Link
+    <Link prefetch={false}
       href={href}
       title={label}
       aria-label={label}

@@ -183,7 +183,7 @@ export default function OrganizationWorkspacePage() {
                     </div>
                   ) : (
                     homeQueue.slice(0, 6).map((item) => (
-                      <Link key={item.id} href={item.href || "#"} className="group flex gap-3 py-3.5">
+                      <Link prefetch={false} key={item.id} href={item.href || "#"} className="group flex gap-3 py-3.5">
                         <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${priorityDot(item.priority)}`} />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
@@ -220,7 +220,7 @@ export default function OrganizationWorkspacePage() {
 
               <div className="mt-5 grid grid-cols-1 gap-x-5 sm:grid-cols-2 xl:grid-cols-3">
                 {domainTargets.map((target) => (
-                  <Link
+                  <Link prefetch={false}
                     key={target.id}
                     href={target.href}
                     className="group flex items-center justify-between gap-4 border-b border-black/[0.06] py-3.5 transition hover:border-[#D6A66A]/35"

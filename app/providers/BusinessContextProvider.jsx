@@ -357,14 +357,14 @@ export function BusinessContextProvider({ children }) {
           const accessToken = browserSupabaseAccessToken();
           return fetchBusinessBootstrap(bootstrapUrl, accessToken);
         }, {
-          attempts: 8,
-          timeoutMs: 10000,
+          attempts: 3,
+          timeoutMs: 7000,
           onRetry: (attempt) => setState((previous) => ({
             ...previous,
             ready: false,
             loading: true,
             error: null,
-            loading_message: `Workspace services are warming up. Retrying automatically · ${attempt}/8`,
+            loading_message: `Workspace connection is temporarily slow. Retrying automatically · ${attempt}/3`,
           })),
         });
 

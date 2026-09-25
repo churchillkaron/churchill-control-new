@@ -199,7 +199,7 @@ export default function WorkspaceModuleGrid({ workspace, organizationId, title, 
           <div className="mb-4 text-[10px] font-medium uppercase tracking-[0.2em] text-[#9A744B]">Favorites</div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {favoriteItems.map(item => (
-              <Link key={item.id} href={resolveWorkspaceRoute({ organizationId: fallbackOrganizationId, moduleId: item.id, workspaceId: workspace, route: item.route })} className="group flex items-center justify-between rounded-xl border border-black/[0.07] bg-white px-4 py-3 text-[12px] font-medium text-[#4D4943] transition hover:border-[#D6A66A]/45 hover:text-[#8D643C]">
+              <Link prefetch={false} key={item.id} href={resolveWorkspaceRoute({ organizationId: fallbackOrganizationId, moduleId: item.id, workspaceId: workspace, route: item.route })} className="group flex items-center justify-between rounded-xl border border-black/[0.07] bg-white px-4 py-3 text-[12px] font-medium text-[#4D4943] transition hover:border-[#D6A66A]/45 hover:text-[#8D643C]">
                 <span>{item.name}</span><ArrowRight size={15} />
               </Link>
             ))}
@@ -240,7 +240,7 @@ export default function WorkspaceModuleGrid({ workspace, organizationId, title, 
                       </>
                     );
                     if (disabled) return <div key={item.id} aria-disabled="true" className="cursor-not-allowed rounded-2xl border border-black/[0.055] bg-[#F7F6F3] p-4 opacity-80">{content}</div>;
-                    return <Link key={item.id} href={resolveWorkspaceRoute({ organizationId: fallbackOrganizationId, moduleId: item.id, workspaceId: workspace, route: item.route })} className="group rounded-2xl border border-black/[0.07] bg-[#FBFAF8] p-4 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/42 hover:bg-[#FBF7F1] hover:shadow-[0_8px_22px_rgba(31,27,20,0.05)]">{content}</Link>;
+                    return <Link prefetch={false} key={item.id} href={resolveWorkspaceRoute({ organizationId: fallbackOrganizationId, moduleId: item.id, workspaceId: workspace, route: item.route })} className="group rounded-2xl border border-black/[0.07] bg-[#FBFAF8] p-4 transition hover:-translate-y-0.5 hover:border-[#D6A66A]/42 hover:bg-[#FBF7F1] hover:shadow-[0_8px_22px_rgba(31,27,20,0.05)]">{content}</Link>;
                   })}
                 </div>
               </section>

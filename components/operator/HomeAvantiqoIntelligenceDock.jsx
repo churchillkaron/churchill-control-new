@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Loader2, Paperclip, Square, X } from "lucide-react";
 
@@ -8,7 +8,7 @@ import HomeAvantiqoIntelligence from "@/components/operator/HomeAvantiqoIntellig
 
 const LATEST_THRESHOLD_PX = 96;
 const VOICE_REPLY_INTENT_TTL_MS = 120_000;
-const LIVE_POLL_MS = 900;
+const LIVE_POLL_MS = 2500;
 const LIVE_STALE_MS = 45_000;
 const MAX_DEVELOPER_FILES = 8;
 const MAX_DEVELOPER_FILE_BYTES = 25 * 1024 * 1024;
@@ -88,6 +88,11 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
   const [developerAttachmentAnalyzing, setDeveloperAttachmentAnalyzing] = useState(false);
   const [developerAttachmentError, setDeveloperAttachmentError] = useState("");
   const [composerToolsTarget, setComposerToolsTarget] = useState(null);
+
+  const handleLiveExecutionChange = useCallback((next) => {
+    setLiveExecution(next || null);
+    if (next?.stop_requested !== true) setStopPending(false);
+  }, []);
 
   function clearDeveloperAttachments() {
     developerAttachmentSetRef.current = null;
@@ -298,7 +303,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
     const controller = new AbortController();
     let timer = null;
 
-    async function poll() {
+    async function checkForActiveExecution() {
       try {
         const query = new URLSearchParams({ organizationId });
         const response = await fetch(`/api/operator/live-execution?${query.toString()}`, {
@@ -308,22 +313,24 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
           signal: controller.signal,
         });
         const result = await response.json().catch(() => ({}));
-        if (!controller.signal.aborted && response.ok) {
-          const next = result?.live_execution || null;
-          setLiveExecution(next);
-          if (next?.stop_requested !== true) setStopPending(false);
+        if (controller.signal.aborted || !response.ok) return;
+
+        const next = result?.live_execution || null;
+        setLiveExecution(next);
+        if (next?.stop_requested !== true) setStopPending(false);
+
+        // One idle check is enough. Continue polling only while a real execution is active.
+        if (recentLiveExecution(next)) {
+          timer = window.setTimeout(checkForActiveExecution, LIVE_POLL_MS);
         }
       } catch (error) {
         if (error?.name !== "AbortError") {
-          console.debug("AVANTIQO_LIVE_EXECUTION_POLL_FAILED", error?.message || error);
+          console.debug("AVANTIQO_LIVE_EXECUTION_CHECK_FAILED", error?.message || error);
         }
-      }
-      if (!controller.signal.aborted) {
-        timer = window.setTimeout(poll, LIVE_POLL_MS);
       }
     }
 
-    poll();
+    checkForActiveExecution();
     return () => {
       controller.abort();
       if (timer) window.clearTimeout(timer);
@@ -574,6 +581,7 @@ export default function HomeAvantiqoIntelligenceDock({ organizationId }) {
         organizationId={organizationId}
         prepareAttachmentSetForTurn={prepareAttachmentSetForTurn}
         completeAttachmentTurn={completeAttachmentTurn}
+        onLiveExecutionChange={handleLiveExecutionChange}
       />
 
       {composerToolsTarget

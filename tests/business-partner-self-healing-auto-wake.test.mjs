@@ -45,7 +45,7 @@ test("commit identity is verified before wake",()=>{
 
 test("repair continuation has authenticated bounded worker",()=>{
   assert.match(route,/CRON_SECRET/);
-  assert.ok(vercel.crons.some(row=>row.path==="/api/internal/operator/repair-continuations/process"&&row.schedule==="1-59/2 * * * *"));
+  assert.equal(vercel.crons.some(row=>row.path==="/api/internal/operator/repair-continuations/process"),false);
   assert.equal(vercel.functions["app/api/internal/operator/repair-continuations/process/route.js"].maxDuration,300);
 });
 

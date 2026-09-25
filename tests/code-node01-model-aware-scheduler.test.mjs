@@ -80,3 +80,16 @@ test("dedicated Code and live lanes poll sub-second while media lanes keep conse
   assert.match(worker, /\$pollSleepSeconds = \$\(if \(\$jobs\.Count -gt 0\) \{ 1 \} else \{ 5 \}\)/);
   assert.match(worker, /Start-Sleep -Seconds \$pollSleepSeconds/);
 });
+
+test("GPU deep text yields during the bounded interactive Code priority window without blocking media", () => {
+  assert.match(worker, /CodeTextPriorityWindowPath/);
+  assert.match(worker, /function SetCodeTextPriorityWindow\(\[int\]\$Seconds = 300\)/);
+  assert.match(worker, /function CodeTextPriorityWindowActive/);
+  assert.match(worker, /if \(\$Lane -eq 'code'\) \{ SetCodeTextPriorityWindow 300 \}/);
+  assert.match(worker, /if \(\$Lane -eq 'code'\) \{ SetCodeTextPriorityWindow 2 \}/);
+  assert.match(worker, /\$Lane -eq 'gpu' -and \(CodeTextPriorityWindowActive\)/);
+  assert.match(worker, /'ai\.text\.generate','ai\.reasoning\.execute'/);
+  assert.match(worker, /p_capabilities=@\(\$claimCapabilities\)/);
+  assert.match(worker, /code_text_priority_grace_seconds=2/);
+  assert.doesNotMatch(worker, /\$claimCapabilities = @\(\$Capabilities \| Where-Object \{[\s\S]{0,240}ai\.image\.generate/);
+});

@@ -55,26 +55,11 @@ export async function GET(request) {
     const shared = await loadAvantiqoLiveExecution({ context: resolved.context });
     const sharedProgress = shared?.live_execution || null;
     const liveExecution = sharedProgress
-      ? (() => {
-          const progress = sharedProgress;
-          const events = Array.isArray(progress.events) ? progress.events.filter(Boolean) : [];
-          const latestEvent = progress.latest_event || {
-            status: progress.status || "running",
-            description: progress.description || progress.message || "Code execution is active.",
-            updated_at: progress.updated_at || shared?.updated_at || null,
-          };
-          const terminal = ["completed", "failed", "blocked", "cancelled", "stopped"].includes(
-            text(progress.status).toLowerCase(),
-          );
-          return {
-            ...sharedProgress,
-            active: terminal ? false : progress.active !== false,
-            events: events.length ? events : [latestEvent],
-            latest_event: latestEvent,
-            stop_execution_id: progress.execution_id || null,
-            intelligence_product: "business_partner",
-          };
-        })()
+      ? {
+          ...sharedProgress,
+          stop_execution_id: sharedProgress?.execution_id || null,
+          intelligence_product: "business_partner",
+        }
       : null;
 
     return Response.json({

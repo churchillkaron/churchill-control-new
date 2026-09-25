@@ -23,7 +23,7 @@ test('Code final reviewers preserve deep and fast lanes locally', () => {
 
 test('owned intelligence provider has no Modal fallback', () => {
   assert.match(provider, /AVANTIQO_INTELLIGENCE_LOCAL_NODE_REQUIRED/);
-  assert.match(provider, /AVANTIQO_INTELLIGENCE_MODAL_JOB_PREFIX = null/);
+  assert.doesNotMatch(provider, /AVANTIQO_INTELLIGENCE_MODAL_JOB_PREFIX/);
   assert.doesNotMatch(provider, /executeIntelligenceModalDirect|getIntelligenceModalDirectStatus|cancelIntelligenceModalDirect/);
   assert.match(registration, /local_only:\s*true/);
   assert.match(registration, /modal_fallback_allowed:\s*false/);

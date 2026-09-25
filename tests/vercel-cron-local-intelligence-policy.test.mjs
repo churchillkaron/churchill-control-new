@@ -56,7 +56,7 @@ test("owned Intelligence is fail-closed local-only for scheduled and interactive
   assert.match(provider, /executeIntelligenceLocal/);
   assert.match(provider, /AVANTIQO_INTELLIGENCE_LOCAL_NODE_REQUIRED/);
   assert.doesNotMatch(provider, /executeIntelligenceModalDirect|import\(.+ModalDirect|return executeIntelligenceModal/);
-  assert.match(provider, /AVANTIQO_INTELLIGENCE_MODAL_JOB_PREFIX = null/);
+  assert.doesNotMatch(provider, /AVANTIQO_INTELLIGENCE_MODAL_JOB_PREFIX/);
 });
 
 test("owned Intelligence routing stays entirely inside local hierarchy queue and LAN paths", () => {

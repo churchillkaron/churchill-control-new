@@ -1678,7 +1678,7 @@ export default function AvantiqoCodeIDE({
           let progressFingerprint = "";
           let idleRefreshAttempts = 0;
           while (Date.now() < missionAbsoluteDeadline) {
-            await wait(750);
+            await wait(250);
             const liveProgress = scopedProgressRef.current;
             if (!liveProgress || text(liveProgress?.mission_id) !== missionId) continue;
             const liveEventAt = Date.parse(text(liveProgress?.latest_event?.at || liveProgress?.updated_at));

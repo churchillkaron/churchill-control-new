@@ -323,7 +323,7 @@ test("Developer Mode uses a progress-aware watchdog instead of a fixed wall-cloc
   assert.match(ide, /missionIdleDeadline = Date\.now\(\) \+ MISSION_IDLE_DEADLINE_MS/);
   assert.match(ide, /Code mission stalled without progress/);
   assert.match(ide, /Code mission absolute deadline exceeded/);
-  assert.match(ide, /Code mission resume limit exceeded/);
+  assert.match(ide, /Code mission resume limit exceeded/);  assert.match(ide, /await wait\(250\)/);
 });
 
 

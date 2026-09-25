@@ -19,11 +19,22 @@ test("benchmark suite is broad, guarded and covers every quality dimension", () 
   assert.deepEqual(result.cases_without_guardrails, []);
 });
 
-function providerCases(score) {
-  return suite.cases.map((entry) => ({
+function evidenceCase(entry, score) {
+  const hash = "a".repeat(64);
+  return {
     case_id: entry.id,
-    scores: Object.fromEntries(suite.dimensions.map((dimension) => [dimension, score])),
-  }));
+    scores: Object.fromEntries(entry.requires.map((dimension) => [dimension, score])),
+    scorer_contract: "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+    score_provenance: "MEASURED",
+    raw_output_sha256: hash,
+    tool_trace_sha256: hash,
+    evidence_packet_sha256: hash,
+    latency_ms: 100,
+  };
+}
+
+function providerCases(score) {
+  return suite.cases.map((entry) => evidenceCase(entry, score));
 }
 
 test("fresh complete matched evidence certifies only when candidate meets strongest reference floor", () => {
@@ -77,10 +88,7 @@ test("missing reference cases and stale evidence fail closed", () => {
 
 
 test("dimension aggregation scores only cases that declare the dimension", () => {
-  const selectiveCases = suite.cases.map((entry) => ({
-    case_id: entry.id,
-    scores: Object.fromEntries(entry.requires.map((dimension) => [dimension, 0.95])),
-  }));
+  const selectiveCases = suite.cases.map((entry) => evidenceCase(entry, 0.95));
   const report = {
     contract: "AVANTIQO_BUSINESS_PARTNER_BENCHMARK_EVIDENCE_V1",
     generated_at: new Date().toISOString(),
@@ -106,4 +114,29 @@ test("dimension aggregation scores only cases that declare the dimension", () =>
   delete target.scores.contextual_continuity;
   const missingRequired = evaluateBusinessPartnerBenchmarkEvidence({ report });
   assert.equal(missingRequired.release_eligible, false);
+});
+
+
+test("unproven or synthetic case scores cannot certify the floor", () => {
+  const candidate = providerCases(1);
+  candidate[0].score_provenance = "SYNTHETIC";
+  const report = {
+    contract: "AVANTIQO_BUSINESS_PARTNER_BENCHMARK_EVIDENCE_V1",
+    generated_at: new Date().toISOString(),
+    matched_conditions: true,
+    same_case_prompts: true,
+    same_evidence_packets: true,
+    same_tool_contracts: true,
+    hidden_expected_outcomes_not_exposed: true,
+    candidate: { cases: candidate },
+    references: {
+      chatgpt: { cases: providerCases(0.5) },
+      claude: { cases: providerCases(0.5) },
+      gemini: { cases: providerCases(0.5) },
+    },
+  };
+
+  const result = evaluateBusinessPartnerBenchmarkEvidence({ report });
+  assert.equal(result.release_eligible, false);
+  assert.deepEqual(result.invalid_candidate_cases, [suite.cases[0].id]);
 });

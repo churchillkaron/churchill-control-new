@@ -158,6 +158,7 @@ export default function HomeAvantiqoIntelligence({
   organizationId: organizationIdProp,
   prepareAttachmentSetForTurn,
   completeAttachmentTurn,
+  onLiveExecutionChange,
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -204,6 +205,7 @@ export default function HomeAvantiqoIntelligence({
       if (!busy) {
         setBusyElapsedSeconds(0);
         setLiveExecution(null);
+        onLiveExecutionChange?.(null);
       }
       return undefined;
     }
@@ -227,7 +229,9 @@ export default function HomeAvantiqoIntelligence({
         );
         const result = await response.json().catch(() => ({}));
         if (!cancelled && response.ok && result?.success !== false) {
-          setLiveExecution(result?.live_execution || null);
+          const nextLiveExecution = result?.live_execution || null;
+          setLiveExecution(nextLiveExecution);
+          onLiveExecutionChange?.(nextLiveExecution);
         }
       } catch {
         // Progress polling is advisory and must never fail the authoritative turn.
@@ -239,35 +243,58 @@ export default function HomeAvantiqoIntelligence({
     updateElapsed();
     loadLiveExecution();
     const elapsedTimer = window.setInterval(updateElapsed, 1000);
-    const liveTimer = window.setInterval(loadLiveExecution, 1500);
+    const liveTimer = window.setInterval(loadLiveExecution, 2500);
     return () => {
       cancelled = true;
       window.clearInterval(elapsedTimer);
       window.clearInterval(liveTimer);
     };
-  }, [busy, organizationId, activeRequestStartedAt]);
+  }, [busy, organizationId, activeRequestStartedAt, onLiveExecutionChange]);
 
   useEffect(() => {
     if (!organizationId) return undefined;
 
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), INTELLIGENCE_PREWARM_TIMEOUT_MS);
+    const storageKey = `avantiqo:intelligence-prewarm:${organizationId}`;
+    try {
+      if (window.sessionStorage.getItem(storageKey) === "1") return undefined;
+    } catch {
+      // Session storage is only an optimization.
+    }
 
-    fetch("/api/operator/intelligence/prewarm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      signal: controller.signal,
-      body: JSON.stringify({ organizationId }),
-    }).catch((prewarmError) => {
-      if (prewarmError?.name !== "AbortError") {
-        console.debug("AVANTIQO_INTELLIGENCE_FRONT_PREWARM_ADVISORY_FAILURE", prewarmError?.message || prewarmError);
+    const controller = new AbortController();
+    let abortTimer = null;
+    let startTimer = null;
+
+    const startPrewarm = () => {
+      if (controller.signal.aborted) return;
+      try {
+        window.sessionStorage.setItem(storageKey, "1");
+      } catch {
+        // Continue without browser-side dedupe when storage is unavailable.
       }
-    }).finally(() => window.clearTimeout(timer));
+      abortTimer = window.setTimeout(() => controller.abort(), INTELLIGENCE_PREWARM_TIMEOUT_MS);
+      fetch("/api/operator/intelligence/prewarm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        signal: controller.signal,
+        body: JSON.stringify({ organizationId }),
+      }).catch((prewarmError) => {
+        if (prewarmError?.name !== "AbortError") {
+          console.debug("AVANTIQO_INTELLIGENCE_FRONT_PREWARM_ADVISORY_FAILURE", prewarmError?.message || prewarmError);
+        }
+      }).finally(() => {
+        if (abortTimer) window.clearTimeout(abortTimer);
+      });
+    };
+
+    // Prewarm is advisory. Let bootstrap, conversation restore, and first paint win.
+    startTimer = window.setTimeout(startPrewarm, 1500);
 
     return () => {
       controller.abort();
-      window.clearTimeout(timer);
+      if (startTimer) window.clearTimeout(startTimer);
+      if (abortTimer) window.clearTimeout(abortTimer);
     };
   }, [organizationId]);
 

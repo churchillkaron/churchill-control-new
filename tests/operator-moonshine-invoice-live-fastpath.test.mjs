@@ -3,7 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 import {
   resolveCustomerInvoiceDatePlan,
-} from "../lib/operator/runtime/CustomerInvoiceActionPreparationRuntime.js";
+} from "../lib/operator/runtime/CustomerInvoiceDateIntentRuntime.mjs";
 
 function dateInBangkok() {
   return new Intl.DateTimeFormat("en-CA", {

@@ -40,6 +40,7 @@ jobs:
         run: |
           node --test tests/business-partner-benchmark-floor.test.mjs tests/business-partner-benchmark-suite-contract.test.mjs
           npm run certify:business-partner:benchmark-floor:policy
+          npm run certify:business-partner:quality-core:local
           npm run certify:business-partner:benchmark-suite
 
       - name: Require fresh measured benchmark evidence for Business Partner runtime changes

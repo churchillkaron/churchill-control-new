@@ -72,7 +72,8 @@
     "verify:business-partner:benchmark-evidence": "node scripts/verify-business-partner-benchmark-evidence.mjs",
     "benchmark:business-partner:references:live": "node scripts/run-business-partner-reference-head-to-head.mjs",
     "build:business-partner:benchmark-evidence": "node scripts/build-business-partner-benchmark-evidence.mjs",
-    "benchmark:business-partner:candidate:local": "node scripts/run-business-partner-candidate-benchmark.mjs"
+    "benchmark:business-partner:candidate:local": "node scripts/run-business-partner-candidate-benchmark.mjs",
+    "certify:business-partner:quality-core:local": "node scripts/certify-business-partner-quality-core-local.mjs"
   },
   "dependencies": {
     "@babel/parser": "^7.29.7",

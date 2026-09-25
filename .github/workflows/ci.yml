@@ -34,6 +34,7 @@ jobs:
         run: |
           node --test tests/business-partner-benchmark-floor.test.mjs
           npm run certify:business-partner:benchmark-floor:policy
+          npm run certify:business-partner:quality-core:local
 
   finance-worldclass:
     name: Finance world-class certification

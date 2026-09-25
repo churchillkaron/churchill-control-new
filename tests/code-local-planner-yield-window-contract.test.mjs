@@ -6,5 +6,5 @@ const source = await readFile(new URL("../lib/code/runtime/CodeAIWorkPackageRunt
 
 test("local Code planner yields bounded continuation slices instead of holding 25 second default windows", () => {
   assert.match(source, /poll_window_ms: interactivePreview\?\.authorized === true[\s\S]*\? 8000[\s\S]*local_compute_required === true[\s\S]*\? 10000/);
-  assert.match(source, /poll_interval_ms: interactivePreview\?\.authorized === true[\s\S]*\? 900[\s\S]*local_compute_required === true[\s\S]*\? 1000/);
+  assert.match(source, /poll_interval_ms: interactivePreview\?\.authorized === true[\s\S]*\? 250[\s\S]*local_compute_required === true[\s\S]*\? 250/);
 });

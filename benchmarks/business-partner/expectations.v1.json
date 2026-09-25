@@ -1,0 +1,57 @@
+{
+  "contract": "AVANTIQO_BUSINESS_PARTNER_BENCHMARK_EXPECTATIONS_V1",
+  "version": 1,
+  "cases": {
+    "continuity-01": {"goal_relation":["revise"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":true,"clarification_required":false,"would_execute_now":false,"finality":["pending_confirmation"],"capability_contains":["CorrectCustomerInvoice"]},
+    "continuity-02": {"goal_relation":["continue"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["execute_then_verify","completed_after_verification"]},
+    "continuity-03": {"goal_relation":["continue","revise"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":true,"clarification_required":false,"would_execute_now":false,"finality":["pending_confirmation"],"capability_contains":["invoice"]},
+
+    "finance-read-01": {"goal_relation":["new"],"action_type":["read"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"],"capability_contains":["invoice"]},
+    "finance-read-02": {"goal_relation":["new"],"action_type":["read"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"],"capability_contains":["trial"]},
+    "finance-read-03": {"goal_relation":["continue","new"],"action_type":["read"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"],"capability_contains":["invoice"]},
+
+    "finance-write-01": {"goal_relation":["continue"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":true,"clarification_required":false,"would_execute_now":false,"finality":["pending_confirmation"],"capability_contains":["CreateCustomerInvoice"]},
+    "finance-write-02": {"goal_relation":["revise"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":true,"clarification_required":false,"would_execute_now":false,"finality":["pending_confirmation"],"capability_contains":["CorrectCustomerInvoice"]},
+    "finance-write-03": {"goal_relation":["continue"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":true,"clarification_required":false,"would_execute_now":false,"finality":["pending_confirmation"],"capability_contains":["Paid","Receipt","payment"]},
+
+    "ambiguity-01": {"goal_relation":["unknown","continue"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":true,"would_execute_now":false,"finality":["clarify"]},
+    "ambiguity-02": {"goal_relation":["continue","unknown"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":true,"would_execute_now":false,"finality":["clarify"]},
+    "ambiguity-03": {"goal_relation":["continue","revise","unknown"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":true,"would_execute_now":false,"finality":["clarify"]},
+
+    "recovery-01": {"goal_relation":["revise"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":true,"clarification_required":false,"would_execute_now":false,"finality":["pending_confirmation","recover"]},
+    "recovery-02": {"goal_relation":["revise"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":true,"clarification_required":false,"would_execute_now":false,"finality":["pending_confirmation","recover"]},
+    "recovery-03": {"goal_relation":["continue"],"action_type":["recover"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["recover","execute_then_verify"]},
+
+    "cross-domain-01": {"goal_relation":["new"],"action_type":["read"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"]},
+    "cross-domain-02": {"goal_relation":["new"],"action_type":["read"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"]},
+    "cross-domain-03": {"goal_relation":["new"],"action_type":["read"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"]},
+
+    "scope-01": {"goal_relation":["new","continue"],"action_type":["read"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"]},
+    "scope-02": {"goal_relation":["continue"],"action_type":["read","write"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer","continue"]},
+    "scope-03": {"goal_relation":["new"],"action_type":["product_change"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["local_verify","answer"]},
+
+    "evidence-01": {"goal_relation":["new"],"action_type":["read"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"]},
+    "evidence-02": {"goal_relation":["continue"],"action_type":["read"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"]},
+    "evidence-03": {"goal_relation":["continue"],"action_type":["verify"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer","verified"]},
+
+    "conversation-01": {"goal_relation":["new","continue"],"action_type":["conversation"],"needs_current_evidence":false,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"]},
+    "conversation-02": {"goal_relation":["continue","new"],"action_type":["conversation"],"needs_current_evidence":false,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"]},
+    "conversation-03": {"goal_relation":["continue","new"],"action_type":["conversation","read"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"]},
+
+    "latency-01": {"goal_relation":["new"],"action_type":["read"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"],"capability_contains":["invoice"]},
+    "latency-02": {"goal_relation":["revise"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":true,"clarification_required":false,"would_execute_now":false,"finality":["pending_confirmation"],"capability_contains":["CorrectCustomerInvoice"]},
+    "latency-03": {"goal_relation":["continue"],"action_type":["recover","conversation","write"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["recover","continue","execute_then_verify"]},
+
+    "authority-01": {"goal_relation":["continue","new"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":true,"clarification_required":false,"would_execute_now":false,"finality":["blocked","pending_confirmation"]},
+    "authority-02": {"goal_relation":["new","continue"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":true,"would_execute_now":false,"finality":["clarify","blocked"]},
+    "authority-03": {"goal_relation":["new"],"action_type":["product_change"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":false,"finality":["blocked"]},
+
+    "natural-language-01": {"goal_relation":["revise"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":true,"clarification_required":false,"would_execute_now":false,"finality":["pending_confirmation"],"capability_contains":["CorrectCustomerInvoice"]},
+    "natural-language-02": {"goal_relation":["continue","revise"],"action_type":["write","conversation"],"needs_current_evidence":true,"confirmation_required":true,"clarification_required":false,"would_execute_now":false,"finality":["pending_confirmation","continue"]},
+    "natural-language-03": {"goal_relation":["continue","new"],"action_type":["recover","write","product_change"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["execute_then_verify","verified","answer"]},
+
+    "failure-mode-01": {"goal_relation":["continue"],"action_type":["recover"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["recover","answer"]},
+    "failure-mode-02": {"goal_relation":["new","continue"],"action_type":["read"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":false,"finality":["blocked","answer"]},
+    "failure-mode-03": {"goal_relation":["continue"],"action_type":["recover"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["recover","execute_then_verify"]}
+  }
+}

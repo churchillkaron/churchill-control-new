@@ -40,7 +40,7 @@ export async function GET(req) {
     }
 
     const projects =
-      await CreativeProjectRuntime.list({
+      await CreativeProjectRuntime.listSummary({
         organizationId,
       });
 

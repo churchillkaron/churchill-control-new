@@ -245,7 +245,7 @@ test("Talk stays conversational while Code works behind the screen", () => {
   assert.match(ide, /The workspace connection changed while Code was working/);
   assert.match(ide, /codeOnly \? "border-b border-white\/\[0\.06\] p-3" : "hidden"/);
   assert.match(ide, /embedded && studioView !== "code"/);
-  assert.match(ide, /\(missionRunning \|\| sessionAgentActive\)[\s\S]{0,80}\? 10000[\s\S]{0,80}studioView === "code"[\s\S]{0,60}\? 15000[\s\S]{0,60}: 30000/);
+  assert.match(ide, /\(missionRunning \|\| sessionAgentActive\)[\s\S]{0,80}\? 2000[\s\S]{0,80}studioView === "code"[\s\S]{0,60}\? 5000[\s\S]{0,60}: 30000/);
 });
 
 test("Developer Mode can follow Code without overriding dirty human buffers", () => {

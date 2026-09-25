@@ -1135,9 +1135,9 @@ export default function AvantiqoCodeIDE({
       }
       if (!cancelled) {
         const baseDelayMs = (missionRunning || sessionAgentActive)
-          ? 10000
+          ? 2000
           : studioView === "code"
-            ? 15000
+            ? 5000
             : 30000;
         const delayMs = consecutiveFailures
           ? Math.min(30000, baseDelayMs * (2 ** Math.min(consecutiveFailures, 3)))

@@ -5,9 +5,9 @@ import { readFile } from "node:fs/promises";
 const ide = await readFile(new URL("../components/creative/code/AvantiqoCodeIDE.jsx", import.meta.url), "utf8");
 const access = await readFile(new URL("../lib/platform/security/requireOrganizationAccess.js", import.meta.url), "utf8");
 
-test("active Code IDE state polling is deliberately slower than live narration", () => {
-  assert.match(ide, /missionRunning \|\| sessionAgentActive\)\s*\? 10000/);
-  assert.match(ide, /studioView === "code"\s*\? 15000/);
+test("active Code IDE state polling converges quickly without overlapping requests", () => {
+  assert.match(ide, /missionRunning \|\| sessionAgentActive\)\s*\? 2000/);
+  assert.match(ide, /studioView === "code"\s*\? 5000/);
 });
 
 test("revision refresh uses state then parallel tree and diff without duplicate follow-Code reads", () => {

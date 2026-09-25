@@ -37,7 +37,7 @@ test("IDE health polling cannot overlap while Code is active", () => {
   assert.doesNotMatch(ide, /setInterval\(async \(\) => \{[\s\S]*ideRequest\("state"\)/);
   assert.match(ide, /async function pollIdeState\(\)/);
   assert.match(ide, /window\.setTimeout\(pollIdeState, delayMs\)/);
-  assert.match(ide, /\? 10000[\s\S]*\? 15000[\s\S]*: 30000/);
+  assert.match(ide, /\? 2000[\s\S]*\? 5000[\s\S]*: 30000/);
   assert.match(ide, /Math\.min\(30000, baseDelayMs \* \(2 \*\* Math\.min\(consecutiveFailures, 3\)\)\)/);
 });
 

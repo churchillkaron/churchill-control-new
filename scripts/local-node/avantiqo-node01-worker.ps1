@@ -57,7 +57,7 @@ $NightLearningEndHour = 6
 $script:LastGpuWorkAt = Get-Date
 $script:LastIdleLearningAt = [datetime]::MinValue
 $script:LearningCursor = 0
-$AllCapabilities = @('ai.text.generate','ai.reasoning.execute','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','ai.image.analyze','ai.image.generate','document.ocr','document.classify','creative.materials.estimate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech','ai.sfx.generate')
+$AllCapabilities = @('ai.text.generate','ai.reasoning.execute','ai.code.live-conversation','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','ai.image.analyze','ai.image.generate','document.ocr','document.classify','creative.materials.estimate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech','ai.sfx.generate','ai.model.train')
 $CodeCapabilities = @('ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build')
 $GpuCapabilities = @('ai.text.generate','ai.reasoning.execute','ai.image.analyze','ai.image.generate','document.ocr','document.classify','creative.materials.estimate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
 $CpuCapabilities = @('ai.audio.elastic-warp','media.ffmpeg.process','ai.music.generate','ai.sfx.generate')
@@ -165,7 +165,7 @@ function Heartbeat {
   $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
   $drive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
   $meta = @{
-    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v4-scheduler'; worker_contract=$WorkerContract; worker_source_sha256=$WorkerSourceSha256; worker_lane=$Lane; worker_lanes=@('gpu','code','cpu','live','training'); heartbeat_source_lane=$Lane; local_context_tokens=$ContextTokens; scheduler=@{ resource_aware=$true; gpu_exclusive=$true; qwen_warm_policy='IDLE_WARM'; idle_learning_window='01:00-06:00'; idle_learning_after_seconds=$GpuIdleLearningAfterSeconds; learning_promotion_authorized=$false; cpu_policy=$(if($Lane -eq 'cpu'){'ONE_HEAVY_JOB_BELOW_NORMAL'}else{'N/A'}); code_gpu_strong_model='qwen3:4b-instruct'; code_gpu_interactive_model='qwen3:1.7b'; code_cpu_fallback_model=$CodeCpuFallbackModel; code_cpu_fallback_capability='ai.code.debug'; code_gpu_min_free_vram_mb=@{ fast=1800; interactive=3000; strong=4300 }; code_cpu_timeout_seconds=90; code_gpu_timeout_seconds=120 };
+    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v4-scheduler'; worker_contract=$WorkerContract; worker_source_sha256=$WorkerSourceSha256; worker_lane=$Lane; worker_lanes=@('gpu','code','cpu','live','training'); heartbeat_source_lane=$Lane; local_context_tokens=$ContextTokens; scheduler=@{ resource_aware=$true; gpu_exclusive=$true; qwen_warm_policy='ON_DEMAND_INTERACTIVE_FIRST'; idle_learning_window='01:00-06:00'; idle_learning_after_seconds=$GpuIdleLearningAfterSeconds; learning_promotion_authorized=$false; cpu_policy=$(if($Lane -eq 'cpu'){'ONE_HEAVY_JOB_BELOW_NORMAL'}else{'N/A'}); code_gpu_strong_model='qwen3:4b-instruct'; code_gpu_interactive_model='qwen3:1.7b'; code_cpu_fallback_model=$CodeCpuFallbackModel; code_cpu_fallback_capability='ai.code.debug'; code_gpu_min_free_vram_mb=@{ fast=1800; interactive=3000; strong=4300 }; code_cpu_timeout_seconds=90; code_gpu_timeout_seconds=120 };
     gpu=$gpu; cpu=@{ name=$cpu.Name; cores=[int]$cpu.NumberOfCores; logical_processors=[int]$cpu.NumberOfLogicalProcessors };
     memory=@{ total_mb=[int]($os.TotalVisibleMemorySize/1024); free_mb=[int]($os.FreePhysicalMemory/1024) };
     disk=@{ c_total_gb=[math]::Round($drive.Size/1GB,1); c_free_gb=[math]::Round($drive.FreeSpace/1GB,1) };
@@ -225,7 +225,7 @@ function RecordLearningEvaluation($Candidate, $Evaluation) {
 }
 
 function RunIdleLearningEvaluation {
-  if ($Lane -ne 'gpu') { return }
+  if ($Lane -ne 'training') { return }
   $now = Get-Date
   if ($now.Hour -lt $NightLearningStartHour -or $now.Hour -ge $NightLearningEndHour) { return }
   if (($now - $script:LastGpuWorkAt).TotalSeconds -lt $GpuIdleLearningAfterSeconds) { return }
@@ -250,9 +250,10 @@ Previous claim count: $([string]$candidate.claim_count)
 Previous uncertainty count: $([string]$candidate.uncertainty_count)
 Return exactly these keys: status, research_questions, evidence_needed, risk_flags, safeguards, promotion_authorized, mutation_authority. status must be EVALUATED. research_questions and evidence_needed must each be arrays of 1-4 concise strings. safeguards must include fresh_evidence_required=true, current_authority_required=true, independent_verification_required=true. promotion_authorized and mutation_authority must both be false.
 "@
-    $body = @{ model=$Model; stream=$false; think=$false; keep_alive='30m'; format='json'; messages=@(
+    $evaluationModel='qwen3:0.6b'
+    $body = @{ model=$evaluationModel; stream=$false; think=$false; keep_alive='5m'; format='json'; messages=@(
       @{role='system';content=$system}, @{role='user';content=$user}
-    ); options=@{temperature=0;num_predict=420;num_ctx=3072} } | ConvertTo-Json -Depth 14 -Compress
+    ); options=@{temperature=0;num_predict=420;num_ctx=3072;num_gpu=0} } | ConvertTo-Json -Depth 14 -Compress
     $r=Invoke-RestMethod -Uri "$OllamaUrl/api/chat" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 120
     $parsed = ([string]$r.message.content) | ConvertFrom-Json
     if ([string]$parsed.status -ne 'EVALUATED' -or $parsed.promotion_authorized -ne $false -or $parsed.mutation_authority -ne $false) {
@@ -262,7 +263,7 @@ Return exactly these keys: status, research_questions, evidence_needed, risk_fla
       throw 'AVANTIQO_LOCAL_LEARNING_EVAL_SAFEGUARDS_INVALID'
     }
     $record=@{
-      at=$now.ToString('o'); model=$Model; contract='AVANTIQO_NODE01_IDLE_LEARNING_EVAL_V2';
+      at=$now.ToString('o'); model=$evaluationModel; contract='AVANTIQO_NODE01_IDLE_LEARNING_EVAL_V2';
       source_contract=[string]$candidate.contract; agenda_id=[string]$candidate.agenda_id; agenda_updated_at=[string]$candidate.agenda_updated_at; memory_key=[string]$candidate.memory_key;
       topic_key=[string]$candidate.topic_key; knowledge_domain=[string]$candidate.knowledge_domain; jurisdiction=[string]$candidate.jurisdiction; importance=$candidate.importance;
       cursor=$script:LearningCursor; evaluation=$parsed; customer_private_content_included=$false;
@@ -276,9 +277,36 @@ Return exactly these keys: status, research_questions, evidence_needed, risk_fla
   } catch {}
 }
 
+function TrainingProcessActive {
+  try {
+    $trainingProcesses = @(Get-CimInstance Win32_Process -ErrorAction Stop | Where-Object {
+      [string]$_.CommandLine -match 'local_train\.py'
+    })
+    return ($trainingProcesses.Count -gt 0)
+  } catch {
+    # Fail closed when process inspection itself is unavailable.
+    return $true
+  }
+}
+
+function ClearStaleTrainingLock {
+  $trainingLock='C:\ProgramData\Avantiqo\model-training-gpu.lock'
+  if (-not (Test-Path $trainingLock)) { return $false }
+  if (TrainingProcessActive) { return $false }
+  try {
+    Remove-Item -Force -ErrorAction Stop $trainingLock
+    return (-not (Test-Path $trainingLock))
+  } catch {
+    return $false
+  }
+}
+
 function ClaimJobs {
   $trainingLock='C:\ProgramData\Avantiqo\model-training-gpu.lock'
-  if (($Lane -eq 'gpu' -or $Lane -eq 'code' -or $Lane -eq 'live') -and (Test-Path $trainingLock)) { return @() }
+  if (($Lane -eq 'gpu' -or $Lane -eq 'code' -or $Lane -eq 'live') -and (Test-Path $trainingLock)) {
+    [void](ClearStaleTrainingLock)
+    if (Test-Path $trainingLock) { return @() }
+  }
   if ($Lane -eq 'training') {
     $h=(Get-Date).Hour; if ($h -lt $NightLearningStartHour -or $h -ge $NightLearningEndHour) { return @() }
     try { $line=(& nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader,nounits 2>$null | Select-Object -First 1); if($line){$v=@($line -split ',\s*'); if([int]$v[1] -gt 15){return @()}} } catch { return @() }
@@ -1560,7 +1588,7 @@ while ($true) {
         FailJob $job (('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Substring(0,[Math]::Min(480,('AVANTIQO_LOCAL_WORKER_JOB_FAILED:' + $_.Exception.Message).Length))) $retryable
       }
     }
-    if ($Lane -eq 'gpu' -and $jobs.Count -eq 0) { RunIdleLearningEvaluation; WarmQwenIfIdle }
+    if ($Lane -eq 'training' -and $jobs.Count -eq 0) { RunIdleLearningEvaluation }
   } catch {
     Start-Sleep -Seconds 5
   }

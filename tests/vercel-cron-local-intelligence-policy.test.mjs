@@ -9,7 +9,7 @@ import {
 
 function source(path) { return fs.readFileSync(path, "utf8"); }
 
-test("configured Vercel cron routes are local-policy guarded or explicitly retired", () => {
+test("configured Vercel cron routes keep compute local and non-compute jobs authenticated", () => {
   const vercel = JSON.parse(source("vercel.json"));
   assert.ok(vercel.crons.length > 0);
   for (const cron of vercel.crons) {
@@ -20,9 +20,21 @@ test("configured Vercel cron routes are local-policy guarded or explicitly retir
     const retired = /RETIRED/.test(route) && /status:\s*410/.test(route);
     if (retired) {
       assert.doesNotMatch(route, /executeProvider|runWithScheduledExecutionComputePolicy/, `retired cron must not execute compute ${cron.path}`);
-    } else {
-      assert.match(route, /runCronRouteLocalFirst/, `active cron route not locally guarded ${cron.path}`);
+      continue;
     }
+    if (/runCronRouteLocalFirst/.test(route)) continue;
+
+    const directlyExecutesOwnedIntelligence = /ServiceExecutionRuntime\.execute/.test(route) &&
+      /provider_id:\s*["']avantiqo-intelligence["']/.test(route);
+    if (directlyExecutesOwnedIntelligence) {
+      assert.match(route, /infrastructure_policy:\s*["']local_only["']/, `owned Intelligence cron must be local-only ${cron.path}`);
+      assert.match(route, /local_compute_required:\s*true/, `owned Intelligence cron must require local compute ${cron.path}`);
+      assert.match(route, /external_fallback_allowed:\s*false/, `owned Intelligence cron must forbid external fallback ${cron.path}`);
+      continue;
+    }
+
+    assert.match(route, /CRON_SECRET/, `non-compute cron must require cron authentication ${cron.path}`);
+    assert.doesNotMatch(route, /provider_id:\s*["']avantiqo-intelligence["']/, `non-compute cron must not invoke owned Intelligence ${cron.path}`);
   }
 });
 

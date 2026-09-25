@@ -23,7 +23,9 @@ const source = Object.fromEntries(
 assert.match(source.fastStart, /const DEFAULT_WARM_SESSION_IDLE_MS = 30 \* 60 \* 1000;/);
 assert.match(source.fastStart, /const MAX_WARM_SESSION_IDLE_MS = 30 \* 60 \* 1000;/);
 assert.match(source.warmCapability, /const DEFAULT_IDLE_MS = 30 \* 60 \* 1000;/);
-assert.match(source.prewarmRoute, /const DEFAULT_IDLE_MS = 30 \* 60 \* 1000;/);
+assert.match(source.prewarmRoute, /AVANTIQO_CODE_OPERATOR_LOCAL_READINESS_V4/);
+assert.match(source.prewarmRoute, /AvantiqoCodeLocalQueueProvider\.available\(\)/);
+assert.match(source.prewarmRoute, /external_worker_started: false/);
 assert.match(source.liveProgress, /const ACTIVE_WORKER_IDLE_MS = 30 \* 60 \* 1000;/);
 assert.match(source.liveProgress, /touchReadyCodeAIWorkerLease\(\{[\s\S]*idle_ms: ACTIVE_WORKER_IDLE_MS/);
 assert.doesNotMatch(source.liveProgress, /ensureCodeAIWorkerSession/);
@@ -34,8 +36,8 @@ assert.match(source.progressRoute, /contains_source_content: false/);
 assert.match(source.progressRoute, /contains_raw_reasoning: false/);
 assert.match(source.progressPanel, /\/api\/operator\/code\/progress/);
 assert.match(source.progressPanel, /const ACTIVE_POLL_MS = 1000;/);
-assert.match(source.operatorHome, /\/api\/operator\/code\/prewarm/);
-assert.match(source.operatorHome, /const CODE_PREWARM_POLL_MS = 5000;/);
+assert.doesNotMatch(source.operatorHome, /\/api\/operator\/code\/prewarm/);
+assert.doesNotMatch(source.operatorHome, /CODE_PREWARM_POLL_MS|CODE_PREWARM_MAX_POLLS|advanceCodePrewarm/);
 
 console.log(JSON.stringify({
   success: true,
@@ -44,7 +46,7 @@ console.log(JSON.stringify({
   public_idle_policy: "30_MINUTES_ACTUAL_IDLE",
   fast_start_default_30m: true,
   governed_warm_capability_default_30m: true,
-  operator_prewarm_default_30m: true,
+  operator_local_readiness_single_check: true,
   active_work_lease_refresh_30m: true,
   live_progress_ready_only_lease_touch: true,
   live_progress_worker_lifecycle_mutation_performed: false,
@@ -52,7 +54,7 @@ console.log(JSON.stringify({
   live_progress_source_content_exposed: false,
   live_progress_raw_reasoning_exposed: false,
   operator_live_progress_polling_wired: true,
-  operator_prewarm_wired: true,
+  operator_code_prewarm_polling_removed: true,
   provider_execution_performed: false,
   reasoning_calls_consumed: false,
   wallet_mutation_performed: false,

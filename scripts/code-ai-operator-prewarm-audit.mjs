@@ -1,96 +1,41 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const CONTRACT = "AVANTIQO_CODE_AI_OPERATOR_PREWARM_AUDIT_V1";
+const CONTRACT = "AVANTIQO_CODE_AI_OPERATOR_LOCAL_READINESS_AUDIT_V2";
+const route = await readFile("app/api/operator/code/prewarm/route.js", "utf8");
+const ui = await readFile("components/operator/HomeAvantiqoIntelligence.jsx", "utf8");
+const worker = await readFile("lib/code/runtime/CodeAIWorkerSessionRuntime.js", "utf8");
 
-const files = {
-  route: "app/api/operator/code/prewarm/route.js",
-  ui: "components/operator/HomeAvantiqoIntelligence.jsx",
-  worker: "lib/code/runtime/CodeAIWorkerSessionRuntime.js",
-};
-
-const source = Object.fromEntries(
-  await Promise.all(
-    Object.entries(files).map(async ([key, path]) => [key, await readFile(path, "utf8")]),
-  ),
-);
-
-function requireMarkers(label, content, markers) {
-  const missing = markers.filter((marker) => !content.includes(marker));
-  if (missing.length) {
-    throw new Error(`${CONTRACT}_${label}_MISSING:${missing.join("|")}`);
-  }
-}
-
-requireMarkers("ROUTE", source.route, [
+for (const marker of [
   "requireOrganizationAccess",
-  "ensureCodeAIWorkerSession",
-  "AVANTIQO_CODE_OPERATOR_PREWARM_V1",
-  "AVANTIQO_CODE_WORKER_SESSION_ENABLED",
-  'status: worker?.ready === true ? "ready" : "warming"',
+  "AVANTIQO_CODE_OPERATOR_LOCAL_READINESS_V4",
+  "AvantiqoCodeLocalQueueProvider.available()",
+  'status: localReady ? "local_ready" : "local_unavailable"',
+  "warming: false",
+  'execution_transport_mode: "AVANTIQO_LOCAL_NODE_V1"',
+  "local_only: true",
+  "external_compute_available: false",
+  "external_compute_checked: false",
+  "external_worker_started: false",
+  "worker_session_created: false",
   "reasoning_calls_used: 0",
   "customer_inference_performed: false",
   "wallet_mutation_performed: false",
   "source_mutation_performed: false",
   "github_write_performed: false",
   "production_deploy_performed: false",
-  "contains_worker_token: false",
   "raw_reasoning_persisted: false",
-]);
+]) assert.ok(route.includes(marker), `route marker missing: ${marker}`);
 
-requireMarkers("UI", source.ui, [
-  "CODE_PREWARM_POLL_MS = 5000",
-  "CODE_PREWARM_MAX_POLLS = 90",
-  'fetch("/api/operator/code/prewarm"',
-  'method: "POST"',
-  'credentials: "same-origin"',
-  'body: JSON.stringify({ organizationId })',
-  'result?.ready === true || result?.status === "disabled"',
-  "window.setTimeout(advanceCodePrewarm, CODE_PREWARM_POLL_MS)",
-  "controller.abort()",
-]);
+assert.doesNotMatch(route, /Modal|modal|RunPod|runpod|ensureCodeAIWorkerSession|ServiceExecutionRuntime|executeCodeAIPlannerRequest|executeCodeAIMission|apply_files/);
+assert.doesNotMatch(ui, /\/api\/operator\/code\/prewarm|CODE_PREWARM_MAX_POLLS|CODE_PREWARM_POLL_MS|advanceCodePrewarm/);
+for (const marker of [
+  "AVANTIQO_CODE_AI_WORKER_SESSION_V4_LOCAL",
+  'execution_transport_mode:"LOCAL_DURABLE_QUEUE"',
+  "warming:false",
+  "worker_started:false",
+  "worker_session_created:false",
+]) assert.ok(worker.includes(marker), `worker marker missing: ${marker}`);
 
-requireMarkers("WORKER", source.worker, [
-  "engine_ready: true",
-  "body?.engine_loaded === true",
-  "reasoning_call_consumed_by_warmup: false",
-  "wallet_mutation_performed_by_warmup: false",
-  "contains_worker_token: false",
-]);
-
-assert.equal(/executeCodeAIPlannerRequest|ServiceExecutionRuntime/.test(source.route), false);
-assert.equal(source.route.includes("[deploy-production-final]"), false);
-assert.equal(source.ui.includes("[deploy-production-final]"), false);
-assert.equal(source.route.includes("executeCodeAIMission"), false);
-assert.equal(source.route.includes("apply_files"), false);
-
-const fetchIndex = source.ui.indexOf('fetch("/api/operator/code/prewarm"');
-const restoreIndex = source.ui.indexOf("async function restoreConversation()");
-assert.ok(fetchIndex >= 0, "prewarm request must exist in Operator UI");
-assert.ok(restoreIndex >= 0, "conversation restore must remain present");
-assert.notEqual(fetchIndex, restoreIndex, "prewarm must not replace conversation restore");
-
-console.log(JSON.stringify({
-  success: true,
-  contract: CONTRACT,
-  verified: {
-    authenticated_organization_scoped_prewarm_route: true,
-    prewarm_bypasses_code_planner_reasoning: true,
-    prewarm_bypasses_service_runtime_wallet: true,
-    prewarm_cannot_mutate_source: true,
-    prewarm_cannot_write_github: true,
-    prewarm_cannot_deploy_production: true,
-    worker_token_not_exposed: true,
-    operator_starts_prewarm_without_user_instruction: true,
-    operator_polls_until_ready_or_disabled: true,
-    operator_chat_remains_separate_from_prewarm: true,
-    bounded_background_polling: true,
-    model_provider_call_performed_by_audit: false,
-    reasoning_call_consumed_by_audit: false,
-    wallet_mutation_performed_by_audit: false,
-    runpod_mutation_performed_by_audit: false,
-    source_mutation_performed_by_audit: false,
-    production_deploy_performed: false,
-  },
-}, null, 2));
+console.log(JSON.stringify({ success:true, contract:CONTRACT, verified:{ authenticated_organization_scoped_readiness:true, local_durable_queue_only:true, no_external_worker_start:true, no_background_code_prewarm_polling:true, reasoning_calls_used:0, wallet_mutation_performed:false, source_mutation_performed:false, production_deploy_performed:false } }, null, 2));
 console.log(`${CONTRACT}=PASS`);

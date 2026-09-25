@@ -33,8 +33,8 @@ test("pest-control corrective control stacks on mobile and uses desktop columns 
 
 test("supply-chain production usage and logs use mobile cards instead of horizontally clipped tables", () => {
   assert.match(usage, /space-y-3 md:hidden/);
-  assert.match(usage, /hidden overflow-hidden rounded-\[40px\] border border-white\/10 md:block/);
+  assert.match(usage, /hidden overflow-hidden rounded-\[40px\] border border-black\/\[0\.08\] md:block/);
   assert.match(logs, /space-y-3 md:hidden/);
-  assert.match(logs, /hidden overflow-hidden rounded-\[40px\] border border-white\/10 md:block/);
+  assert.match(logs, /hidden overflow-hidden rounded-\[40px\] border border-black\/\[0\.08\] md:block/);
   assert.match(logs, /grid grid-cols-1 gap-3 p-4 sm:grid-cols-3/);
 });

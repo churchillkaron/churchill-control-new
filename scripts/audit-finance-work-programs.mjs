@@ -125,7 +125,7 @@ requireTokens(files.evidenceSchema, [
   "'audit_trail'",
 ]);
 requireTokens(files.api, [
-  "requireOrganizationAccess", "checkFinancePermission", "accounting_engagements", "accounting_client_profiles", "resolveEntity", "entity_id", "budget_minutes", "assigned_partner_id", "relative_due_days", "dependency_step_keys", "client_requests_created", "manual_until_sent",
+  "requireOrganizationAccess", "checkFinancePermission", "accounting_work_program_templates", "accounting_engagement_runs", "accounting_engagement_work_items", "accounting_client_requests", "entity_id", "rolled_from_run_id", "dependency_step_keys", "DIRECT_WORK_PROGRAM_CREATION_RETIRED", "canonical_creation_endpoint",
 ]);
 
 requireTokens(files.reviewGate, [
@@ -205,7 +205,7 @@ requireTokens(files.gates, [
   "journal_entries",
   "finance_statutory_filings",
   "finance_vat_returns",
-  "financial_periods",
+  "accounting_periods",
   "difference_amount",
   "period_id",
 ]);
@@ -217,7 +217,7 @@ requireTokens(files.evidenceApi, [
   "documentId",
   "evidenceCategory",
   "configuredCategories",
-  "organization_documents",
+  "getFinanceEvidenceDocument",
   "accounting_work_program_evidence_links",
   "EVIDENCE_MUTABLE_ITEM_STATUSES",
   "Evidence cannot change after a work item enters review or completes",
@@ -231,13 +231,13 @@ requireTokens(files.evidenceApi, [
   "Completed work program is locked",
 ]);
 requireTokens(files.rollForwardApi, [
-  "rolled_from_run_id", "evidence_carried_forward: false", "entity_id: entityId", "budget_minutes", "assigned_partner_id",
+  "DIRECT_WORK_PROGRAM_ROLL_FORWARD_RETIRED", "canonical_plan_endpoint", "canonical_creation_endpoint", "governed accounting cycle",
 ]);
 requireTokens(files.capacityApi, [
   "14", "FORECAST_WINDOWS = [30, 60, 90]", "planRecurringAccountingCycles", "accounting_practice_staff_capacity", "weekly_capacity_minutes", "utilization_target", "budget_minutes", "READY_TO_CREATE", "staff_capacity", "committed_hours", "forecast_hours", "projected_utilization", "projected_overloaded_people", "unassigned_forecast_hours", "governed_recurring_plan", "materialized: false", "OVERLOADED", "unassigned_hours", "overdue_items", "capacityRisk",
 ]);
 requireTokens(files.recurringPlanner, [
-  "DEFAULT_HORIZON_DAYS = 90", "planRecurringAccountingCycles", "accounting_work_program_template_steps", "STAFF_CAPACITY_ROLES", "buildForecastDemand", "staff_budget_minutes", "non_staff_budget_minutes", "role_minutes", "work_items", "staff_capacity", "idempotency_key", "READY_TO_CREATE", "ALREADY_EXISTS", "BLOCKED_ENTITY_CONFIGURATION", "BLOCKED_PERIOD_CONFIGURATION", "BLOCKED_YEAR_END_CONFIGURATION", "TEMPLATE_MISSING", "monthly_accounting", "year_end_close", "accounting_engagement_runs", "financial_periods",
+  "DEFAULT_HORIZON_DAYS = 90", "planRecurringAccountingCycles", "accounting_work_program_template_steps", "STAFF_CAPACITY_ROLES", "buildForecastDemand", "staff_budget_minutes", "non_staff_budget_minutes", "role_minutes", "work_items", "staff_capacity", "idempotency_key", "READY_TO_CREATE", "ALREADY_EXISTS", "BLOCKED_ENTITY_CONFIGURATION", "BLOCKED_PERIOD_CONFIGURATION", "BLOCKED_YEAR_END_CONFIGURATION", "TEMPLATE_MISSING", "monthly_accounting", "year_end_close", "accounting_engagement_runs", "accounting_periods",
 ]);
 requireTokens(files.recurringPlanApi, [
   "planRecurringAccountingCycles", "clampRecurringHorizonDays", "DRY_RUN", "materialized: false", "accountingFirmId: access.organizationId",
@@ -263,12 +263,12 @@ requireTokens(files.practiceApi, [
   "active_runs", "waiting_on_client", "blocked_work", "client_requests", "submitted_client_requests", "engagement_id",
 ]);
 requireTokens(files.practiceUi, [
-  "Programs", "Client wait", "Blocked", "14-day capacity", "Forward demand", "30, 60, 90", "Committed", "Forecast", "Total demand", "Projected overload", "Unassigned forecast", "Forecast by role", "Forecast by client", "Available", "Assigned", "Overloaded", "Unassigned", "FinanceEngagementFile", "selectedEngagementId", "active_runs", "waiting_on_client", "blocked_work", "90-day recurring cycle plan", "Governed creation · no external messages", "Create accounting cycle", "idempotencyKey: candidate.idempotency_key", "No client message was sent",
+  "Client wait", "Blocked work", "14-day target capacity", "Forward demand", "Committed", "Forecast", "Available", "Assigned", "Overloaded", "Unassigned", "FinanceEngagementFile", "selectedEngagementId", "active_runs", "waiting_on_client", "blocked_work", "Recurring accounting cycles", "90-day candidates", "No client message is sent automatically", "Create cycle", "idempotencyKey: candidate.idempotency_key", "No client message was sent",
 ]);
 requireTokens(files.engagementFileUi, [
-  "Digital engagement file",
+  "Client accounting file",
   "Engagement review truth",
-  "Same organization · legal entity · accounting period gate used by lifecycle completion.",
+  "Organization, legal entity and accounting period remain inside the same governed review scope.",
   "What blocks clearance now",
   "Review fully cleared",
   "Review records",
@@ -278,15 +278,14 @@ requireTokens(files.engagementFileUi, [
   "Preparer",
   "Reviewer",
   "Partner",
-  "Work program & workpapers",
-  "Client evidence requests",
+  "Current accounting cycle",
   "Evidence documents",
-  "Review file",
-  "Prior periods",
-  "System blockers",
-  "Legal entity required",
-  "engagement_review_gate",
-  "system_gate",
+  "Open workpapers",
+  "Other review records",
+  "Prior accounting cycles",
+  "Accounting truth gates",
+  "reviewPortfolio",
+  "FinanceEngagementWorkProgram",
 ]);
 
 const coverage = {

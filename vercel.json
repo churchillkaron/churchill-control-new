@@ -115,28 +115,20 @@
   },
   "crons": [
     {
-      "path": "/api/creative/execution/process",
-      "schedule": "1-59/5 * * * *"
-    },
-    {
-      "path": "/api/marketing/retry-generation-jobs",
-      "schedule": "*/3 * * * *"
-    },
-    {
       "path": "/api/marketing/sync-analytics",
       "schedule": "0 */6 * * *"
     },
     {
       "path": "/api/internal/marketing/meta-ads/reconcile",
-      "schedule": "0 * * * *"
+      "schedule": "10 */6 * * *"
     },
     {
       "path": "/api/internal/marketing/google-ads/reconcile",
-      "schedule": "0 * * * *"
+      "schedule": "20 */6 * * *"
     },
     {
       "path": "/api/internal/service/billing/process",
-      "schedule": "*/2 * * * *"
+      "schedule": "5 * * * *"
     },
     {
       "path": "/api/internal/service/revenue/reconcile",
@@ -152,31 +144,31 @@
     },
     {
       "path": "/api/internal/commercial/loyalty/process-events",
-      "schedule": "1-59/2 * * * *"
+      "schedule": "1-59/10 * * * *"
     },
     {
       "path": "/api/internal/commercial/communications/meta-history-sync",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/internal/commercial/communications/email-inbox-sync",
-      "schedule": "2-59/5 * * * *"
+      "schedule": "2-59/10 * * * *"
     },
     {
       "path": "/api/internal/commerce/shopify/project-events",
-      "schedule": "1-59/2 * * * *"
+      "schedule": "1-59/10 * * * *"
     },
     {
       "path": "/api/internal/commerce/shopify/reconcile",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/internal/inventory/shopify/process",
-      "schedule": "*/2 * * * *"
+      "schedule": "3-59/10 * * * *"
     },
     {
       "path": "/api/internal/finance/shopify/process",
-      "schedule": "1-59/2 * * * *"
+      "schedule": "5-59/10 * * * *"
     },
     {
       "path": "/api/internal/finance/forecast-exception-escalations/process",
@@ -184,7 +176,7 @@
     },
     {
       "path": "/api/internal/finance/scheduled-reports/process",
-      "schedule": "3-59/5 * * * *"
+      "schedule": "3 * * * *"
     },
     {
       "path": "/api/internal/finance/recurring-journals/process",
@@ -192,83 +184,55 @@
     },
     {
       "path": "/api/internal/finance/payment-settlement/process",
-      "schedule": "*/2 * * * *"
+      "schedule": "7-59/10 * * * *"
     },
     {
       "path": "/api/internal/service-management/plans/process",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/internal/operator/autonomous-watch/process",
-      "schedule": "0 0 1 1 *"
+      "schedule": "0,30 * * * *"
     },
     {
       "path": "/api/internal/markets/autopilot/process",
-      "schedule": "4-59/5 * * * *"
-    },
-    {
-      "path": "/api/internal/operator/repair-continuations/process",
-      "schedule": "1-59/2 * * * *"
-    },
-    {
-      "path": "/api/internal/operator/external-waits/process",
-      "schedule": "*/2 * * * *"
+      "schedule": "4-59/15 * * * *"
     },
     {
       "path": "/api/internal/secretary/due-work/process",
-      "schedule": "1-59/5 * * * *"
+      "schedule": "1-59/15 * * * *"
     },
     {
       "path": "/api/internal/secretary/messages/process",
-      "schedule": "1-59/2 * * * *"
+      "schedule": "1-59/10 * * * *"
     },
     {
       "path": "/api/internal/secretary/appointments/notifications/process",
-      "schedule": "2-59/5 * * * *"
+      "schedule": "2-59/10 * * * *"
     },
     {
       "path": "/api/internal/secretary/commitments/process",
-      "schedule": "3-59/5 * * * *"
+      "schedule": "3-59/15 * * * *"
     },
     {
       "path": "/api/internal/secretary/follow-ups/process",
-      "schedule": "4-59/5 * * * *"
+      "schedule": "4-59/15 * * * *"
     },
     {
       "path": "/api/internal/secretary/calls/outbound/process",
-      "schedule": "*/2 * * * *"
+      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/internal/secretary/jobs/process",
-      "schedule": "1-59/2 * * * *"
+      "schedule": "1-59/10 * * * *"
     },
     {
       "path": "/api/internal/secretary/meeting-coordination/process",
-      "schedule": "0-59/5 * * * *"
-    },
-    {
-      "path": "/api/internal/intelligence/continuous-learning/process",
-      "schedule": "0 19 * * *"
-    },
-    {
-      "path": "/api/internal/intelligence/model-improvement/readiness/process",
-      "schedule": "27 * * * *"
-    },
-    {
-      "path": "/api/internal/intelligence/local-review-benchmark",
-      "schedule": "0 0 1 1 *"
-    },
-    {
-      "path": "/api/internal/code/worker-session/process",
-      "schedule": "2-59/5 * * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/internal/developer/webhooks/retries/process",
-      "schedule": "3-59/5 * * * *"
+      "schedule": "3-59/10 * * * *"
     },
     {
       "path": "/api/internal/developer/webhooks/operations/process",
-      "schedule": "*/2 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }

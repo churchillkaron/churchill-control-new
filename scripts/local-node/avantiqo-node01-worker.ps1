@@ -57,6 +57,7 @@ $NightLearningEndHour = 6
 $script:LastGpuWorkAt = Get-Date
 $script:LastIdleLearningAt = [datetime]::MinValue
 $script:LearningCursor = 0
+$CodeTextPriorityWindowPath = 'C:\\ProgramData\\Avantiqo\\code-text-priority-window.until'
 $AllCapabilities = @('ai.text.generate','ai.reasoning.execute','ai.code.live-conversation','ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build','ai.image.analyze','ai.image.generate','ai.video.generate','document.ocr','document.classify','creative.materials.estimate','ai.audio.elastic-warp','media.ffmpeg.process','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.music.generate','ai.text.to.speech','ai.sfx.generate','ai.model.train')
 $CodeCapabilities = @('ai.code.generate','ai.code.edit','ai.code.refactor','ai.code.review','ai.code.debug','ai.code.test','ai.web.build','ai.web.repair','ai.app.build','ai.integration.build')
 $GpuCapabilities = @('ai.text.generate','ai.reasoning.execute','ai.image.analyze','ai.image.generate','ai.video.generate','document.ocr','document.classify','creative.materials.estimate','ai.speech.to.text','ai.image.upscale','ai.audio.stems','ai.audio.vocal-correct','ai.text.to.speech')
@@ -165,7 +166,7 @@ function Heartbeat {
   $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
   $drive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
   $meta = @{
-    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v4-scheduler'; worker_contract=$WorkerContract; worker_source_sha256=$WorkerSourceSha256; worker_lane=$Lane; worker_lanes=@('gpu','code','cpu','live','training'); heartbeat_source_lane=$Lane; local_context_tokens=$ContextTokens; scheduler=@{ resource_aware=$true; gpu_exclusive=$true; qwen_warm_policy='ON_DEMAND_INTERACTIVE_FIRST'; idle_learning_window='01:00-06:00'; idle_learning_after_seconds=$GpuIdleLearningAfterSeconds; learning_promotion_authorized=$false; cpu_policy=$(if($Lane -eq 'cpu'){'ONE_HEAVY_JOB_BELOW_NORMAL'}else{'N/A'}); code_gpu_strong_model='qwen3:4b-instruct'; code_gpu_interactive_model='qwen3:1.7b'; code_cpu_fallback_model=$CodeCpuFallbackModel; code_cpu_fallback_capability='ai.code.debug'; code_gpu_min_free_vram_mb=@{ fast=1800; interactive=3000; strong=4300 }; code_cpu_timeout_seconds=90; code_gpu_timeout_seconds=120 };
+    host=$env:COMPUTERNAME; runtime='ollama'; runtime_url='127.0.0.1:11434'; model=$Model; models=$models; worker='powershell-v4-scheduler'; worker_contract=$WorkerContract; worker_source_sha256=$WorkerSourceSha256; worker_lane=$Lane; worker_lanes=@('gpu','code','cpu','live','training'); heartbeat_source_lane=$Lane; local_context_tokens=$ContextTokens; scheduler=@{ resource_aware=$true; gpu_exclusive=$true; qwen_warm_policy='ON_DEMAND_INTERACTIVE_FIRST'; idle_learning_window='01:00-06:00'; idle_learning_after_seconds=$GpuIdleLearningAfterSeconds; learning_promotion_authorized=$false; cpu_policy=$(if($Lane -eq 'cpu'){'ONE_HEAVY_JOB_BELOW_NORMAL'}else{'N/A'}); code_gpu_strong_model='qwen3:4b-instruct'; code_gpu_interactive_model='qwen3:1.7b'; code_cpu_fallback_model=$CodeCpuFallbackModel; code_cpu_fallback_capability='ai.code.debug'; code_gpu_min_free_vram_mb=@{ fast=1800; interactive=3000; strong=4300 }; code_cpu_timeout_seconds=90; code_gpu_timeout_seconds=120; code_text_priority_grace_seconds=2 };
     gpu=$gpu; cpu=@{ name=$cpu.Name; cores=[int]$cpu.NumberOfCores; logical_processors=[int]$cpu.NumberOfLogicalProcessors };
     memory=@{ total_mb=[int]($os.TotalVisibleMemorySize/1024); free_mb=[int]($os.FreePhysicalMemory/1024) };
     disk=@{ c_total_gb=[math]::Round($drive.Size/1GB,1); c_free_gb=[math]::Round($drive.FreeSpace/1GB,1) };
@@ -301,6 +302,25 @@ function ClearStaleTrainingLock {
   }
 }
 
+function SetCodeTextPriorityWindow([int]$Seconds = 300) {
+  if ($Lane -ne 'code') { return }
+  try {
+    $until = [DateTime]::UtcNow.AddSeconds([Math]::Max(1, $Seconds)).ToString('o')
+    [IO.File]::WriteAllText($CodeTextPriorityWindowPath,$until,(New-Object System.Text.UTF8Encoding($false)))
+  } catch {}
+}
+
+function CodeTextPriorityWindowActive {
+  try {
+    $raw = ReadTextFileOrEmpty $CodeTextPriorityWindowPath
+    if (-not $raw) { return $false }
+    $until = [DateTime]::Parse($raw,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind)
+    return ([DateTime]::UtcNow -lt $until.ToUniversalTime())
+  } catch {
+    return $false
+  }
+}
+
 function ClaimJobs {
   $trainingLock='C:\ProgramData\Avantiqo\model-training-gpu.lock'
   if (($Lane -eq 'gpu' -or $Lane -eq 'code' -or $Lane -eq 'live') -and (Test-Path $trainingLock)) {
@@ -311,8 +331,17 @@ function ClaimJobs {
     $h=(Get-Date).Hour; if ($h -lt $NightLearningStartHour -or $h -ge $NightLearningEndHour) { return @() }
     try { $line=(& nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader,nounits 2>$null | Select-Object -First 1); if($line){$v=@($line -split ',\s*'); if([int]$v[1] -gt 15){return @()}} } catch { return @() }
   }
+  $claimCapabilities = @($Capabilities)
+  if ($Lane -eq 'gpu' -and (CodeTextPriorityWindowActive)) {
+    # During an active/recent interactive Code turn, let the dedicated live worker keep serving
+    # front-lane conversation while this GPU worker yields only fast/deep text. Media capabilities
+    # remain claimable, so the priority window never reserves the GPU against image/video work.
+    $claimCapabilities = @($Capabilities | Where-Object {
+      [string]$_ -notin @('ai.text.generate','ai.reasoning.execute')
+    })
+  }
   return @(Rpc 'claim_avantiqo_local_compute_jobs' @{
-    p_node_id=$NodeId; p_node_token=(NodeToken); p_capabilities=@($Capabilities); p_limit=1; p_lease_seconds=300
+    p_node_id=$NodeId; p_node_token=(NodeToken); p_capabilities=@($claimCapabilities); p_limit=1; p_lease_seconds=300
   })
 }
 
@@ -661,6 +690,7 @@ function RunTextJob($Job) {
   $createdNew = $false
   $mutex = New-Object System.Threading.Mutex($false, 'Global\AvantiqoNode01OllamaTextGpu')
   $held = $false
+  if ($Lane -eq 'code') { SetCodeTextPriorityWindow 300 }
   try {
     $waitSeconds = 30
     try {
@@ -673,6 +703,7 @@ function RunTextJob($Job) {
     if ($held) {
       try { $mutex.ReleaseMutex() } catch {}
     }
+    if ($Lane -eq 'code') { SetCodeTextPriorityWindow 2 }
     $mutex.Dispose()
   }
 }

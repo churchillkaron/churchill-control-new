@@ -185,3 +185,11 @@ test("automatic authoritative verification is bound to the current source revisi
   assert.match(source, /source_revision: nonNegativeInteger\(control\.source_revision\)/);
   assert.match(source, /recordGuardedAction\([\s\S]*action: "verify"/);
 });
+
+test("completed mutation operations advance source revision even when mission status is verification_required", () => {
+  assert.match(source, /const operationCompleted = list\([\s\S]*completed_operation_ids/);
+  assert.match(source, /const mutationApplied =[\s\S]*operationCompleted[\s\S]*\["apply_files", "replace_range"\]\.includes\(decision\.action\)/);
+  assert.match(source, /if \(mutationApplied\) \{[\s\S]*control = advanceSourceRevision\(control\)/);
+  assert.match(source, /if \(mutationApplied\) \{[\s\S]*Automatic authoritative verification after source mutation/);
+  assert.doesNotMatch(source, /execution\.success === true &&\s*\["apply_files", "replace_range"\]\.includes\(decision\.action\)/);
+});

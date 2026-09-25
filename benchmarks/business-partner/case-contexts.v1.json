@@ -1,0 +1,124 @@
+{
+  "contract": "AVANTIQO_BUSINESS_PARTNER_BENCHMARK_CASE_CONTEXTS_V1",
+  "cases": {
+    "continuity-02": {
+      "project_state": {
+        "objective": "Correct the latest customer invoice one week earlier on every date.",
+        "status": "active",
+        "progress_summary": "The exact invoice and replacement dates were resolved and the correction is waiting for confirmation.",
+        "next_step": "Execute the already prepared governed correction after human confirmation.",
+        "last_intent": "business.write"
+      },
+      "pending_execution": {
+        "capability_key": "finance.accounts_receivable.CorrectCustomerInvoice",
+        "description": "Correct INV-1001 by moving invoice date, due date and both service dates back seven days.",
+        "authorization_requirement": "confirmation"
+      }
+    },
+    "ambiguity-02": {
+      "project_state": {
+        "objective": "Resolve what date change the human wants for INV-1001.",
+        "status": "active",
+        "progress_summary": "The human said the invoice date is wrong but has not specified how far to move it.",
+        "last_intent": "business.write"
+      }
+    },
+    "ambiguity-03": {
+      "project_state": {
+        "objective": "Correct INV-1001 one week earlier.",
+        "status": "active",
+        "progress_summary": "One invoice correction is clear; 'the other one' could refer to multiple records.",
+        "last_intent": "business.write"
+      }
+    },
+    "recovery-01": {
+      "project_state": {
+        "objective": "Correct the latest customer invoice to the intended dates.",
+        "status": "active",
+        "progress_summary": "A prior interpretation selected this Thursday; the human has corrected it to last Thursday.",
+        "next_step": "Recalculate the requested dates, re-read the source invoice, and prepare the corrected governed action.",
+        "last_intent": "business.write"
+      }
+    },
+    "recovery-02": {
+      "project_state": {
+        "objective": "Create the requested invoice for the customer identified by the human.",
+        "status": "active",
+        "progress_summary": "A pending draft targeted the wrong customer and must not be reused.",
+        "next_step": "Discard the stale pending target and resolve the customer from the previous human message.",
+        "last_intent": "business.write"
+      },
+      "pending_execution": {
+        "capability_key": "finance.accounts_receivable.CreateCustomerInvoice",
+        "description": "Stale draft for the wrong customer. Do not execute.",
+        "authorization_requirement": "confirmation"
+      }
+    },
+    "recovery-03": {
+      "project_state": {
+        "objective": "Complete the current invoice correction.",
+        "status": "active",
+        "progress_summary": "The exact source invoice was already verified, then the reasoning worker timed out before the correction was staged.",
+        "next_step": "Continue from verified evidence without duplicating work.",
+        "blocker": "Transient reasoning timeout.",
+        "last_intent": "business.write"
+      }
+    },
+    "latency-03": {
+      "project_state": {
+        "objective": "Complete the current governed customer invoice correction.",
+        "status": "active",
+        "progress_summary": "The source invoice has already been read and the requested date shift is known.",
+        "next_step": "Continue the existing mission without repeating completed evidence work.",
+        "last_intent": "business.write"
+      }
+    },
+    "natural-language-02": {
+      "project_state": {
+        "objective": "Create the same invoice pattern as the previous request with the requested date adjustment.",
+        "status": "active",
+        "progress_summary": "Customer and line pattern are already known from the prior action; the human is changing the day to Monday.",
+        "next_step": "Resolve Monday against the current requested period and prepare the governed invoice action.",
+        "last_intent": "business.write"
+      }
+    },
+    "natural-language-03": {
+      "project_state": {
+        "objective": "Finish the current business task and report only after independent verification.",
+        "status": "active",
+        "progress_summary": "The business outcome is not complete yet.",
+        "next_step": "Continue execution and verify the business effect before claiming completion.",
+        "last_intent": "business.write"
+      }
+    },
+    "failure-mode-01": {
+      "project_state": {
+        "objective": "Complete the current business task safely.",
+        "status": "active",
+        "progress_summary": "Deterministic evidence and capability resolution are available, but the reasoning worker is unavailable.",
+        "next_step": "Complete deterministic safe work and report the exact unresolved dependency.",
+        "blocker": "Owned reasoning worker unavailable.",
+        "last_intent": "business.write"
+      }
+    },
+    "failure-mode-02": {
+      "project_state": {
+        "objective": "Answer the current-state question from live evidence only.",
+        "status": "active",
+        "progress_summary": "The registered live read failed and there is no authoritative current value.",
+        "blocker": "Current evidence read failed.",
+        "last_intent": "business.read"
+      }
+    },
+    "failure-mode-03": {
+      "project_state": {
+        "objective": "Complete the original governed business action with independent verification.",
+        "status": "active",
+        "progress_summary": "The mutation attempt did not pass independent verification, so completion is not established.",
+        "next_step": "Preserve the original mission and enter safe recovery without claiming success.",
+        "blocker": "Business-effect verification failed.",
+        "last_intent": "business.write"
+      }
+    }
+  }
+}

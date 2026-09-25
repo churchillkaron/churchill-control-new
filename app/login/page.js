@@ -12,6 +12,8 @@ import {
   resolvePlatformHostContext,
 } from "@/lib/platform/context/resolvePlatformHostContext";
 
+const GOOGLE_AUTH_ENABLED = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+
 let browserSupabasePromise = null;
 async function getBrowserSupabase() {
   if (!browserSupabasePromise) {
@@ -490,17 +492,19 @@ export default function LoginPage() {
                 </button>
               ) : null}
 
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                disabled={loading}
-                className="flex h-12 w-full items-center justify-center gap-3 rounded-[12px] border border-white/[0.09] bg-white/[0.025] text-sm text-white/70 transition hover:border-white/[0.16] hover:bg-white/[0.05] hover:text-white disabled:opacity-50"
-              >
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-bold text-black">
-                  G
-                </span>
-                Continue with Google
-              </button>
+              {GOOGLE_AUTH_ENABLED ? (
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={loading}
+                  className="flex h-12 w-full items-center justify-center gap-3 rounded-[12px] border border-white/[0.09] bg-white/[0.025] text-sm text-white/70 transition hover:border-white/[0.16] hover:bg-white/[0.05] hover:text-white disabled:opacity-50"
+                >
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] font-bold text-black">
+                    G
+                  </span>
+                  Continue with Google
+                </button>
+              ) : null}
             </>
           )}
         </div>

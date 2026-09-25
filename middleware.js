@@ -47,8 +47,16 @@ async function fetchWithDeadline(input, init = {}) {
   }
 }
 
+function shouldRefreshSupabaseSession(pathname) {
+  return isProtectedWorkspacePath(pathname) || isWorkforcePath(pathname);
+}
+
 async function refreshSupabaseSession(request) {
-  if (request.nextUrl.pathname.startsWith("/api/") || !hasSupabaseSessionCookie(request)) {
+  if (
+    request.nextUrl.pathname.startsWith("/api/") ||
+    !shouldRefreshSupabaseSession(request.nextUrl.pathname) ||
+    !hasSupabaseSessionCookie(request)
+  ) {
     return NextResponse.next({ request });
   }
   let response = NextResponse.next({ request });

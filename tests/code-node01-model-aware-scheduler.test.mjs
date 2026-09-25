@@ -19,11 +19,14 @@ test("interactive discovery has bounded output while strong mutation keeps calle
   assert.match(worker, /\$numPredict = \[Math\]::Min\(\$numPredict, 1024\)/);
 });
 
-test("interactive Code waits briefly for GPU before expensive CPU fallback", () => {
+test("interactive Code reclaims idle Ollama residency before bounded media wait or CPU fallback", () => {
+  assert.match(worker, /\$codeGpuReclaimAttempted = \$true[\s\S]*ReleaseIdleOllamaModelsForStrongCode \$runtimeModel/);
+  assert.match(worker, /interactiveReclaimDeadline = \(Get-Date\)\.AddSeconds\(4\)/);
   assert.match(worker, /interactiveGpuWaitDeadline = \$interactiveGpuWaitStarted\.AddSeconds\(10\)/);
   assert.match(worker, /-not \$strongCodeModelRequired[\s\S]*\$runtimeModel -match '1\\\.7b'/);
   assert.match(worker, /code_gpu_wait_ms=\[int\]\$codeGpuWaitMs/);
   assert.match(worker, /code_cpu_fallback=\[bool\]\$forceCpu/);
+  assert.doesNotMatch(worker, /\$runtimeModel = 'qwen3:0\.6b'[\s\S]{0,600}interactiveReclaimDeadline/);
 });
 
 test("strong Code rechecks requested-model residency during GPU wait before failing headroom", () => {

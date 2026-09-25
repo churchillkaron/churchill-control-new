@@ -449,8 +449,10 @@ function RunTextJobUnlocked($Job) {
     }
   }
 
-  # A short wait is cheaper than a 50-115s CPU fallback when a creative GPU job is just finishing.
-  # Never preempt creative work: wait at most 10s, then fall back cleanly.
+  # Interactive Code owns the global Ollama text mutex before reaching this point. If a different
+  # Ollama model is merely resident (for example deep 4B after its request completed), release that
+  # idle residency first so the proven 1.7B interactive model can stay on GPU. This never preempts
+  # non-Ollama creative/media GPU work and never downgrades the interactive quality floor to 0.6B.
   if (
     $Lane -eq 'code' -and
     $forceCpu -and
@@ -458,16 +460,35 @@ function RunTextJobUnlocked($Job) {
     $gpuTelemetryAvailable -and
     $runtimeModel -match '1\.7b'
   ) {
-    $interactiveGpuWaitStarted = Get-Date
-    $interactiveGpuWaitDeadline = $interactiveGpuWaitStarted.AddSeconds(10)
-    while ((Get-Date) -lt $interactiveGpuWaitDeadline) {
-      Start-Sleep -Seconds 1
-      try {
-        $freeGpuMb = [int]((& nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>$null | Select-Object -First 1).Trim())
-        if ($freeGpuMb -ge $codeGpuMinFreeMb) { $forceCpu = $false; break }
-      } catch { break }
+    $codeGpuReclaimAttempted = $true
+    $interactiveReclaimStarted = Get-Date
+    $codeGpuReleasedModels = @(ReleaseIdleOllamaModelsForStrongCode $runtimeModel)
+    if (@($codeGpuReleasedModels).Count -gt 0) {
+      $interactiveReclaimDeadline = (Get-Date).AddSeconds(4)
+      while ((Get-Date) -lt $interactiveReclaimDeadline) {
+        Start-Sleep -Milliseconds 250
+        try {
+          $freeGpuMb = [int]((& nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>$null | Select-Object -First 1).Trim())
+          if ($freeGpuMb -ge $codeGpuMinFreeMb) { $forceCpu = $false; break }
+        } catch { break }
+      }
     }
-    $codeGpuWaitMs = [int](((Get-Date) - $interactiveGpuWaitStarted).TotalMilliseconds)
+    $codeGpuReclaimWaitMs = [int](((Get-Date) - $interactiveReclaimStarted).TotalMilliseconds)
+
+    # If the scarce VRAM belongs to active non-Ollama media work, do not preempt it. A short bounded
+    # wait is still cheaper than blindly blocking the Code lane; after that, existing CPU fallback applies.
+    if ($forceCpu) {
+      $interactiveGpuWaitStarted = Get-Date
+      $interactiveGpuWaitDeadline = $interactiveGpuWaitStarted.AddSeconds(10)
+      while ((Get-Date) -lt $interactiveGpuWaitDeadline) {
+        Start-Sleep -Seconds 1
+        try {
+          $freeGpuMb = [int]((& nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>$null | Select-Object -First 1).Trim())
+          if ($freeGpuMb -ge $codeGpuMinFreeMb) { $forceCpu = $false; break }
+        } catch { break }
+      }
+      $codeGpuWaitMs = [int](((Get-Date) - $interactiveGpuWaitStarted).TotalMilliseconds)
+    }
   }
 
   if ($Lane -eq 'code' -and $forceCpu -and $strongCodeModelRequired) {

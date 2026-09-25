@@ -6,7 +6,7 @@ const provider = await readFile(new URL("../lib/platform/service-runtime/provide
 const worker = await readFile(new URL("../scripts/local-node/avantiqo-node01-worker.ps1", import.meta.url), "utf8");
 const installer = await readFile(new URL("../scripts/local-node/install-avantiqo-node01-workers.ps1", import.meta.url), "utf8");
 const migration = await readFile(new URL("../supabase/migrations/20260923134500_local_compute_gpu_exclusivity.sql", import.meta.url), "utf8");
-const codePriorityMigration = await readFile(new URL("../supabase/migrations/20260925062715_local_compute_code_priority_gpu_yield.sql", import.meta.url), "utf8");
+const codePriorityMigration = await readFile(new URL("../supabase/migrations/20260925071546_local_compute_code_priority_gpu_yield.sql", import.meta.url), "utf8");
 
 test("Code uses interactive priority and the worker has a dedicated Code lane with CPU fallback", () => {
   assert.match(provider, /INTERACTIVE_CODE_PRIORITY=90/);

@@ -28,6 +28,7 @@ const repositoryBaselineDigest = ({ caseId, hiddenSha }) => sha256(JSON.stringif
 function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85, categoryByCase = {}, evidenceCountByCase = {}, benchmarkRunId = "55555555-5555-4555-8555-555555555555" } = {}) {
   return caseIds.map((case_id, index) => ({
     case_id,
+    repository_origin: `https://github.com/avantiqo-benchmark/${case_id}`,
     category: categoryByCase[case_id] || null,
     allowed_edit_paths: [`benchmark-case-${index}.mjs`],
     passed: true,
@@ -62,6 +63,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
       repository_verification: {
         case_id,
         benchmark_run_id: benchmarkRunId,
+        repository_origin: `https://github.com/avantiqo-benchmark/${case_id}`,
         independent: true,
         verifier: "hidden-node-test",
         verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
@@ -74,6 +76,8 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: ((index + 2).toString(16).padStart(2, "0")).repeat(32),
         candidate_artifact_sha256: ((index + 40).toString(16).padStart(2, "0")).repeat(32),
+        candidate_diff_bytes: 512,
+        candidate_artifact_bytes: 1024,
         candidate_tree_sha: ((index + 120).toString(16).padStart(2, "0")).repeat(20),
         changed_paths: [`benchmark-case-${index}.mjs`],
         allowed_edit_paths: [`benchmark-case-${index}.mjs`],

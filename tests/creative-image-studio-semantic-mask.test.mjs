@@ -20,13 +20,16 @@ test("subject and background masks fail closed until matte evidence is attached"
   const mask={id:"m",source_asset_id:null,metadata:{clip_mask_target_id:"img",...buildImageStudioSemanticMaskPatch("SUBJECT")}};
   const target={id:"img",source_asset_id:"source"};
   assert.equal(validateImageStudioSemanticMask(mask,target).ready,false);
-  const ready=attachImageStudioSemanticMatte(mask,{mask_asset_id:"matte",source_asset_id:"source",source_checksum:"abc",confidence:.99});
+  const ready=attachImageStudioSemanticMatte(mask,{mask_asset_id:"matte",mask_storage_reference:"storage://creative/matte.png",mask_preview_url:"https://signed.example/matte.png",mask_checksum:"matte-sha",source_asset_id:"source",source_checksum:"abc",provider:"opencv",capability:"creative.image.segmentation.execute",model:"grabcut-7-iter",review_required:true,review_approved:false});
   assert.equal(ready.source_asset_id,"matte");
   assert.equal(validateImageStudioSemanticMask(ready,target).ready,true);
+  assert.equal(ready.metadata.semantic_review_required,true);
+  assert.equal(ready.metadata.semantic_review_approved,false);
+  assert.equal(ready.metadata.semantic_matte_storage_reference,"storage://creative/matte.png");
 });
 
 test("semantic matte cannot silently belong to another source image",()=>{
-  const mask=attachImageStudioSemanticMatte({id:"m",metadata:{clip_mask_target_id:"img",...buildImageStudioSemanticMaskPatch("BACKGROUND")}},{mask_asset_id:"matte",source_asset_id:"other"});
+  const mask=attachImageStudioSemanticMatte({id:"m",metadata:{clip_mask_target_id:"img",...buildImageStudioSemanticMaskPatch("BACKGROUND")}},{mask_asset_id:"matte",mask_storage_reference:"storage://creative/matte.png",source_asset_id:"other"});
   const result=validateImageStudioSemanticMask(mask,{id:"img",source_asset_id:"source"});
   assert.equal(result.ready,false);
   assert.ok(result.failures.includes("SEMANTIC_MASK_SOURCE_MISMATCH"));

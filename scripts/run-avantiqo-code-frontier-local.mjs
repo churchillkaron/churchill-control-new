@@ -176,6 +176,7 @@ for (const entry of prompts) {
     passed: grade.passed,
     failures: grade.failures,
     quality_score: Number(grade.quality_score || 0),
+    evidence_grounding_score: Number(grade.evidence_grounding_score || 0),
     evidence_key_count: Number(grade.evidence_key_count || 0),
     wall_ms: wallMs,
     input_tokens: tokenMetric(metrics, ["input_tokens", "prompt_tokens", "prompt_eval_count"]),

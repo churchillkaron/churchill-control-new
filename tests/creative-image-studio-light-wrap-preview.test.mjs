@@ -39,7 +39,9 @@ test("canvas and version compare share light wrap preview and masked fidelity wa
   const canvas=fs.readFileSync("components/creative/specialist/ImageStudioCanvasSurface.jsx","utf8");
   const compare=fs.readFileSync("components/creative/specialist/ImageStudioVersionCompare.jsx","utf8");
   for(const source of [canvas,compare])assert.match(source,/ImageStudioLightWrapPreviewOverlay/);
-  assert.match(canvas,/Masked light wrap · deterministic export only/);
+  assert.match(canvas,/MASKED_LIGHT_WRAP_EXPORT_ONLY/);
+  assert.match(canvas,/EDGE_FINISHED_LIGHT_WRAP_EXPORT_ONLY/);
+  assert.match(canvas,/light wrap · deterministic export only/);
   assert.match(compare,/MASKED_LIGHT_WRAP_EXPORT_ONLY/);
 });
 

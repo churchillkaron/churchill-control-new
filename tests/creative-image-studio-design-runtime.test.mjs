@@ -365,7 +365,7 @@ test("Image Studio exposes professional non-destructive tonal adjustments in can
   assert.match(exportRuntime, /applyImageStudioPixelAdjustments/);
   assert.match(exportRuntime, /deterministic_pixel_pipeline: true/);
   assert.match(exportRuntime, /CREATIVE_IMAGE_STUDIO_EFFECTS_V2/);
-  assert.match(exportRuntime, /CREATIVE_IMAGE_STUDIO_ADJUSTMENT_V2/);
+  assert.match(exportRuntime, /CREATIVE_IMAGE_STUDIO_ADJUSTMENT_V3/);
 });
 
 test("Image Studio smart format adaptation preserves full bleed, safe typography, focal identity and exact styles", async () => {

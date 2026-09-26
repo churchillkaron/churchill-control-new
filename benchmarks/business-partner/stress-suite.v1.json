@@ -1,0 +1,412 @@
+{
+  "contract": "AVANTIQO_BUSINESS_PARTNER_STRESS_SUITE_V1",
+  "cases": [
+    {
+      "id": "s01",
+      "kind": "read",
+      "prompt": "Who's on duty for the active jobs right now?",
+      "required": [
+        "operations.assignments.list"
+      ]
+    },
+    {
+      "id": "s02",
+      "kind": "read",
+      "prompt": "Who owns the work that's currently running?",
+      "required": [
+        "operations.assignments.list"
+      ]
+    },
+    {
+      "id": "s03",
+      "kind": "read",
+      "prompt": "Any ops warnings open right now?",
+      "required": [
+        "operations.alerts.list"
+      ]
+    },
+    {
+      "id": "s04",
+      "kind": "read",
+      "prompt": "What operational alerts are still unresolved?",
+      "required": [
+        "operations.alerts.list"
+      ]
+    },
+    {
+      "id": "s05",
+      "kind": "read",
+      "prompt": "Where are we short on capacity today?",
+      "required": [
+        "operations.capacity_planning.list"
+      ]
+    },
+    {
+      "id": "s06",
+      "kind": "read",
+      "prompt": "Pull the operational work orders that are still open.",
+      "required": [
+        "operations.work_orders.list"
+      ]
+    },
+    {
+      "id": "s07",
+      "kind": "write",
+      "prompt": "Open a new work order for this approved job.",
+      "required": [
+        "operations.work_orders.create"
+      ]
+    },
+    {
+      "id": "s08",
+      "kind": "write",
+      "prompt": "Assign this assignment to the person we approved.",
+      "required": [
+        "operations.assignments.assign"
+      ]
+    },
+    {
+      "id": "s09",
+      "kind": "write",
+      "prompt": "Raise an ops alert for this confirmed problem.",
+      "required": [
+        "operations.alerts.create"
+      ]
+    },
+    {
+      "id": "s10",
+      "kind": "read",
+      "prompt": "What's our cash position right now?",
+      "required": [
+        "finance.cash_management.read"
+      ]
+    },
+    {
+      "id": "s11",
+      "kind": "read",
+      "prompt": "How tight is liquidity today?",
+      "required": [
+        "finance.cash_management.read"
+      ]
+    },
+    {
+      "id": "s12",
+      "kind": "read",
+      "prompt": "Show me what customers still owe us.",
+      "required": [
+        "finance.accounts_receivable.read"
+      ]
+    },
+    {
+      "id": "s13",
+      "kind": "read",
+      "prompt": "Pull the quote for this customer.",
+      "required": [
+        "commercial.quotes.read"
+      ]
+    },
+    {
+      "id": "s14",
+      "kind": "read",
+      "prompt": "What's the status of that quotation?",
+      "required": [
+        "commercial.quotes.read"
+      ]
+    },
+    {
+      "id": "s15",
+      "kind": "read",
+      "prompt": "Find that customer in Commercial.",
+      "required": [
+        "commercial.customers.read"
+      ]
+    },
+    {
+      "id": "s16",
+      "kind": "write",
+      "prompt": "Make the quote from the agreed lines.",
+      "required": [
+        "commercial.quotes.create"
+      ]
+    },
+    {
+      "id": "s17",
+      "kind": "read",
+      "prompt": "Find the controlled file with this name.",
+      "required": [
+        "documents.files.read"
+      ]
+    },
+    {
+      "id": "s18",
+      "kind": "write",
+      "prompt": "Save this upload into Documents as a controlled file.",
+      "required": [
+        "documents.files.create"
+      ]
+    },
+    {
+      "id": "s19",
+      "kind": "write",
+      "prompt": "Break this PDF into the reviewed sections and save them as a document pack.",
+      "required": [
+        "documents.files.createPack"
+      ]
+    },
+    {
+      "id": "s20",
+      "kind": "read",
+      "prompt": "Which work permits are about to expire?",
+      "required": [
+        "compliance.work_permits.read"
+      ]
+    },
+    {
+      "id": "s21",
+      "kind": "read",
+      "prompt": "What's the employee's current legal employer assignment?",
+      "required": [
+        "people.employees.read"
+      ]
+    },
+    {
+      "id": "s22",
+      "kind": "read",
+      "prompt": "What's in stock right now?",
+      "required": [
+        "supply_chain.stock_position.read"
+      ]
+    },
+    {
+      "id": "s23",
+      "kind": "read",
+      "prompt": "Show me our vendors.",
+      "required": [
+        "supply_chain.suppliers.read"
+      ]
+    },
+    {
+      "id": "s24",
+      "kind": "write",
+      "prompt": "Add this vendor from the reviewed identity details.",
+      "required": [
+        "supply-chain.suppliers.create"
+      ]
+    },
+    {
+      "id": "s25",
+      "kind": "write",
+      "prompt": "Make the PO from these approved supplier lines.",
+      "required": [
+        "supply-chain.purchase_orders.create"
+      ]
+    },
+    {
+      "id": "s26",
+      "kind": "write",
+      "prompt": "Receive this PO into stock.",
+      "required": [
+        "supply-chain.goods_receipts.receive"
+      ]
+    },
+    {
+      "id": "s27",
+      "kind": "write",
+      "prompt": "Update the recipe with these ingredient quantities and recost the dish.",
+      "required": [
+        "supply-chain.recipes.upsert"
+      ]
+    },
+    {
+      "id": "s28",
+      "kind": "write",
+      "prompt": "Apply this vendor bill to item costs and update affected dish costs.",
+      "required": [
+        "supply-chain.purchase_costs.apply_vendor_invoice"
+      ]
+    },
+    {
+      "id": "s29",
+      "kind": "read",
+      "prompt": "What hotel arrivals do we have tonight?",
+      "required": [
+        "solutions.hotel_bookings.read"
+      ]
+    },
+    {
+      "id": "s30",
+      "kind": "read",
+      "prompt": "Check the current prepaid wallet before we spend anything.",
+      "required": [
+        "services.wallet.Status"
+      ]
+    },
+    {
+      "id": "s31",
+      "kind": "read",
+      "prompt": "How much Avantiqo service usage have we consumed?",
+      "required": [
+        "services.usage.read"
+      ]
+    },
+    {
+      "id": "s32",
+      "kind": "read",
+      "prompt": "What's happening in the Creative production queue?",
+      "required": [
+        "creative.production.inspect"
+      ]
+    },
+    {
+      "id": "s33",
+      "kind": "read",
+      "prompt": "Open the real Studio project state for this job.",
+      "required": [
+        "creative.studio.inspectProject"
+      ]
+    },
+    {
+      "id": "s34",
+      "kind": "read",
+      "prompt": "What business losses has the outcome engine found?",
+      "required": [
+        "analytics.outcome_engine.read"
+      ]
+    },
+    {
+      "id": "s35",
+      "kind": "read",
+      "prompt": "What's hurting the business measurably right now?",
+      "required": [
+        "analytics.outcome_engine.read"
+      ]
+    },
+    {
+      "id": "s36",
+      "kind": "multi_read",
+      "prompt": "Do we have enough people assigned for tonight's hotel arrivals?",
+      "required": [
+        "operations.assignments.list",
+        "solutions.hotel_bookings.read"
+      ]
+    },
+    {
+      "id": "s37",
+      "kind": "multi_read",
+      "prompt": "Compare what customers owe us against the cash position.",
+      "required": [
+        "finance.accounts_receivable.read",
+        "finance.cash_management.read"
+      ]
+    },
+    {
+      "id": "s38",
+      "kind": "multi_read",
+      "prompt": "Are any hotel arrivals at risk because of open operational alerts?",
+      "required": [
+        "solutions.hotel_bookings.read",
+        "operations.alerts.list"
+      ]
+    },
+    {
+      "id": "s39",
+      "kind": "multi_read",
+      "prompt": "Before paid Creative work, compare service consumption with wallet balance.",
+      "required": [
+        "services.usage.read",
+        "services.wallet.Status"
+      ]
+    },
+    {
+      "id": "s40",
+      "kind": "multi_read",
+      "prompt": "Check the Creative queue against the actual Studio project and tell me if they match.",
+      "required": [
+        "creative.production.inspect",
+        "creative.studio.inspectProject"
+      ]
+    },
+    {
+      "id": "s41",
+      "kind": "multi_read",
+      "prompt": "Compare active work orders with assignments and show me jobs with no owner.",
+      "required": [
+        "operations.work_orders.list",
+        "operations.assignments.list"
+      ]
+    },
+    {
+      "id": "s42",
+      "kind": "multi_read",
+      "prompt": "Do the work permit records match the employee's legal-employer assignment?",
+      "required": [
+        "compliance.work_permits.read",
+        "people.employees.read"
+      ]
+    },
+    {
+      "id": "s43",
+      "kind": "write",
+      "prompt": "Draft the customer reply, don't send it yet.",
+      "required": [
+        "commercial.communication.draftMessage"
+      ]
+    },
+    {
+      "id": "s44",
+      "kind": "write",
+      "prompt": "Send only the exact draft I approved.",
+      "required": [
+        "commercial.communication.sendDraftMessage"
+      ]
+    },
+    {
+      "id": "s45",
+      "kind": "write",
+      "prompt": "Make the customer invoice from what we agreed.",
+      "required": [
+        "finance.accounts_receivable.CreateCustomerInvoice"
+      ]
+    },
+    {
+      "id": "s46",
+      "kind": "write",
+      "prompt": "Move the latest invoice and service dates one week earlier.",
+      "required": [
+        "finance.accounts_receivable.CorrectCustomerInvoice"
+      ]
+    },
+    {
+      "id": "s47",
+      "kind": "write",
+      "prompt": "Mark this invoice paid into the bank account and give me the receipt.",
+      "required": [
+        "finance.customer_receipt.post"
+      ]
+    },
+    {
+      "id": "s48",
+      "kind": "read",
+      "prompt": "Pull the project record for this exact project.",
+      "required": [
+        "projects.projects.read"
+      ]
+    },
+    {
+      "id": "s49",
+      "kind": "write",
+      "prompt": "Create this approved project for the entity.",
+      "required": [
+        "projects.projects.create"
+      ]
+    },
+    {
+      "id": "s50",
+      "kind": "read",
+      "prompt": "Give me the real business priority brief from live evidence.",
+      "required": [
+        "platform.attention.scan"
+      ]
+    }
+  ]
+}

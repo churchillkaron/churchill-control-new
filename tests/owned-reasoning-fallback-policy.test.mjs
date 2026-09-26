@@ -22,7 +22,7 @@ function providerError(provider, capability) {
   return error;
 }
 
-function allowedDecision(overrides = {}) {
+function decision(overrides = {}) {
   return ownedReasoningFallbackDecision({
     error: providerError(OWNED_REASONING_PROVIDER_ID, OWNED_REASONING_CAPABILITY),
     capability: OWNED_REASONING_CAPABILITY,
@@ -31,9 +31,24 @@ function allowedDecision(overrides = {}) {
   });
 }
 
-test("allows one governed fallback after owned deep reasoning failure", () => {
-  const result = allowedDecision();
+function explicitlyAllowedDecision(overrides = {}) {
+  return decision({
+    ...overrides,
+    providerPolicy: {
+      allow_owned_reasoning_fallback: true,
+      ...(overrides.providerPolicy || {}),
+    },
+  });
+}
 
+test("owned reasoning fallback is fail-closed unless explicitly enabled", () => {
+  const result = decision();
+  assert.equal(result.allowed, false);
+  assert.equal(result.reason, "OWNED_REASONING_FALLBACK_NOT_EXPLICITLY_ENABLED");
+});
+
+test("allows one governed fallback only after explicit opt-in", () => {
+  const result = explicitlyAllowedDecision();
   assert.equal(result.allowed, true);
   assert.deepEqual(result.provider_policy.blocked_providers, [OWNED_REASONING_PROVIDER_ID]);
 });
@@ -45,7 +60,7 @@ test("does not fallback external provider failure", () => {
   });
 
   assert.equal(result.allowed, false);
-  assert.equal(result.reason, "FAILED_PROVIDER_NOT_OWNED_REASONING");
+  assert.equal(result.reason, "OWNED_REASONING_FALLBACK_NOT_EXPLICITLY_ENABLED");
 });
 
 test("does not fallback non-reasoning capabilities", () => {
@@ -58,7 +73,7 @@ test("does not fallback non-reasoning capabilities", () => {
 });
 
 test("prevents fallback loops when owned provider is already excluded", () => {
-  const result = allowedDecision({
+  const result = explicitlyAllowedDecision({
     providerPolicy: {
       blocked_providers: [OWNED_REASONING_PROVIDER_ID],
     },
@@ -69,18 +84,18 @@ test("prevents fallback loops when owned provider is already excluded", () => {
 });
 
 test("honors an explicit provider policy that disables owned reasoning failover", () => {
-  const result = allowedDecision({
+  const result = decision({
     providerPolicy: {
       allow_owned_reasoning_fallback: false,
     },
   });
 
   assert.equal(result.allowed, false);
-  assert.equal(result.reason, "OWNED_REASONING_FALLBACK_DISABLED");
+  assert.equal(result.reason, "OWNED_REASONING_FALLBACK_NOT_EXPLICITLY_ENABLED");
 });
 
 test("does not violate an explicit allowlist that pins the owned provider", () => {
-  const result = allowedDecision({
+  const result = explicitlyAllowedDecision({
     providerPolicy: {
       allowed_providers: [OWNED_REASONING_PROVIDER_ID],
     },
@@ -91,7 +106,7 @@ test("does not violate an explicit allowlist that pins the owned provider", () =
 });
 
 test("allows fallback when an explicit allowlist contains an alternative", () => {
-  const result = allowedDecision({
+  const result = explicitlyAllowedDecision({
     providerPolicy: {
       allowed_providers: [OWNED_REASONING_PROVIDER_ID, "openai"],
     },
@@ -108,7 +123,7 @@ test("allows fallback when an explicit allowlist contains an alternative", () =>
 });
 
 test("prevents a third provider attempt from a fallback turn", () => {
-  const result = allowedDecision({
+  const result = explicitlyAllowedDecision({
     metadata: {
       provider_failover: {
         attempt: 2,
@@ -121,7 +136,7 @@ test("prevents a third provider attempt from a fallback turn", () => {
 });
 
 test("fallback input starts a fresh metered attempt and excludes the owned provider", () => {
-  const decision = allowedDecision({
+  const decision = explicitlyAllowedDecision({
     providerPolicy: {
       blocked_providers: ["disabled-provider"],
     },
@@ -166,7 +181,7 @@ test("fallback evidence links the failed usage to the successful second usage", 
     failedUsageId: "usage-owned-1",
     failedProvider: OWNED_REASONING_PROVIDER_ID,
     failedModel: "qwen-thinking",
-    decision: allowedDecision(),
+    decision: explicitlyAllowedDecision(),
     result: {
       provider: "openai",
       model: "fallback-model",

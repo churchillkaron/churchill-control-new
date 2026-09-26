@@ -17,19 +17,18 @@ test("credential runtime never treats opaque references as resolved secrets", ()
   assert.match(broker, /resolve_provider_credential_vault_secret/);
 });
 
-test("Intelligence credentials are repository selected, broker resolved and shape validated", () => {
+test("Intelligence is owned-local and rejects external credential plumbing", () => {
   const registration = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceCredentialRegistration.js");
   const provider = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceProviderRegistration.js");
 
-  assert.match(registration, /managed_modal_credentials/);
-  assert.match(registration, /AVANTIQO_OWNED_INTELLIGENCE/);
-  assert.match(registration, /CredentialRuntime\.resolve/);
-  assert.match(registration, /modal_token_id/);
-  assert.match(registration, /modal_token_secret/);
-  assert.match(registration, /JSON\.parse/);
-  assert.match(provider, /AvantiqoIntelligenceCredentialRegistration\.js/);
-  assert.match(provider, /SUPABASE_VAULT_ROW_BOUND_SERVICE_ROLE_RPC_V1/);
-  assert.match(provider, /opaque_secret_reference_passthrough_allowed:\s*false/);
+  assert.match(registration, /AVANTIQO_INTELLIGENCE_CREDENTIAL_TYPE = null/);
+  assert.match(registration, /LOCAL_ONLY_NO_PROVIDER_CREDENTIAL/);
+  assert.doesNotMatch(registration, /managed_modal_credentials|CredentialRuntime\.resolve|modal_token_id|modal_token_secret/);
+  assert.match(provider, /local_only:\s*true/);
+  assert.match(provider, /modal_fallback_allowed:\s*false/);
+  assert.match(provider, /external_provider_fallback_allowed:\s*false/);
+  assert.match(provider, /credential_transport:\s*"LOCAL_COMPUTE_QUEUE_V1"/);
+  assert.match(provider, /runtime_credentials_required_at_execution:\s*false/);
 });
 
 test("Vault broker is service-role-only, security-invoker and row bound", () => {
@@ -50,34 +49,22 @@ test("Vault broker is service-role-only, security-invoker and row bound", () => 
   assert.match(migration, /grant execute on function public\.resolve_provider_credential_vault_secret\(uuid, text, uuid\) to service_role/i);
 });
 
-test("owned Intelligence credential provisioning accepts secrets only from server environment and serializes retries", () => {
+test("owned Intelligence credential provisioning is retired and cannot accept cloud secrets", () => {
   const runtime = source("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceCredentialProvisioningRuntime.js");
   const route = source("app/api/platform/admin/intelligence-credentials/route.js");
-  const migration = source("supabase/migrations/20260906023913_serialize_owned_intelligence_credential_provisioning.sql");
 
-  assert.match(runtime, /process\.env\.MODAL_TOKEN_ID/);
-  assert.match(runtime, /process\.env\.MODAL_TOKEN_SECRET/);
-  assert.match(runtime, /provision_owned_intelligence_modal_credential/);
-  assert.match(runtime, /secret_material_returned|secret_reference_scheme|SUPABASE_VAULT/);
+  assert.match(runtime, /AVANTIQO_INTELLIGENCE_LOCAL_ONLY_CREDENTIAL_COMPATIBILITY_V1/);
+  assert.match(runtime, /credential_required:\s*false/);
+  assert.match(runtime, /credential_provisioning_allowed:\s*false/);
+  assert.match(runtime, /external_compute_allowed:\s*false/);
+  assert.match(runtime, /secret_material_returned:\s*false/);
+  assert.match(runtime, /AVANTIQO_INTELLIGENCE_CREDENTIALS_NOT_USED_LOCAL_ONLY/);
+  assert.doesNotMatch(runtime, /process\.env\.MODAL_TOKEN_ID|process\.env\.MODAL_TOKEN_SECRET/);
   assert.doesNotMatch(route, /request\.json\(/);
-  assert.match(route, /requirePlatformOperatorWorkspaceAccess/);
-  assert.match(route, /provisionOwnedIntelligenceCredentialFromServerEnvironment/);
-  assert.match(route, /secret_material_returned:\s*false/);
-  assert.match(migration, /security invoker/i);
-  assert.doesNotMatch(migration, /security definer/i);
-  assert.match(migration, /current_user <> 'service_role'/i);
-  assert.match(migration, /pg_catalog\.pg_advisory_xact_lock/);
-  assert.match(migration, /pg_catalog\.hashtextextended/);
-  assert.match(migration, /metadata ->> 'priority'.*\~ '\^\[0-9\]\+\$'/s);
-  assert.match(migration, /vault\.create_secret/);
-  assert.match(migration, /vault\.update_secret/);
-  assert.match(migration, /'avantiqo-intelligence'/);
-  assert.match(migration, /'managed_modal_credentials'/);
-  assert.match(migration, /'AVANTIQO_OWNED_INTELLIGENCE'/);
-  assert.match(migration, /revoke all on function public\.provision_owned_intelligence_modal_credential\(uuid, text\) from public/i);
-  assert.match(migration, /from anon/i);
-  assert.match(migration, /from authenticated/i);
-  assert.match(migration, /grant execute on function public\.provision_owned_intelligence_modal_credential\(uuid, text\) to service_role/i);
+  assert.match(route, /policy:\s*"LOCAL_ONLY"/);
+  assert.match(route, /modal_credentials_supported:\s*false/);
+  assert.match(route, /AVANTIQO_CLOUD_INTELLIGENCE_CREDENTIALS_RETIRED_LOCAL_ONLY/);
+  assert.match(route, /status:\s*410/);
 });
 
 test("Business Partner binds selected business context to governed owned Intelligence", () => {
@@ -89,7 +76,7 @@ test("Business Partner binds selected business context to governed owned Intelli
 
   assert.match(home, /useBusinessContext/);
   assert.match(home, /body:\s*JSON\.stringify\(\{[\s\S]*organizationId,[\s\S]*entityId,[\s\S]*periodId,/);
-  assert.match(home, /fetchWithTimeout\([\s\S]*"\/api\/operator\/turn"/);
+  assert.match(home, /fetchWithTimeout\([\s\S]*"\/api\/operator\/turn\/live"/);
 
   assert.match(route, /requireOrganizationAccess/);
   assert.match(route, /resolveBusinessContext/);
@@ -98,13 +85,13 @@ test("Business Partner binds selected business context to governed owned Intelli
   assert.match(route, /periodId:\s*businessContext\.periodId/);
   assert.match(route, /callerRequest:\s*request/);
 
-  assert.match(fast, /ServiceExecutionRuntime\.execute\(\{/);
+  assert.match(fast, /runOperatorFrontCognition\(\{/);
   assert.match(fast, /organization_id:\s*organizationId/);
   assert.match(fast, /entity_id:\s*entityId/);
-  assert.match(fast, /service_id:\s*"ai\.text\.generate"/);
-  assert.match(fast, /ownedOperatorIntelligenceSelectionPolicy\(\)/);
-  assert.match(fast, /settleOperatorIntelligenceExecution/);
+  assert.match(fast, /front_task_mode:\s*"conversation"/);
+  assert.match(fast, /allow_fast_escalation:\s*false/);
 
+  assert.match(owned, /ServiceExecutionRuntime\.settle\(\{/);
   assert.match(owned, /provider_id:\s*OWNED_PROVIDER/);
   assert.match(owned, /allowed_providers:\s*\[OWNED_PROVIDER\]/);
   assert.match(owned, /owned_only_required:\s*true/);

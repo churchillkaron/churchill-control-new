@@ -23,6 +23,18 @@ const FULL_RUN_ENV = {
 const SOURCE_REPORT_SHA256 = "a".repeat(64);
 const FULL_RUN_MANIFEST_SHA256 = "b".repeat(64);
 const HISTORY_ENV = FULL_RUN_ENV;
+const ROTATING_HISTORY_ENV = {
+  AVANTIQO_CODE_COMPETITIVE_HISTORY_ATTESTATION_KEY_ID: "k1",
+  AVANTIQO_CODE_COMPETITIVE_HISTORY_ATTESTATION_KEYRING: JSON.stringify({
+    k1: "history-key-one-0123456789-abcdefghijklmnopqrstuvwxyz",
+    k2: "history-key-two-0123456789-abcdefghijklmnopqrstuvwxyz",
+    "legacy-unversioned": FULL_RUN_ENV.AVANTIQO_CODE_COMPETITIVE_FULL_RUN_ATTESTATION_SECRET,
+  }),
+};
+const ROTATED_HISTORY_ENV = {
+  ...ROTATING_HISTORY_ENV,
+  AVANTIQO_CODE_COMPETITIVE_HISTORY_ATTESTATION_KEY_ID: "k2",
+};
 
 function comparison(provider, model, lossCase) {
   return {
@@ -315,6 +327,9 @@ test("competitive benchmark evidence persists globally but remains advisory to c
   assert.match(runtime, /full_run_manifest_bound/);
   assert.match(runtime, /history_integrity_sha256/);
   assert.match(runtime, /AVANTIQO_CODE_COMPETITIVE_HISTORY_ATTESTATION_V1/);
+  assert.match(runtime, /AVANTIQO_CODE_COMPETITIVE_HISTORY_ATTESTATION_V2/);
+  assert.match(runtime, /ATTESTATION_KEYRING/);
+  assert.match(runtime, /ATTESTATION_KEY_ID/);
   assert.match(runtime, /createHmac/);
   assert.match(runtime, /timingSafeEqual/);
   assert.match(runtime, /STORAGE_SOURCE_COMMIT_MISMATCH/);
@@ -351,4 +366,57 @@ test("shared Code history API and UI expose competitive evidence without making 
   assert.match(panel, /benchmark certified/);
   assert.match(panel, /no superiority claim/);
   assert.match(panel, /Next competitive gap:/);
+});
+
+
+test("durable history remains verifiable across attestation key rotation", () => {
+  const evidence = boundProjection(report());
+  const sealed = sealCodeAICompetitiveBenchmarkStoredEvidence(evidence, {
+    storage_repository_commit: "1".repeat(40),
+    persisted_at: new Date().toISOString(),
+    env: ROTATING_HISTORY_ENV,
+  });
+  assert.equal(sealed.history_attestation.contract, "AVANTIQO_CODE_COMPETITIVE_HISTORY_ATTESTATION_V2");
+  assert.equal(sealed.history_attestation.key_id, "k1");
+  const afterRotation = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(sealed, { env: ROTATED_HISTORY_ENV });
+  assert.equal(afterRotation.valid, true);
+  assert.equal(afterRotation.key_id, "k1");
+});
+
+test("retired or unknown attestation key ids fail closed", () => {
+  const evidence = boundProjection(report());
+  const sealed = sealCodeAICompetitiveBenchmarkStoredEvidence(evidence, {
+    storage_repository_commit: "1".repeat(40),
+    persisted_at: new Date().toISOString(),
+    env: ROTATING_HISTORY_ENV,
+  });
+  const retiredEnv = {
+    AVANTIQO_CODE_COMPETITIVE_HISTORY_ATTESTATION_KEY_ID: "k2",
+    AVANTIQO_CODE_COMPETITIVE_HISTORY_ATTESTATION_KEYRING: JSON.stringify({
+      k2: "history-key-two-0123456789-abcdefghijklmnopqrstuvwxyz",
+    }),
+  };
+  const retired = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(sealed, { env: retiredEnv });
+  assert.equal(retired.valid, false);
+  assert.equal(retired.reason, "ATTESTATION_KEY_UNKNOWN");
+  const tamperedKeyId = {
+    ...sealed,
+    history_attestation: { ...sealed.history_attestation, key_id: "does-not-exist" },
+  };
+  const unknown = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(tamperedKeyId, { env: ROTATED_HISTORY_ENV });
+  assert.equal(unknown.valid, false);
+  assert.equal(unknown.reason, "ATTESTATION_KEY_UNKNOWN");
+});
+
+test("new history uses the configured active rotation key", () => {
+  const evidence = boundProjection(report());
+  const sealed = sealCodeAICompetitiveBenchmarkStoredEvidence(evidence, {
+    storage_repository_commit: "1".repeat(40),
+    persisted_at: new Date().toISOString(),
+    env: ROTATED_HISTORY_ENV,
+  });
+  assert.equal(sealed.history_attestation.key_id, "k2");
+  const verified = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(sealed, { env: ROTATED_HISTORY_ENV });
+  assert.equal(verified.valid, true);
+  assert.equal(verified.key_id, "k2");
 });

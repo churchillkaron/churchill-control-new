@@ -78,7 +78,7 @@ function Snapshot({version,assets,workspace}) {
             <ImageStudioLightWrapPreviewOverlay style={layer.style||{}} scale={scale} assetUrl={url} preview={preview} hasMask={Boolean(mask)} hasEdgeAlpha={edgePreview.alpha_changes===true}/>
             {adjustmentPreviews.filter((item)=>item.preview_supported&&item.opacity>0).map((item)=><div key={`compare-adjustment-${item.id}`} data-compare-adjustment-preview={item.id} className="pointer-events-none absolute inset-0" style={{...item.mask_style,opacity:item.opacity,backdropFilter:item.filter,WebkitBackdropFilter:item.filter}}/>)}
             <ImageStudioTexturePreviewOverlay style={layer.style||{}} scale={scale} selected={false}/>
-          </div>:null}
+          </div></div>:null}
         </div>;
       })}
     </div>

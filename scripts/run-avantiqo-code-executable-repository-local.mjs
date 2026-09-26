@@ -167,6 +167,7 @@ async function seedRepository(benchmarkCase) {
     case_id: benchmarkCase.case_id,
     base_commit: baseCommit,
     hidden_acceptance_sha256: hiddenAcceptanceSha256,
+    verifier_environment_sha256: verifierEnvironmentSha256,
     exit_code: baselineExitCode,
     passed: false,
   }));

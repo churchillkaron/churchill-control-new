@@ -23,7 +23,7 @@ const REPOSITORY_VERIFIER_RUNTIME_IDENTITY = Object.freeze({ engine: "node", ver
 const REPOSITORY_VERIFIER_RUNTIME_SHA256 = sha256(JSON.stringify(REPOSITORY_VERIFIER_RUNTIME_IDENTITY));
 const REPOSITORY_VERIFIER_ENVIRONMENT_SHA256 = sha256(JSON.stringify({ NODE_ENV: "test", TZ: "UTC", LANG: "C", LC_ALL: "C" }));
 const repositoryVerifierProtocolSha256 = sha256(JSON.stringify({ contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1", evidence_source: "INDEPENDENT_RUNNER", runtime: "node", candidate_binding: "DIFF_AND_ARTIFACT_SHA256", hidden_acceptance_required: true, protected_baseline_required: true }));
-const repositoryBaselineDigest = ({ caseId, hiddenSha }) => sha256(JSON.stringify({ case_id: caseId, base_commit: "1".repeat(40), hidden_acceptance_sha256: hiddenSha, exit_code: 1, passed: false }));
+const repositoryBaselineDigest = ({ caseId, hiddenSha }) => sha256(JSON.stringify({ case_id: caseId, base_commit: "1".repeat(40), hidden_acceptance_sha256: hiddenSha, verifier_environment_sha256: REPOSITORY_VERIFIER_ENVIRONMENT_SHA256, exit_code: 1, passed: false }));
 
 function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85, categoryByCase = {}, evidenceCountByCase = {}, benchmarkRunId = "55555555-5555-4555-8555-555555555555" } = {}) {
   return caseIds.map((case_id, index) => ({

@@ -3,19 +3,21 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import {
   assessCodeAIRepositoryTaskBenchmark,
+  codeAIRepositoryVerifierEnvironmentSha256,
   codeAIRepositoryVerifierProtocolSha256,
 } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
 const BENCHMARK_RUN_ID = "11111111-1111-4111-8111-111111111111";
 const VERIFIER_RUNTIME_IDENTITY = Object.freeze({ engine: "node", version: "v24.14.1", platform: "darwin", arch: "arm64" });
 const VERIFIER_RUNTIME_SHA256 = createHash("sha256").update(JSON.stringify(VERIFIER_RUNTIME_IDENTITY), "utf8").digest("hex");
-const VERIFIER_ENVIRONMENT_SHA256 = createHash("sha256").update(JSON.stringify({ NODE_ENV: "test", TZ: "UTC", LANG: "C", LC_ALL: "C" }), "utf8").digest("hex");
+const VERIFIER_ENVIRONMENT_SHA256 = codeAIRepositoryVerifierEnvironmentSha256();
 
-function baselineDigest({ caseId, baseCommit = "1".repeat(40), hiddenSha = "4".repeat(64), exitCode = 1, passed = false }) {
+function baselineDigest({ caseId, baseCommit = "1".repeat(40), hiddenSha = "4".repeat(64), environmentSha = codeAIRepositoryVerifierEnvironmentSha256(), exitCode = 1, passed = false }) {
   return createHash("sha256").update(JSON.stringify({
     case_id: caseId,
     base_commit: baseCommit.toLowerCase(),
     hidden_acceptance_sha256: hiddenSha.toLowerCase(),
+    verifier_environment_sha256: environmentSha.toLowerCase(),
     exit_code: exitCode,
     passed,
   }), "utf8").digest("hex");
@@ -464,6 +466,27 @@ test("spoofed verifier runtime digest cannot certify", () => {
 test("baseline and candidate verification must use the same deterministic environment", () => {
   const base = proof();
   const result = assessCodeAIRepositoryTaskBenchmark({ benchmark_run_id: BENCHMARK_RUN_ID, runner_source_commit: "1".repeat(40), observations: [{ ...base, repository_verification: { ...base.repository_verification, protected_baseline_verifier_environment_sha256: "f".repeat(64) } }] });
+  assert.equal(result.cases[0].gates.verifier_environment_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("matching fabricated verifier environment hashes cannot certify", () => {
+  const base = proof();
+  const fake = "f".repeat(64);
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        verifier_environment_sha256: fake,
+        protected_baseline_verifier_environment_sha256: fake,
+        protected_baseline_sha256: baselineDigest({ caseId: base.case_id, environmentSha: fake }),
+      },
+    }],
+  });
   assert.equal(result.cases[0].gates.verifier_environment_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

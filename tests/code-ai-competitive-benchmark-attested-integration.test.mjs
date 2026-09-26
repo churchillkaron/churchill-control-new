@@ -87,7 +87,10 @@ function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs
     customer_private_content_included: false,
     raw_customer_content_included: false,
     raw_reasoning_persisted: false,
-    economics: { estimated_supplier_cost_usd: 0.02 },
+    economics: {
+      estimated_supplier_cost_usd: Number((caseIds.length * 0.0005).toFixed(8)),
+      cost_measurement_source: "RUNNER_SUM_OF_RECOMPUTED_CASE_COSTS_V1",
+    },
     observations: observations(caseIds, wallMs, { qualityScore, categoryByCase }),
   };
 }

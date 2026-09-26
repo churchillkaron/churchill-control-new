@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { imageStudioGroundShadowPreview, imageStudioLocalOffsetForRotation } from "../lib/creative/stills/runtime/CreativeImageStudioContactPreviewRuntime.js";
+import { imageStudioEdgePreview } from "../lib/creative/stills/runtime/CreativeImageStudioEdgePreviewRuntime.js";
 
 test("shadow preview preserves artboard offset through rotated layer coordinates",()=>{
   const offset=imageStudioLocalOffsetForRotation(10,20,90);
@@ -71,4 +72,37 @@ test("ground shadow accepts exact clip-path mask on outer wrapper",()=>{
   assert.equal(preview.preview_supported,true);
   assert.equal(preview.outer_style.clipPath,"ellipse(40% 30% at 50% 50%)");
   assert.equal(preview.silhouette_style.clipPath,undefined);
+});
+
+test("ground shadow preview consumes supported post-edge alpha before shadow scaling and blur",()=>{
+  const edge=imageStudioEdgePreview({style:{edge_integration:{matte_choke_px:3}},scale:2});
+  const preview=imageStudioGroundShadowPreview({
+    style:{contact_realism:{shadow_enabled:true,shadow_opacity:.5}},
+    asset_url:"https://example.com/a.png",preview:{image:{left:0,top:0,width:200,height:100},frame:{}},
+    edge_preview:edge,
+  });
+  assert.equal(preview.preview_supported,true);
+  assert.equal(preview.edge_filter_required,true);
+  assert.equal(preview.fidelity,"APPROXIMATE_RASTER_EXACT_EDGE_BOUNDARY_GEOMETRY");
+});
+
+test("ground shadow fails conservative when edge alpha cannot be previewed faithfully",()=>{
+  const edge=imageStudioEdgePreview({style:{edge_integration:{edge_soften_px:3}},scale:1});
+  const preview=imageStudioGroundShadowPreview({
+    style:{contact_realism:{shadow_enabled:true,shadow_opacity:.5}},
+    asset_url:"https://example.com/a.png",preview:{image:{left:0,top:0,width:200,height:100},frame:{}},
+    edge_preview:edge,
+  });
+  assert.equal(preview.preview_supported,false);
+  assert.equal(preview.reason,"EDGE_FINISHED_SHADOW_EXPORT_ONLY");
+});
+
+test("canvas and compare apply the governed edge filter to supported shadow silhouettes",()=>{
+  const canvas=fs.readFileSync("components/creative/specialist/ImageStudioCanvasSurface.jsx","utf8");
+  const compare=fs.readFileSync("components/creative/specialist/ImageStudioVersionCompare.jsx","utf8");
+  for(const source of [canvas,compare]){
+    assert.match(source,/edge_preview:/);
+    assert.match(source,/edge_filter_required/);
+    assert.match(source,/url\(#\$\{edgeFilterId\}\)/);
+  }
 });

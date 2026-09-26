@@ -271,6 +271,7 @@ for (const benchmarkCase of cases) {
     const diffBytes = Buffer.byteLength(patch, "utf8");
     let hiddenPassed = false;
     let hiddenExitCode = null;
+    let candidateTreeSha = null;
     let hiddenStdout = "";
     let hiddenStderr = "";
     if (patch.trim()) {
@@ -279,6 +280,9 @@ for (const benchmarkCase of cases) {
       const applied = run("git", ["apply", "--check", patchPath], fixture.verifier);
       if (applied.status === 0) {
         must("git", ["apply", patchPath], fixture.verifier);
+        must("git", ["add", "-A"], fixture.verifier);
+        run("git", ["reset", "--", "hidden-acceptance.mjs"], fixture.verifier);
+        candidateTreeSha = text(must("git", ["write-tree"], fixture.verifier).stdout, 80);
         const hidden = run(process.execPath, [fixture.hiddenPath], fixture.verifier);
         hiddenExitCode = hidden.status;
         hiddenStdout = text(hidden.stdout, 1200);
@@ -304,6 +308,7 @@ for (const benchmarkCase of cases) {
       base_commit: fixture.baseCommit,
       diff_sha256: sha256(patch),
       artifact_sha256: sha256(artifact),
+      candidate_tree_sha: candidateTreeSha,
       repository_mutation_observed: patch.trim().length > 0,
       diff_nonempty: patch.trim().length > 0,
       diff_bytes: diffBytes,
@@ -318,6 +323,7 @@ for (const benchmarkCase of cases) {
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: sha256(patch),
         candidate_artifact_sha256: sha256(artifact),
+        candidate_tree_sha: candidateTreeSha,
         passed: hiddenPassed,
         exit_code: hiddenExitCode,
         hidden_acceptance_sha256: fixture.hiddenAcceptanceSha256,

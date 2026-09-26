@@ -11,6 +11,7 @@ function proof(overrides = {}) {
     base_commit: "1".repeat(40),
     diff_sha256: "2".repeat(64),
     artifact_sha256: "3".repeat(64),
+    candidate_tree_sha: overrides.candidate_tree_sha || "a".repeat(40),
     repository_mutation_observed: true,
     diff_nonempty: true,
     diff_bytes: 512,
@@ -25,6 +26,7 @@ function proof(overrides = {}) {
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: overrides.diff_sha256 || "2".repeat(64),
       candidate_artifact_sha256: overrides.artifact_sha256 || "3".repeat(64),
+      candidate_tree_sha: overrides.candidate_tree_sha || "a".repeat(40),
       passed: true,
       exit_code: 0,
       hidden_acceptance_sha256: "4".repeat(64),
@@ -62,6 +64,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
     base_commit: "1".repeat(40),
     diff_sha256: "2".repeat(64),
     artifact_sha256: "3".repeat(64),
+    candidate_tree_sha: "a".repeat(40),
     repository_verification: {
       case_id: "case-2",
       benchmark_run_id: BENCHMARK_RUN_ID,
@@ -71,6 +74,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: "2".repeat(64),
       candidate_artifact_sha256: "3".repeat(64),
+      candidate_tree_sha: "a".repeat(40),
       passed: true,
       exit_code: 0,
       hidden_acceptance_sha256: "4".repeat(64),
@@ -261,5 +265,23 @@ test("protected baseline and post-fix verification must execute the same hidden 
     }],
   });
   assert.equal(result.cases[0].gates.protected_baseline_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("verification proof must bind the exact mutated candidate tree", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        candidate_tree_sha: "b".repeat(40),
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.verifier_candidate_tree_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

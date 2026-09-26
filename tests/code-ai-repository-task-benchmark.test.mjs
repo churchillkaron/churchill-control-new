@@ -15,8 +15,10 @@ const assessCodeAIRepositoryTaskBenchmark = (report) => assessRepositoryTaskBenc
 const VERIFIER_RUNTIME_IDENTITY = Object.freeze({ engine: "node", version: "v24.14.1", platform: "darwin", arch: "arm64" });
 const VERIFIER_RUNTIME_SHA256 = createHash("sha256").update(JSON.stringify(VERIFIER_RUNTIME_IDENTITY), "utf8").digest("hex");
 const VERIFIER_ENVIRONMENT_SHA256 = codeAIRepositoryVerifierEnvironmentSha256();
+const GIT_TOOLCHAIN_IDENTITY = Object.freeze({ engine: "git", version_output: "git version 2.50.1 (Apple Git-155)", platform: "darwin", arch: "arm64" });
+const GIT_TOOLCHAIN_SHA256 = createHash("sha256").update(JSON.stringify(GIT_TOOLCHAIN_IDENTITY), "utf8").digest("hex");
 
-function baselineDigest({ caseId, baseCommit = "1".repeat(40), hiddenSha = "4".repeat(64), environmentSha = codeAIRepositoryVerifierEnvironmentSha256(), invocationSha = codeAIRepositoryVerifierInvocationSha256(), resourceSha = codeAIRepositoryVerifierResourceSha256(), exitCode = 1, passed = false }) {
+function baselineDigest({ caseId, baseCommit = "1".repeat(40), hiddenSha = "4".repeat(64), environmentSha = codeAIRepositoryVerifierEnvironmentSha256(), invocationSha = codeAIRepositoryVerifierInvocationSha256(), resourceSha = codeAIRepositoryVerifierResourceSha256(), gitToolchainSha = GIT_TOOLCHAIN_SHA256, exitCode = 1, passed = false }) {
   return createHash("sha256").update(JSON.stringify({
     case_id: caseId,
     base_commit: baseCommit.toLowerCase(),
@@ -24,6 +26,7 @@ function baselineDigest({ caseId, baseCommit = "1".repeat(40), hiddenSha = "4".r
     verifier_environment_sha256: environmentSha.toLowerCase(),
     verifier_invocation_sha256: invocationSha.toLowerCase(),
     verifier_resource_sha256: resourceSha.toLowerCase(),
+    git_toolchain_sha256: gitToolchainSha.toLowerCase(),
     exit_code: exitCode,
     passed,
   }), "utf8").digest("hex");
@@ -72,6 +75,9 @@ function proof(overrides = {}) {
       verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
       verifier_resource_contract: "AVANTIQO_CODE_REPOSITORY_BOUNDED_EXECUTION_V1",
       verifier_resource_sha256: codeAIRepositoryVerifierResourceSha256(),
+      git_toolchain_contract: "AVANTIQO_CODE_REPOSITORY_GIT_TOOLCHAIN_V1",
+      git_toolchain_identity: GIT_TOOLCHAIN_IDENTITY,
+      git_toolchain_sha256: GIT_TOOLCHAIN_SHA256,
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: overrides.diff_sha256 || "2".repeat(64),
       candidate_artifact_sha256: overrides.artifact_sha256 || "3".repeat(64),
@@ -97,9 +103,13 @@ function proof(overrides = {}) {
       verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
       verifier_resource_contract: "AVANTIQO_CODE_REPOSITORY_BOUNDED_EXECUTION_V1",
       verifier_resource_sha256: codeAIRepositoryVerifierResourceSha256(),
+      git_toolchain_contract: "AVANTIQO_CODE_REPOSITORY_GIT_TOOLCHAIN_V1",
+      git_toolchain_identity: GIT_TOOLCHAIN_IDENTITY,
+      git_toolchain_sha256: GIT_TOOLCHAIN_SHA256,
       protected_baseline_verifier_environment_sha256: VERIFIER_ENVIRONMENT_SHA256,
       protected_baseline_verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
       protected_baseline_verifier_resource_sha256: codeAIRepositoryVerifierResourceSha256(),
+      protected_baseline_git_toolchain_sha256: GIT_TOOLCHAIN_SHA256,
       protected_baseline_exit_code: 1,
       protected_baseline_passed: false,
       candidate_self_report_authority: false,
@@ -169,6 +179,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       protected_baseline_verifier_environment_sha256: VERIFIER_ENVIRONMENT_SHA256,
       protected_baseline_verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
       protected_baseline_verifier_resource_sha256: codeAIRepositoryVerifierResourceSha256(),
+      protected_baseline_git_toolchain_sha256: GIT_TOOLCHAIN_SHA256,
       protected_baseline_exit_code: 1,
       protected_baseline_passed: false,
       candidate_self_report_authority: false,
@@ -634,4 +645,27 @@ test("dirty runner source cannot certify repository proof", () => {
   });
   assert.equal(verifierDirty.cases[0].gates.runner_source_clean_bound, false);
   assert.equal(verifierDirty.repository_task_artifact_certified, false);
+});
+
+
+test("baseline and candidate repository operations must use the same attested git toolchain", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{ ...base, repository_verification: { ...base.repository_verification, protected_baseline_git_toolchain_sha256: "f".repeat(64) } }],
+  });
+  assert.equal(result.cases[0].gates.git_toolchain_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+test("spoofed git toolchain digest cannot certify", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{ ...base, repository_verification: { ...base.repository_verification, git_toolchain_sha256: "e".repeat(64) } }],
+  });
+  assert.equal(result.cases[0].gates.git_toolchain_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
 });

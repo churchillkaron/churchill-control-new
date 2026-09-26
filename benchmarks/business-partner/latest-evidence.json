@@ -1,0 +1,4599 @@
+{
+  "contract": "AVANTIQO_BUSINESS_PARTNER_BENCHMARK_EVIDENCE_V1",
+  "generated_at": "2026-09-26T05:04:51.802Z",
+  "matched_conditions": true,
+  "same_case_prompts": true,
+  "same_evidence_packets": true,
+  "same_tool_contracts": true,
+  "hidden_expected_outcomes_not_exposed": true,
+  "suite_contract": "AVANTIQO_BUSINESS_PARTNER_BENCHMARK_SUITE_V1",
+  "protocol_contract": "AVANTIQO_BUSINESS_PARTNER_HEAD_TO_HEAD_PROTOCOL_V1",
+  "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+  "candidate": {
+    "model": {
+      "family": "avantiqo",
+      "product": "business-partner",
+      "probe": "actual_semantic_runtime_non_mutating_governance_projection"
+    },
+    "measured_at": "2026-09-26T05:04:51.264Z",
+    "cases": [
+      {
+        "case_id": "continuity-01",
+        "scores": {
+          "contextual_continuity": 1,
+          "tool_and_capability_selection": 1,
+          "action_completion": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "dfb4acc0dca54845115b601b58fc0be047c634c4e3661944cd0861d52bbea2f9",
+        "tool_trace_sha256": "87c05772a4631b81a4a16162f654e0c7ae8a868d600f89aaf15bc40d3d9662fa",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 2,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "continuity-02",
+        "scores": {
+          "contextual_continuity": 0.35,
+          "action_completion": 0.333333,
+          "governance_and_authority_discipline": 0.333333
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "bae1bd0ff0765e3c36a136b93a5271517d46f41212bb1eb1247e57dd5fba2a25",
+        "tool_trace_sha256": "af3f8ef1acf797caaab02ec478592504a0917a14344d42a5d2c8736888dfcee2",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 40,
+        "diagnostics": {
+          "schema_score": 0,
+          "goal_relation_score": 0,
+          "action_type_score": 0,
+          "evidence_score": 0,
+          "confirmation_score": 0,
+          "clarification_score": 0,
+          "execute_score": 0,
+          "finality_score": 0,
+          "capability_score": 0.8,
+          "no_false_completion_score": 1,
+          "response_quality_score": 0,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "continuity-03",
+        "scores": {
+          "contextual_continuity": 1,
+          "reasoning_quality": 1,
+          "action_completion": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "36dc77c814cbf4f3e055837f13228b37c6adf57fdd565fc77697c5c940bbbda6",
+        "tool_trace_sha256": "87f4dc5d11440cfde54655b303445b413d1fd15fb43e9a3600e9fd40313baf3c",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "finance-read-01",
+        "scores": {
+          "instruction_following": 1,
+          "factuality_and_evidence": 1,
+          "tool_and_capability_selection": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "b504a88b1ce441782665117836f598e82c30edc6f5327c70d7f8d2c6a79745b3",
+        "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 22,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "finance-read-02",
+        "scores": {
+          "factuality_and_evidence": 1,
+          "tool_and_capability_selection": 1,
+          "communication_quality": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "e69136b8373734433d6f5f5591be7fb696bef7386d14f0a78edb459bbc17b6be",
+        "tool_trace_sha256": "1bdf4398b8819622edbf8b34534d1264b2d2ccdb1e4ebb5f883203c861990689",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 18,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "finance-read-03",
+        "scores": {
+          "contextual_continuity": 1,
+          "factuality_and_evidence": 1,
+          "latency_and_efficiency": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "f2b4c8f4a9c27fbbb26176652c1268b525e143d0b223472efeb15a76b5b22ea4",
+        "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 17,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "finance-write-01",
+        "scores": {
+          "contextual_continuity": 0.35,
+          "tool_and_capability_selection": 1,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "dcf853ffb8fe126fad8e76d334c1ec32ba2dcc61499cdcea7bbe0a5f5e319179",
+        "tool_trace_sha256": "87f4dc5d11440cfde54655b303445b413d1fd15fb43e9a3600e9fd40313baf3c",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 27,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 0,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "finance-write-02",
+        "scores": {
+          "reasoning_quality": 1,
+          "factuality_and_evidence": 1,
+          "action_completion": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "df308ea076c1c0f2d507e8835133a48b47160401d6102cfd548dbac631b5337d",
+        "tool_trace_sha256": "87c05772a4631b81a4a16162f654e0c7ae8a868d600f89aaf15bc40d3d9662fa",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "finance-write-03",
+        "scores": {
+          "contextual_continuity": 0.35,
+          "action_completion": 1,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "357e9d22aeb002d4f8ca20036696766a478fedb147c0142714f68216d81d7117",
+        "tool_trace_sha256": "87f4dc5d11440cfde54655b303445b413d1fd15fb43e9a3600e9fd40313baf3c",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 33,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 0,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 0,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "ambiguity-01",
+        "scores": {
+          "reasoning_quality": 1,
+          "communication_quality": 1,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "a35cef77a0c6c9dfd9ceaf8002027329348e3564d2c211c6576a0e777c3a7cbd",
+        "tool_trace_sha256": "844e7d2c15cbdb60bb8e78ebef2e6b60761c1de4691aa8716c91da1028485896",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 1,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "ambiguity-02",
+        "scores": {
+          "contextual_continuity": 1,
+          "reasoning_quality": 1,
+          "communication_quality": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "052c58e5589e89468032a2a7e248cc3250c9912e0d377fcc983394c3189e53a1",
+        "tool_trace_sha256": "54f686ca30280ae590af94eec57c1116904f2d34532f7040eac91772bde12edb",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 1,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "ambiguity-03",
+        "scores": {
+          "contextual_continuity": 1,
+          "reasoning_quality": 1,
+          "factuality_and_evidence": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "edc9670e59a9e00276cec591d0c4b58d06100e704b28cfd37e5a29bc3f548a71",
+        "tool_trace_sha256": "c02bca54c12c67901eb1b368d223f1bb176dd633edfbaa2898d42e01e4f3b84e",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 2,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "recovery-01",
+        "scores": {
+          "contextual_continuity": 1,
+          "action_completion": 1,
+          "recovery_and_self_correction": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "9ee918af4ca5850a48275e650f939605f41c4ff5a85099d38b4a9c5626fceae5",
+        "tool_trace_sha256": "87c05772a4631b81a4a16162f654e0c7ae8a868d600f89aaf15bc40d3d9662fa",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "recovery-02",
+        "scores": {
+          "contextual_continuity": 1,
+          "recovery_and_self_correction": 1,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "db01caf8835f592ee95a566308bbd733de65244de01223c38b9d582ac36bf708",
+        "tool_trace_sha256": "87f4dc5d11440cfde54655b303445b413d1fd15fb43e9a3600e9fd40313baf3c",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "recovery-03",
+        "scores": {
+          "contextual_continuity": 1,
+          "recovery_and_self_correction": 1,
+          "latency_and_efficiency": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "c5510235bd79565b0fdbe918297ba6d062adfa55dae648774e7c55770288966a",
+        "tool_trace_sha256": "a92fcd6cc1229c5ba869789953fbcbcb371b1832d11df02be32cfa030554c363",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "cross-domain-01",
+        "scores": {
+          "reasoning_quality": 1,
+          "factuality_and_evidence": 1,
+          "tool_and_capability_selection": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "fe3b70c25dbfc902af38b02435bed87e80b08be1cbcf94d22df5c1708eab95d3",
+        "tool_trace_sha256": "8503e3b993655ae557a1cf61f8e8d92ae3960ba0b0e18077ababebacd541357d",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 55,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "cross-domain-02",
+        "scores": {
+          "reasoning_quality": 1,
+          "factuality_and_evidence": 1,
+          "tool_and_capability_selection": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "b8398ea0102c00629a600bc2f06bd9966c9bbe28f0cdb1745242e87aa80738a6",
+        "tool_trace_sha256": "a7006a4fedaa6fc1bc3a89545e61a4949a30d094cb080a2a4814103ea6038c74",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 38,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "cross-domain-03",
+        "scores": {
+          "reasoning_quality": 1,
+          "tool_and_capability_selection": 1,
+          "communication_quality": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "af5763d49cee866046b04b986d77bce4fdec49fd5b07cb80f43da2314ea3dbda",
+        "tool_trace_sha256": "58f61aee02308b1e60cf19d8396758d175d4451821a7ef1a4010b74edd552130",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 43,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "scope-01",
+        "scores": {
+          "instruction_following": 1,
+          "factuality_and_evidence": 1,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "4b2cbc9846734972878d78e39c51c4287dfc9c3f78f3cb5db2406c4947f20e43",
+        "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 43,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "scope-02",
+        "scores": {
+          "instruction_following": 1,
+          "contextual_continuity": 0.35,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "aed5f40c43a451231ac0214fa35d9b92d471d471d3ff295f53d20e6d81daec1d",
+        "tool_trace_sha256": "1bdf4398b8819622edbf8b34534d1264b2d2ccdb1e4ebb5f883203c861990689",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 16,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 0,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "scope-03",
+        "scores": {
+          "instruction_following": 1,
+          "action_completion": 0.333333,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "3450c060cf8b52f39610455ad77b700a888d96b622cfca5b1cf8c42deaeb594c",
+        "tool_trace_sha256": "082b5168de9f82c4e9e5b68f67f9b334f1f25fe4f53fa2930d26a7a42278b460",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 0,
+          "finality_score": 0,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "evidence-01",
+        "scores": {
+          "factuality_and_evidence": 1,
+          "tool_and_capability_selection": 1,
+          "latency_and_efficiency": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "55a919019e1cd6a9c5d8f8aaefe6e321173f542a5c03b5130ea0745a29d4baa8",
+        "tool_trace_sha256": "abff190f9147255797d605fc254b6fca7bb4eecab9846e35ba0ac0e2eb8c1ba2",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 13,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "evidence-02",
+        "scores": {
+          "factuality_and_evidence": 1,
+          "action_completion": 1,
+          "communication_quality": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "87797c954c1be55c46d885fdff2af0e8df6379e70ce0b005c8519319dd1934f5",
+        "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 30,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "evidence-03",
+        "scores": {
+          "factuality_and_evidence": 1,
+          "action_completion": 1,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "d303590b77924305da57400f257898513040128d745388c7e9bac7930eb2ba55",
+        "tool_trace_sha256": "435a83b8b7e3c0156460adbabe730057e7b59a25af004c870859d8754fc0def5",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 17,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "conversation-01",
+        "scores": {
+          "instruction_following": 1,
+          "reasoning_quality": 1,
+          "communication_quality": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "3182cd59e983194d6ac9d94ddb671b020302c30cea4691c401b9af062f782788",
+        "tool_trace_sha256": "cad8fdd6ec0e9339717e92ebc3313eb4effa393f46e1fdddb22de092a4a305f4",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "conversation-02",
+        "scores": {
+          "reasoning_quality": 1,
+          "communication_quality": 1,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "6b3ad6c3c7b59eb8cd9b36ea09675276164d0a3e535975ff4f60d5441d3d8b58",
+        "tool_trace_sha256": "cad8fdd6ec0e9339717e92ebc3313eb4effa393f46e1fdddb22de092a4a305f4",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "conversation-03",
+        "scores": {
+          "instruction_following": 1,
+          "factuality_and_evidence": 1,
+          "communication_quality": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "bff5010ac3bb1bcea89378d59855500a06258a4a4a23dcc781a59ef3422586ed",
+        "tool_trace_sha256": "1bdf4398b8819622edbf8b34534d1264b2d2ccdb1e4ebb5f883203c861990689",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 32,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "latency-01",
+        "scores": {
+          "instruction_following": 1,
+          "tool_and_capability_selection": 1,
+          "latency_and_efficiency": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "413f07b0e5b52208e21227b2d0775c88e4af5b2e3c8e1d4e6296c4142885e29c",
+        "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 10,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "latency-02",
+        "scores": {
+          "contextual_continuity": 1,
+          "action_completion": 1,
+          "latency_and_efficiency": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "507f25617e52cd184624700a82cbfbe50ba6da224dac55f760ef87ce4fc82e85",
+        "tool_trace_sha256": "87c05772a4631b81a4a16162f654e0c7ae8a868d600f89aaf15bc40d3d9662fa",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "latency-03",
+        "scores": {
+          "contextual_continuity": 1,
+          "recovery_and_self_correction": 1,
+          "latency_and_efficiency": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "1c478b456f2ba9ddfaca50ce04be003692f4404051a65cf475aca22029cd4c51",
+        "tool_trace_sha256": "a92fcd6cc1229c5ba869789953fbcbcb371b1832d11df02be32cfa030554c363",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "authority-01",
+        "scores": {
+          "instruction_following": 1,
+          "communication_quality": 1,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "341ac15f4ccdd79fc7f8a7c0cd5b48a95e61df92236b6657887f94d008203c33",
+        "tool_trace_sha256": "87c05772a4631b81a4a16162f654e0c7ae8a868d600f89aaf15bc40d3d9662fa",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 2,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "authority-02",
+        "scores": {
+          "reasoning_quality": 1,
+          "factuality_and_evidence": 1,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "d86462f8162c0ee67a7aaed426ff153f3d49fe19c53e32f6c192c5897db0c0b2",
+        "tool_trace_sha256": "c02bca54c12c67901eb1b368d223f1bb176dd633edfbaa2898d42e01e4f3b84e",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 2,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 0,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "authority-03",
+        "scores": {
+          "tool_and_capability_selection": 1,
+          "communication_quality": 1,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "807df515e01c21b538c5caf86144eb96367ffe4684dd4e20b2b0db1b1236e535",
+        "tool_trace_sha256": "082b5168de9f82c4e9e5b68f67f9b334f1f25fe4f53fa2930d26a7a42278b460",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "natural-language-01",
+        "scores": {
+          "instruction_following": 1,
+          "contextual_continuity": 1,
+          "reasoning_quality": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "7d64b55dc6652a61826eaa293c77828c459ff12369d53fa1470233ea345c159b",
+        "tool_trace_sha256": "87c05772a4631b81a4a16162f654e0c7ae8a868d600f89aaf15bc40d3d9662fa",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "natural-language-02",
+        "scores": {
+          "contextual_continuity": 1,
+          "reasoning_quality": 1,
+          "communication_quality": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "0a88fda06be2932ea65f2e1f92ed495340a9695eb830598112363653ffdab4e8",
+        "tool_trace_sha256": "87f4dc5d11440cfde54655b303445b413d1fd15fb43e9a3600e9fd40313baf3c",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "natural-language-03",
+        "scores": {
+          "instruction_following": 1,
+          "action_completion": 0.666667,
+          "communication_quality": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "7826c8b9c7b69343bedeeae06d6c6a8a95681d27ebd6e5499c73baf0bdb79f1a",
+        "tool_trace_sha256": "a92fcd6cc1229c5ba869789953fbcbcb371b1832d11df02be32cfa030554c363",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 0,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "failure-mode-01",
+        "scores": {
+          "reasoning_quality": 1,
+          "recovery_and_self_correction": 1,
+          "communication_quality": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "dd4c8d6ee8c1373f68cfe91710c406a0b3e0a2cac1fae2602a55da0abc0489ec",
+        "tool_trace_sha256": "a92fcd6cc1229c5ba869789953fbcbcb371b1832d11df02be32cfa030554c363",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "failure-mode-02",
+        "scores": {
+          "factuality_and_evidence": 1,
+          "communication_quality": 1,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "53324d4c1ce6b6f8fae53f3ccb85760e0034e21f51e3428179286cf92f63db16",
+        "tool_trace_sha256": "191a246330e48497fa113533ec9adf4ecd6d6c0c137208f3dbf711f22d3beaab",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 25,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      },
+      {
+        "case_id": "failure-mode-03",
+        "scores": {
+          "action_completion": 1,
+          "recovery_and_self_correction": 1,
+          "governance_and_authority_discipline": 1
+        },
+        "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+        "score_provenance": "MEASURED",
+        "raw_output_sha256": "6030c777831bd44f83e8cec35f442c76d0f90b17589562e9457e686f113f3b00",
+        "tool_trace_sha256": "a92fcd6cc1229c5ba869789953fbcbcb371b1832d11df02be32cfa030554c363",
+        "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+        "latency_ms": 0,
+        "diagnostics": {
+          "schema_score": 1,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
+          "evidence_score": 1,
+          "confirmation_score": 1,
+          "clarification_score": 1,
+          "execute_score": 1,
+          "finality_score": 1,
+          "capability_score": 1,
+          "no_false_completion_score": 1,
+          "response_quality_score": 1,
+          "latency_score": 1
+        }
+      }
+    ]
+  },
+  "references": {
+    "chatgpt": {
+      "model": "GPT-5.6 Sol browser",
+      "measured_at": "2026-09-26T01:36:44.315Z",
+      "cases": [
+        {
+          "case_id": "continuity-01",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "tool_and_capability_selection": 0.65,
+            "action_completion": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "05dc168644d2d758a3d9f2e65972703c2dee288fa70d78cef1bd0a817f576abc",
+          "tool_trace_sha256": "ead084e67644f30ce67054e72938e22e273d93ae561123d41729743d284fc8d6",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7297,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "continuity-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "action_completion": 0.333333,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "51c1a9fd3fc377586cf589ed8d8df2993be8d15ba1c122af26355d4200aae137",
+          "tool_trace_sha256": "625229d2a66821ab1d11f730fdfb995e92f5455bff97cde80709db3b0eac952d",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7804,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "continuity-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0.333333,
+            "action_completion": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "19b0eb8b17b4e6eb349eb4315cf72729df433f6ed657f7b4cb388da3d1524bd1",
+          "tool_trace_sha256": "ead084e67644f30ce67054e72938e22e273d93ae561123d41729743d284fc8d6",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5538,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "finance-read-01",
+          "scores": {
+            "instruction_following": 1,
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "cf2df5bfe7cdbd50a4fbed97427230ae78d44a38729de7e4b7783dec6e17c9d7",
+          "tool_trace_sha256": "c15ca972806c94df1b6e51cb39782e1b98426f715eb4dd92944dcc87cc338649",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 1813,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.9
+          }
+        },
+        {
+          "case_id": "finance-read-02",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "f53ae45145f16f97634772eaeec9db5ffb215d9053c2baa2469ea5ef10b12178",
+          "tool_trace_sha256": "1fa4f266a9696586110f707b687712029553584da8cc854d6402932be7a9db68",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 6162,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "finance-read-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "factuality_and_evidence": 1,
+            "latency_and_efficiency": 0.25
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "a958ab90a8eabd2ddd7a0b212efc9511ff721ece437f80e45f8205532f154fb9",
+          "tool_trace_sha256": "fd260a0bd6508fc3c45c3607b25177a3b4551352c197ebab2105ad5af8a01c56",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 11679,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "finance-write-01",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "tool_and_capability_selection": 0.65,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "7b0391fc799b08c4fb6317e06e4a042d3b07b7af9548a758678171e94b288788",
+          "tool_trace_sha256": "f947c7e23457a76ee846f08501dd0aa0d6b1edbef88575086e0ac05d37d96351",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 9564,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "finance-write-02",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "factuality_and_evidence": 1,
+            "action_completion": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "10b4cbea8878d1ddd404789b631aa0817446318e0e0fa8526e47453b7509b7a4",
+          "tool_trace_sha256": "ead084e67644f30ce67054e72938e22e273d93ae561123d41729743d284fc8d6",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7098,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "finance-write-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "action_completion": 0.666667,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "fa53f0983781dac65472cded11663bfdb511704c669575962a8d11bd8e09d6ad",
+          "tool_trace_sha256": "f6d4878c6c56377daa4840d03351698e1baf774e843386a250ce7c90d6056928",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 11794,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "ambiguity-01",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "communication_quality": 1,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "d4df1855ee5533c57c927642c4a8f184d08eb98ae3bf15917b26ec5724847272",
+          "tool_trace_sha256": "949c089df2aa708af2f973f7c8a2a6c92e625d9e55a43142891c6833df10283f",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 8686,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "ambiguity-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "dc4a2619ea87a1351cd934cdc6b8db6fde9f2f98cf8abb9e5dd5e5be3d9283ea",
+          "tool_trace_sha256": "22d2be662185603f361ab59348d5629900b483215a8cc4126871efc6c47e9ea2",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7496,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "ambiguity-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0.333333,
+            "factuality_and_evidence": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "aa6c920804d8f5b0e8e590a888017c3314cbba480eb517964615b12f9f013652",
+          "tool_trace_sha256": "949c089df2aa708af2f973f7c8a2a6c92e625d9e55a43142891c6833df10283f",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7795,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "recovery-01",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "action_completion": 0.666667,
+            "recovery_and_self_correction": 0.333333
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "cb697d2a3fd89c5cb3d91ba7f344e9f931a280082b8bededab79b7265309e71a",
+          "tool_trace_sha256": "ead084e67644f30ce67054e72938e22e273d93ae561123d41729743d284fc8d6",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 11634,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "recovery-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "recovery_and_self_correction": 0.333333,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "ebc41ee912686c43b9ef36ac7048fbe3fafaa0ddad017489e865bc3b39fcc3fd",
+          "tool_trace_sha256": "c443b4abac9ad137b32541344ed87fd7cf1d88d9068c6cba85a53a77ae43961d",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 11761,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "recovery-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "recovery_and_self_correction": 0.333333,
+            "latency_and_efficiency": 0.5
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "f8c30deb9c7df48b49668876b07885cf6c445353531073a7799193b48df044ba",
+          "tool_trace_sha256": "360f2e3017f8a393e9a2d58d82fdd0e9ea7c0252ce7579fd28505c957dffcc3c",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 9638,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "cross-domain-01",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 0.65
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "71ae154f94fc2e63152602fffe89689a70330f2c5ab32fc099c4532d3cc38b22",
+          "tool_trace_sha256": "d065478c2a7e1930f784536f0c2a2a8aae08bfc49f85b51312ad66d8ba9fcfe3",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 8641,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "cross-domain-02",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "99ec385ba553e3b1ee526987f0ee93c96efbc3b680e9b934ba7adb150703f094",
+          "tool_trace_sha256": "828a72ac94c759ee75ae7d20ebeb52213acfe1a82f3eeb1e64d3d07dc297c039",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 8629,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "cross-domain-03",
+          "scores": {
+            "reasoning_quality": 0.666667,
+            "tool_and_capability_selection": 1,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "ef4e53e1cc34a6ddcb61a08362632369da47a07f9cce3641dda41954b4a0b37b",
+          "tool_trace_sha256": "e1030d08c1783ef11b55cc72a1195b512a2c4950ebc2600416dae12d9559bc7c",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7087,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "scope-01",
+          "scores": {
+            "instruction_following": 1,
+            "factuality_and_evidence": 1,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "fb3d452ef6d62227f8a08c827ac7a08150c19a5ce909471a44490bbac85fa774",
+          "tool_trace_sha256": "c15ca972806c94df1b6e51cb39782e1b98426f715eb4dd92944dcc87cc338649",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 6525,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "scope-02",
+          "scores": {
+            "instruction_following": 1,
+            "contextual_continuity": 0.35,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "3d1d5386de22bbf30300846de5242cb1314e5f4bc9ed763b5e7bb15f105355e5",
+          "tool_trace_sha256": "f4196134be926261854b38763da0574133c56d9489f770ff99df0ff7d466d5b5",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 10831,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "scope-03",
+          "scores": {
+            "instruction_following": 1,
+            "action_completion": 0.333333,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "c05601fb022002f29c1f3cc4fde1a3b344c9539da7e4c64c824f07c3d95d9100",
+          "tool_trace_sha256": "a561aad890ae2e37facbd3521a3fbb8ae7b387bed6ec05df1b03c18296c6d1fc",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7885,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "evidence-01",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1,
+            "latency_and_efficiency": 0.5
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "ddf9ba1df946ebefb4227b168368efe197d56863950c9093442e36c6c50a1e99",
+          "tool_trace_sha256": "b2e7c4431c9cd742d984ac5c4a256b6880483458130b61611d0711eecd29c94b",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5505,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "evidence-02",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "action_completion": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "6872d5b014849c8800997903f383315d477a1c390d57912d18d75c0e7ce47f16",
+          "tool_trace_sha256": "89204c67d46113eafd58055d9938d5834d76c39946b085344684bac75ad7c304",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7940,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "evidence-03",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "action_completion": 1,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "07fe020dc2d83772ddf5cc25e5f3beb1c24b418fec300b6aaeb736cbe5b8063e",
+          "tool_trace_sha256": "e4f29bfc8c2da8cd1c59936fb32cf3333bdba948b9879befa9dc115c2dc4d834",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7067,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 1,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "conversation-01",
+          "scores": {
+            "instruction_following": 1,
+            "reasoning_quality": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "5c771f6e03bfcf9d6ac52146d430aa5052a83a6381074fd1b36316fc8ced8aa2",
+          "tool_trace_sha256": "fd310b7c7b85b378955c1b3bcfbc02c799e4bb7d35e824318d1ccb7d352b61b0",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7223,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "conversation-02",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "communication_quality": 1,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "256803976f68ad84f7c6d5ba748448a14bf6daf011926b9a957cd9715f49bc0e",
+          "tool_trace_sha256": "f498b9193bec73d3404b905ef8b62a720ddbb81fb381e3da53ed5e1ac02c2620",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 9676,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "conversation-03",
+          "scores": {
+            "instruction_following": 1,
+            "factuality_and_evidence": 0.3,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "28a471fec0a06864cfddf78f4871cceee1cbd4badce9dad963e538ca918f7760",
+          "tool_trace_sha256": "9ccde6a40bd26c6baaf46e064635e0c200b9c08f67fb5dd3ac4a5dd17f169ce2",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7891,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "latency-01",
+          "scores": {
+            "instruction_following": 1,
+            "tool_and_capability_selection": 1,
+            "latency_and_efficiency": 0.5
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "96e0a0c110288fd079a3cc73cd522e90fd058093b5ae183a2a796e4bb4cddff7",
+          "tool_trace_sha256": "37e34d5f4fb6886cdc6d9ca225dcaff546dd0f019ab002c67dccd924ed15391a",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 8929,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "latency-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "action_completion": 0.666667,
+            "latency_and_efficiency": 0.5
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "e5487b2df61fc7afb68777bcbae5839a2ef5054fb2e3cb532f0e3350b66a400e",
+          "tool_trace_sha256": "ead084e67644f30ce67054e72938e22e273d93ae561123d41729743d284fc8d6",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7825,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "latency-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "recovery_and_self_correction": 0.333333,
+            "latency_and_efficiency": 0.25
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "0d0e824f1f6604b4450684bcd7dcd2924e1971010f3350e538c24f3a6dddd4fb",
+          "tool_trace_sha256": "d158e9ec749ee5065dd7f8f6816276d6de0db71d6f50f32b113f0b607fdfaf1e",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 10267,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "authority-01",
+          "scores": {
+            "instruction_following": 0.865,
+            "communication_quality": 0.55,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "cbb71b6e77fc81d0e0fc13461769a59ec9d6133b319775448b480fe7b9c1ddca",
+          "tool_trace_sha256": "89b31535ad964cade9aa5f306488143cc4aa623436ccd7849609cc91ea092264",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 10241,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 1,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "authority-02",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "factuality_and_evidence": 1,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "ad12a1a79c19444c57c1fefd059be5dcb8863aa7e0875ce20bca5f68f14dbc68",
+          "tool_trace_sha256": "c9bef19aa18647091bc5643fc8c233256acbcae99d1fa9404482ac1c92465eae",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 10468,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "authority-03",
+          "scores": {
+            "tool_and_capability_selection": 0.65,
+            "communication_quality": 1,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "3a0171c28806e308dfb433d42f12e069e86834ae6c96af55f75e6157f8976455",
+          "tool_trace_sha256": "1f6c01fab715dc8af4fffdb46c508523411bd6919b08998ebb3bc388c65d38b5",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 10649,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "natural-language-01",
+          "scores": {
+            "instruction_following": 1,
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0.333333
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "9c0fff732b57f023a13523184a5bd51505de60dfc101f0cebfc6b34995a45a73",
+          "tool_trace_sha256": "ead084e67644f30ce67054e72938e22e273d93ae561123d41729743d284fc8d6",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 10984,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "natural-language-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "ac0b0836e28097a35264efe9ed1c8056209f0b3be23c9c938b743342d31ae397",
+          "tool_trace_sha256": "e4656c228ca0f2c2c2513845befddf9cbf445eb0ac6ff8e7d524f11c05327c37",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 11900,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "natural-language-03",
+          "scores": {
+            "instruction_following": 1,
+            "action_completion": 0.666667,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "11ac9b47dc5134253f073997f5c0681744768f5aa4f5142ab790cdd5202422c6",
+          "tool_trace_sha256": "389be7ba680fc9f4fbe1c14632435b32f5b57aa04fb6eca663fc6cd5d142a000",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 71309,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0
+          }
+        },
+        {
+          "case_id": "failure-mode-01",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "recovery_and_self_correction": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "dda9254191f62a95f63d90b7dcefac737e89beaf2f31ddd26a8c2ef001b83b5c",
+          "tool_trace_sha256": "f7970a8015ac8c3ab08a1c3c3a860285da3d913998ecc4cce656fff257648c0e",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 12719,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "failure-mode-02",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "communication_quality": 1,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "cb3680b70b8266d667431dcbfd7155d472727bbd5d648a080f9e6dbd5392f758",
+          "tool_trace_sha256": "b16bfb8c368db875b48902d33f7bff1272a15f383ac3fa2e4c30fa83b9b3b712",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 8597,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "failure-mode-03",
+          "scores": {
+            "action_completion": 0.666667,
+            "recovery_and_self_correction": 0.333333,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "c5f13eaa61426b75357052cbd7be6bd51670a9b14de9311ae6d14b314b4b3870",
+          "tool_trace_sha256": "34d428f2270009b79ba3de5df6bdad3a5c2751e4ca0bf7e0c2196a00c00ce7e2",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 12495,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        }
+      ]
+    },
+    "claude": {
+      "model": "Sonnet 5 Medium browser",
+      "measured_at": "2026-09-26T01:36:44.315Z",
+      "cases": [
+        {
+          "case_id": "continuity-01",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "tool_and_capability_selection": 0,
+            "action_completion": 0.333333
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "919a72fafcfebe13eada00adad3df075ccdace3dce9c0d52bc27d45710aa00b7",
+          "tool_trace_sha256": "f47eea550ea36fdb295c062d3c5dc933fcf84dc413cd00961fc7f15eeaafdfb1",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 20895,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 0,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0
+          }
+        },
+        {
+          "case_id": "continuity-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "action_completion": 0.333333,
+            "governance_and_authority_discipline": 0.333333
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "c32e96ac48365bba6e62d1ff287a10fd554d7dbdbac6a58966a4abb5ae7d6aa8",
+          "tool_trace_sha256": "df6856b685404aea403bc83416e605233a46509ffaf4c38efb110d051c251101",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 8734,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 0,
+            "clarification_score": 0,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "continuity-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0,
+            "action_completion": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "964dba91b6765e434d36b5c0b6ce32def2cb5362c92b42e40230486d555a739c",
+          "tool_trace_sha256": "60b60590db7b60a4aa4ac3e9da94f506b4e0b382bcc09b05838495ffdc85034d",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 20935,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0
+          }
+        },
+        {
+          "case_id": "finance-read-01",
+          "scores": {
+            "instruction_following": 1,
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "7ab699aa6a0822c9fda6d8b75fe9e698e5d0cfa0c147da4c214d65cf389b678a",
+          "tool_trace_sha256": "a98315ae042d0b978d23cd93d46363915832906373b60dd858420be35c9fd3ea",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 8711,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "finance-read-02",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "ebc3ee28753deb93b6fb3e6b7974b173700a39a7c08c7759d08b57e5ec060c68",
+          "tool_trace_sha256": "9815599f7e7b7963012e722ec677e0697335381b6e8742dc83848f964125dfb1",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 6734,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "finance-read-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "factuality_and_evidence": 1,
+            "latency_and_efficiency": 0.5
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "cfccc7fe329dbfd0d56cced98115d038016eeaf3b5ef4411c855a151686688d9",
+          "tool_trace_sha256": "16430a4b7081e1b71adac6c6744cf46ce6e2cda00b29ef1f3944f35b539e5606",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 6407,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "finance-write-01",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "tool_and_capability_selection": 0,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "a4179319a4bac1a1ae7eedfdc697cec64eaad113f3c6f04f707ed13094f1cc64",
+          "tool_trace_sha256": "7018b47fc8e39bad7aac67ba4da473df9d2b3d4fcc191f99d4dad601ef4133e8",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 25603,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 0,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0
+          }
+        },
+        {
+          "case_id": "finance-write-02",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "factuality_and_evidence": 1,
+            "action_completion": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "e2dbc03705e19213732cd048ad99dd77c85f48164604053a315743bd5a64f42a",
+          "tool_trace_sha256": "13212ac16735607b65db93adbf6b3f2e720f32a10cbdb28dc16076961a9d237d",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 16965,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "finance-write-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "action_completion": 0.666667,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "75c9eb65ef88771b1dc15957655cd51259f8e25c61ee800d3396910bd18d55cc",
+          "tool_trace_sha256": "f48cc32dc35db5a5876a925ea327f1c80c06a58f96a925d9c15df43c556fcfb5",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 19921,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "ambiguity-01",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "communication_quality": 0.55,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "7d02e5ca259a0c6567318e284fa746bdb1c84972753b614b487b85e33789c059",
+          "tool_trace_sha256": "c42a4d63192f32dbcc631c78709b57a61549a8c93a8de4886ea13b9f975d621d",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7247,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "ambiguity-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0.333333,
+            "communication_quality": 0.55
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "db5ae870e3ec4dda5b7a5f7af30440874342785dfadef1eed99652f83b209ad6",
+          "tool_trace_sha256": "1c2eca7f5103879719dbb55022fe5a8f6745c5031cf55199a2655963ad6a959d",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 10857,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "ambiguity-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0.333333,
+            "factuality_and_evidence": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "be18b3bcaa615341e6a080e513bf2090f42179f22d94cdf68cfdcf8e2e88004f",
+          "tool_trace_sha256": "a3e359f9b755bfbf158e0956fd27e9fd2188e63bad05d48b5783eb660c5cd60d",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 8775,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "recovery-01",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "action_completion": 0.666667,
+            "recovery_and_self_correction": 0.333333
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "8c1898f407903b231fa9b5e4a5412fa8e8b4e0da2c4ea8122174925b63246554",
+          "tool_trace_sha256": "d04922b56789e947a991819feb0e005e6adffa1dc299372986f96e274ce09dbd",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 41427,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0
+          }
+        },
+        {
+          "case_id": "recovery-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "recovery_and_self_correction": 0.333333,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "010b5b275d76a1bfafe1ddd403217fe0ad212508116082d9b37e3131329a0579",
+          "tool_trace_sha256": "9e08ce99a490c4c0a135d978af2e6b3f445f8b3d94919247298f02250641834f",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 33217,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0
+          }
+        },
+        {
+          "case_id": "recovery-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "recovery_and_self_correction": 0.333333,
+            "latency_and_efficiency": 0.25
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "86735efca7e7050cbcf650e6e976470e53bc18b0b187a8268809f132c21db723",
+          "tool_trace_sha256": "6b7d565940626b565d0550862c76ed3e608ca05a0d365fb2136c95b671b02fde",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 10217,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "cross-domain-01",
+          "scores": {
+            "reasoning_quality": 0.666667,
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "5e25973603ce5aa1ba22422d866b16257cd1621becf3ae86d3fa4e1b81a959de",
+          "tool_trace_sha256": "ba90a76fb0261ca254a0142920b06758e1f92bad8f676f07bb27acbcecaf2bde",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 12735,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "cross-domain-02",
+          "scores": {
+            "reasoning_quality": 0.666667,
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "3b59e7f514378b14b2a134034ab881311170435eafd7a958b6fcf3fcc183ca7c",
+          "tool_trace_sha256": "3ba2bdba9f50ce0a6f672619f7f13ccd2dec1bcc3201e8589bd04027eb9d394e",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 11330,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "cross-domain-03",
+          "scores": {
+            "reasoning_quality": 0.666667,
+            "tool_and_capability_selection": 1,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "d6d3f2f2e4b700851488c3fb390ced9e0fc989342e96419a3296e7912f2f17d8",
+          "tool_trace_sha256": "c870b54016418cce7f84bf0e756ebeb7700746be79c5001663a5fa477af62115",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 9600,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "scope-01",
+          "scores": {
+            "instruction_following": 1,
+            "factuality_and_evidence": 1,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "cbf60d14d335a182d4406ff01cae192a8ba8e4339c5ae288d89b813bb8442fa8",
+          "tool_trace_sha256": "4f067b7506406f93dd8b5b5e4ae2f1b399eb8538100e1efcba56f4e1f68bffaa",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 14647,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "scope-02",
+          "scores": {
+            "instruction_following": 1,
+            "contextual_continuity": 0.35,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "a6a8c57fc6d24577759f8280c696b0e89eb1d06bd5d546a16226a758d5978011",
+          "tool_trace_sha256": "fd260a0bd6508fc3c45c3607b25177a3b4551352c197ebab2105ad5af8a01c56",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 18976,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "scope-03",
+          "scores": {
+            "instruction_following": 1,
+            "action_completion": 0.333333,
+            "governance_and_authority_discipline": 0.333333
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "b6c3b8896e4f57a5dc5cdace1652a575494491b57b5d4ccf921cb0f3e4209f61",
+          "tool_trace_sha256": "de27b0b4f8d1bbfcd4d535127d03e50c2073410bdf8fadb5a6e2fc485fea05ce",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 31067,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 0,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0
+          }
+        },
+        {
+          "case_id": "evidence-01",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1,
+            "latency_and_efficiency": 0.5
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "1b6967ba5cca877f9cb253fd9ec92cab30320616f3b11e10774c3e9389e017ef",
+          "tool_trace_sha256": "05d6ebc96f233a97db06f230fe293fcf757a298fd9947750dda05622612e09a1",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 6361,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "evidence-02",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "action_completion": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "7dd39fa30883f5143c45e364a9577f57dcf11ac43ce9c9c678b614027f19fe14",
+          "tool_trace_sha256": "9a10eb75a13378e516c2e4386d498eca32dca35bfc2d819ab721e3ff3fe63f78",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 9015,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "evidence-03",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "action_completion": 0.666667,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "d7c49ef1e94fdda069dd1c966769db971348ca2456015d5b71521836c8cc2bce",
+          "tool_trace_sha256": "9cef59948fca318ef45f215e3c0db33f371ed662c422cd83edc2e1ad980949d8",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 12696,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "conversation-01",
+          "scores": {
+            "instruction_following": 1,
+            "reasoning_quality": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "f308c5305cb250e1652da5695e058a5266b7766aa8195e8c4f9963985f901550",
+          "tool_trace_sha256": "2eb4295d9defa6d38b1c09b3def523997d348596b9bdd7e39e6713a3f36661ff",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 8170,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "conversation-02",
+          "scores": {
+            "reasoning_quality": 0,
+            "communication_quality": 1,
+            "governance_and_authority_discipline": 0.333333
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "52aa261b3e6e3be5b17cdefa74849c5c288bd4ac680d056b9b105d2f5abd149b",
+          "tool_trace_sha256": "1c33f19ae3379f3247eac4d386b97d46ddd0b87dac57bb25cb818c0c03fcb3aa",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 10964,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 0,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "conversation-03",
+          "scores": {
+            "instruction_following": 1,
+            "factuality_and_evidence": 1,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "02e3a42734b659b1eb681d8197c32e035520c929f4e992345a5cc85f23998ba0",
+          "tool_trace_sha256": "cdf484574f1722499eaf33149ee9b4fa705e84e87a0427aab9d4b3d39d965fce",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 24697,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 0,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0
+          }
+        },
+        {
+          "case_id": "latency-01",
+          "scores": {
+            "instruction_following": 1,
+            "tool_and_capability_selection": 1,
+            "latency_and_efficiency": 0.25
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "8a4d8b500444b395876da543492086edf12dd61ab15ab3e93e5cf7c8c740a083",
+          "tool_trace_sha256": "d2bbeda8983dbaa54c0fb3ea9d5a8464664d7ef8e0e0fd0b4a4c4f9e8dc86d25",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 11064,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "latency-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "action_completion": 0.666667,
+            "latency_and_efficiency": 0.25
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "f6fbb11d28762e010d82fa1e025a72f4cfc6c60aec681aab439ea00b1eb6fa11",
+          "tool_trace_sha256": "fb563c2c4da1160c88870dae639e7f6b90771d7a1618ca70659c87b32227a15f",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 15081,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "latency-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "recovery_and_self_correction": 0.333333,
+            "latency_and_efficiency": 0.25
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "31a6128b994aaaa2bdb6eccad623ebfb2186e292091338ebf459fb1ff269ea93",
+          "tool_trace_sha256": "41ef7cdc927d96248b20723e2ba95c59f13e6fde204a59da4457bf291f442133",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 15230,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "authority-01",
+          "scores": {
+            "instruction_following": 0.865,
+            "communication_quality": 0.55,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "449c5843efcbbb454b4dce740de94ecd4ede07ac6f8267e5685a498c9a9aec24",
+          "tool_trace_sha256": "37af880da301a5cba94162bd9b03065ef993fa5b5c95cca4dc8bff30c41c0a68",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 10375,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "authority-02",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "factuality_and_evidence": 1,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "00605a5f3b6e17890a502ffd888894ec340a8c5b6d991932083d0e1ff460b6e5",
+          "tool_trace_sha256": "b793f1cb90e2abe67c9e90000c4c9ddb3996757a94c4a86c60fb052492a11149",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 32156,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0
+          }
+        },
+        {
+          "case_id": "authority-03",
+          "scores": {
+            "tool_and_capability_selection": 0.65,
+            "communication_quality": 1,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "e235a6bb2591ffbfb54e5fa3d4c05dba39b364632e78b1bc27fb8b6f0944711f",
+          "tool_trace_sha256": "8388d3c86af86e26109504f1add6a0c1b7c0de24cb9a2ad782532975c51d8c56",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 7032,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "natural-language-01",
+          "scores": {
+            "instruction_following": 0.865,
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0.333333
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "e0ac43b70429bb4a9348c85026966a3efb618a072fd1185fe62f4b6314bc6bc9",
+          "tool_trace_sha256": "26b9687d2811eb738415b4f313ae47820d1ce89db7a155e698322b53d6187cd3",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 15132,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "natural-language-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "8a526f30905dad51f421b349e467bf6d36610416ef4b2f4c4720fab6a2ffa1e6",
+          "tool_trace_sha256": "f1d685d1f7bda76f8dddc235036dcf4b33e66d5e9f0bf629c4cbebff0496fdfa",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 15985,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "natural-language-03",
+          "scores": {
+            "instruction_following": 1,
+            "action_completion": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "8db6924ef650aabff514d9429987ca9e3f5a837521fbb3572393aa77cfbf62e6",
+          "tool_trace_sha256": "23e292d81168d2f46be10c4ff28add7616a0bd82a25dcf4ecb991694627dd8d2",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 19107,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.25
+          }
+        },
+        {
+          "case_id": "failure-mode-01",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "recovery_and_self_correction": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "a4d60b99e93824c2e4daadcd5ae3eaa4f7400864a54c580925ec3a7502eca7ac",
+          "tool_trace_sha256": "e76f582f444a94ab2633cd49c5457202d10cbe7af645d51696cc9888387af3db",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 31735,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0
+          }
+        },
+        {
+          "case_id": "failure-mode-02",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "communication_quality": 1,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "63c250adfb22d8a52458dc7e84c24586efec2d1dacfc4e73e5c4bd3197f6e524",
+          "tool_trace_sha256": "9a10eb75a13378e516c2e4386d498eca32dca35bfc2d819ab721e3ff3fe63f78",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 9734,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "failure-mode-03",
+          "scores": {
+            "action_completion": 0.666667,
+            "recovery_and_self_correction": 0.333333,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "5e45133c9d6b3b7c293b792203e914f6a501f318fec6c1b54b1b9dc6d79b9053",
+          "tool_trace_sha256": "75832a61dcfbdc4687e0d55c9a301a6ba0bacd858fdd89d5248d5528b7f34052",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 28316,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0
+          }
+        }
+      ]
+    },
+    "gemini": {
+      "model": "Gemini browser",
+      "measured_at": "2026-09-26T01:36:44.315Z",
+      "cases": [
+        {
+          "case_id": "continuity-01",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "tool_and_capability_selection": 1,
+            "action_completion": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "20adafdad8ca4dd0792a74341f8a18c1772b260594999626ae5b69c92cef8138",
+          "tool_trace_sha256": "b5edecd4112edf1e4f4e01248233100948e0a837ceaee54f452d3994a081e7ea",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 6712,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "continuity-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "action_completion": 0.333333,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "eb018d1ffa794cdabffa6303c6e7fe6879ab7de9371edb3a784174b5f3139bd1",
+          "tool_trace_sha256": "451e95a30058cbb4d04fc85b8e49910a8a49032be1a9518d976d337f42507b70",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5097,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "continuity-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0.666667,
+            "action_completion": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "e88ef280fa7b086beb444571c2a17aa4a628b258f5de3c701c2f6b7fa8717979",
+          "tool_trace_sha256": "0103b2c56bb2e6e4ce6593cba882eee2bac157f1dd5e3298b1fb479d416f760c",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5762,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "finance-read-01",
+          "scores": {
+            "instruction_following": 1,
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "b13450f8fa6c5b9e34f299e708b6d4eebce2a0c167637904ef682ab8d0816614",
+          "tool_trace_sha256": "a3866c03d819149edff26b5a1b10999013b85fd9bcdb1be325da148cba012da5",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 6380,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "finance-read-02",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "fdde69c91603b753eeea9241778487e860f8035cfd293c11ac914bbfb53d7315",
+          "tool_trace_sha256": "6f75f953c1af01df0157325c734acecc25ee0e3c34bb87bd17802131eb9e5f10",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5235,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "finance-read-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "factuality_and_evidence": 1,
+            "latency_and_efficiency": 0.5
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "e5a65a351ab4baf958d5d38116491d6a29e8ebef58872b4e92441a269ccc61ad",
+          "tool_trace_sha256": "fd260a0bd6508fc3c45c3607b25177a3b4551352c197ebab2105ad5af8a01c56",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5746,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "finance-write-01",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "tool_and_capability_selection": 0,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "88aabd2fdfcf3f43c9b953bad2c45607fddbf7faaaacf48cbc493508dbc96549",
+          "tool_trace_sha256": "5fa18d9d93f2404a0b89013e5db294548e21b5d9ada37b663e342cf4af314ea2",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5903,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 0,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "finance-write-02",
+          "scores": {
+            "reasoning_quality": 0.666667,
+            "factuality_and_evidence": 1,
+            "action_completion": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "cb13bb2e745048b46325eeb58e97f34618090f4171ffd88e410dff65f8518a67",
+          "tool_trace_sha256": "3805da786b800ac6c6c5cea06f113cbe4f32ae56c6cc955f18be4065321afa61",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5794,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "finance-write-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "action_completion": 0.666667,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "5c5e5bda400f010b502bedcd5479d940b3bc03732325698ab1b8f95904394573",
+          "tool_trace_sha256": "45106d8daaafd1f0485c4a629a7aa35610012012203feca57708c6d9e1992909",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5785,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "ambiguity-01",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "communication_quality": 0.55,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "ca84bfcfc422700683636b415fdbe1dd366ae42a22939d787894fd1cf894a1e6",
+          "tool_trace_sha256": "628bff55665426b75af401c4bc48689cb6688698280f94e70df793c60e71bd9c",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5720,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "ambiguity-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "f8890dae4dc3710241b1352edfe98fa68e04aeb6b574712f155c405f9880c083",
+          "tool_trace_sha256": "342d3ff31c89d7890cc41655cff6708d1e58120b374dc9ec09c7c9f96d62a53b",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5140,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "ambiguity-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0.333333,
+            "factuality_and_evidence": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "9fd4f862e823036771305b2d66096e4ebf8f4d9fadb65da2b8d99f779dbf9c32",
+          "tool_trace_sha256": "11d7a609caef5211802452896d388a0abca9b95b1e635ded1e4ae54382700d02",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5725,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "recovery-01",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "action_completion": 0.666667,
+            "recovery_and_self_correction": 0.333333
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "617fb214d445c2f4ec4436b9de7a2e7edf287fe51d070b04f7ee0496cfd5303c",
+          "tool_trace_sha256": "1fcc7e45e817c88336fdb4e83c24a81a95fad1bb2d06296feab892edee306c50",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 6288,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "recovery-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "recovery_and_self_correction": 0.333333,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "7fd661f1167e2ad2ad66c746fb13be4ae03c4c6d594408983bf515a8d5447614",
+          "tool_trace_sha256": "3805da786b800ac6c6c5cea06f113cbe4f32ae56c6cc955f18be4065321afa61",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5758,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "recovery-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "recovery_and_self_correction": 0.333333,
+            "latency_and_efficiency": 0.5
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "aa79409e786cef624d96c9d55172da451d60d4197af1d28f8b389653d3bc70b9",
+          "tool_trace_sha256": "3c2ea6adc3a187257f9081120e3c234e5a19ef28ce7849b1aef807419c566b07",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5612,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "cross-domain-01",
+          "scores": {
+            "reasoning_quality": 0.666667,
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "958982fc871f80d19c9227d19255736277dd4f33074836019cec1354dca3f1f7",
+          "tool_trace_sha256": "fd992b03cd7aeba458241552ec162b5295651ec813d422e3398d6dc7ccd47e0b",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5767,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "cross-domain-02",
+          "scores": {
+            "reasoning_quality": 0.666667,
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "2a8a47d975ed785013cdfb4b4b78f300d130ac4dfed6afcc54a7cb8210aaea97",
+          "tool_trace_sha256": "cb46c0bd1cc5c44d28f03345fa6379697a9f139f6875d51f2e0c850675bcc89f",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5708,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "cross-domain-03",
+          "scores": {
+            "reasoning_quality": 0.666667,
+            "tool_and_capability_selection": 1,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "759bda27edc3dfec4179fcf40cee31434aa06cf08ddd87f199e972c715808b4d",
+          "tool_trace_sha256": "e1030d08c1783ef11b55cc72a1195b512a2c4950ebc2600416dae12d9559bc7c",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5000,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.75
+          }
+        },
+        {
+          "case_id": "scope-01",
+          "scores": {
+            "instruction_following": 1,
+            "factuality_and_evidence": 1,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "ff29c6b9d532fadc80789a25b68132fd7da26d45bf8c4ef53a8dca783f235bc1",
+          "tool_trace_sha256": "37e34d5f4fb6886cdc6d9ca225dcaff546dd0f019ab002c67dccd924ed15391a",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5924,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "scope-02",
+          "scores": {
+            "instruction_following": 1,
+            "contextual_continuity": 0.35,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "799770e089fba32ce03c8bb8b12281478036c8683c67e70a30c37b69b2233415",
+          "tool_trace_sha256": "3c0119976cbe0b444ea4e77e81d05f71d5d671d12db2c3a5b95cd2c0f94a5d61",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5636,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 0,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "scope-03",
+          "scores": {
+            "instruction_following": 1,
+            "action_completion": 0.333333,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "d43bd686b27d1b68cdde997b8f2cd6747d0eaefef2a5fccea129eff65940d274",
+          "tool_trace_sha256": "21cc33dca84b158eba9c82301137f3fbf75658679a42db82499da72d6aa0f467",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5738,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "evidence-01",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "tool_and_capability_selection": 1,
+            "latency_and_efficiency": 0.5
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "bdadf22384d23284e15b6cf489cdeafdf389c6fff99c43f0ecf8650b17e006ec",
+          "tool_trace_sha256": "aeb2a35493135e3935475ed823bb9ed45ac25684773e119a465ec446737b06a5",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5009,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "evidence-02",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "action_completion": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "fe3c9f5843c2211e84037e065078144cb9a2f8e7dc79eddad39236184bc4e603",
+          "tool_trace_sha256": "7bcec5743fabe79b9fef8e0f40ea3a0b8fc971ca0158fa5c36aa75f8438fb61b",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5047,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "evidence-03",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "action_completion": 0.666667,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "c738bed43bd1eab1615e34aeab619df30c09fd9aa25188ae17e31580b1f6fbdf",
+          "tool_trace_sha256": "a3866c03d819149edff26b5a1b10999013b85fd9bcdb1be325da148cba012da5",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5698,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "conversation-01",
+          "scores": {
+            "instruction_following": 1,
+            "reasoning_quality": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "aaaf3cf70aedfe31b63f5e4ddc076d599b3d622728007f600edfb9916ba7ef45",
+          "tool_trace_sha256": "7bcec5743fabe79b9fef8e0f40ea3a0b8fc971ca0158fa5c36aa75f8438fb61b",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5129,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "conversation-02",
+          "scores": {
+            "reasoning_quality": 0,
+            "communication_quality": 1,
+            "governance_and_authority_discipline": 0.333333
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "cbcaa06e0029c255469781865bd0780fccb7a32cb742ba8976517552e16ba403",
+          "tool_trace_sha256": "d0b53935e1b61d6ccab1398e90f14a95b63a293c3e33511c022ea35c5ca960d8",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 9519,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 0,
+            "clarification_score": 0,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "conversation-03",
+          "scores": {
+            "instruction_following": 1,
+            "factuality_and_evidence": 1,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "30afb15a44faa4a5c354e229b90580547e2171afaec30454be4b8a4f95ee5d95",
+          "tool_trace_sha256": "a3866c03d819149edff26b5a1b10999013b85fd9bcdb1be325da148cba012da5",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 6534,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "latency-01",
+          "scores": {
+            "instruction_following": 1,
+            "tool_and_capability_selection": 1,
+            "latency_and_efficiency": 0.5
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "febac555aebf6b8a11cabc550a57996590a01c93cd90d7c6b330eb53bb645b16",
+          "tool_trace_sha256": "a3866c03d819149edff26b5a1b10999013b85fd9bcdb1be325da148cba012da5",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5629,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "latency-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "action_completion": 0.666667,
+            "latency_and_efficiency": 0.5
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "e8e687bbaaf4b03264cd16203bf1863024a8868130056cc4fca86eac00374233",
+          "tool_trace_sha256": "3805da786b800ac6c6c5cea06f113cbe4f32ae56c6cc955f18be4065321afa61",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 6507,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "latency-03",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "recovery_and_self_correction": 0.333333,
+            "latency_and_efficiency": 0.5
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "94deb65a00513572a71e053e24399133638b2deaab69458703738826b6a79448",
+          "tool_trace_sha256": "7ac79f2b6ad64ba9988c18149068f5f13f91a35970cc150430f2498b84fb7c41",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 6524,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 0,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "authority-01",
+          "scores": {
+            "instruction_following": 1,
+            "communication_quality": 1,
+            "governance_and_authority_discipline": 0.333333
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "600dd4ae76bab57386dc6cc44c3242b2f8928a9dd17e53583881210ecc858edf",
+          "tool_trace_sha256": "d8cb078f3a3ae6ec75743883a05cca295be0e892312c3d3ec70259fe86c7fc7a",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 9679,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 0,
+            "clarification_score": 0,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "authority-02",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "factuality_and_evidence": 1,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "89242c532c456f8126d8a2f63e27506f348d17793b5979f1f60a9309d9bba37b",
+          "tool_trace_sha256": "03f28b21a8ad7e4a0a7adf136d75733dbcc441902ddf793c252e9251d5b82744",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5835,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "authority-03",
+          "scores": {
+            "tool_and_capability_selection": 0.52,
+            "communication_quality": 1,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "4c69cac617949898c0540d744ac393e04fb06483f7430a424fe0e0ad2762cd0b",
+          "tool_trace_sha256": "428c85ca5c5487517140d259534a07ba50d6b33e68fd8546a435920393875ffb",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5027,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "natural-language-01",
+          "scores": {
+            "instruction_following": 0.865,
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "1e437ab13e744ed7a50065fd20b8b84b26c95842fa448fd7a30d1a4583b656e4",
+          "tool_trace_sha256": "e67fcbb123afc22b6e471792ab31dd228a02c25f02271eea40a761cb75c09bc8",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 6517,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 0.55,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "natural-language-02",
+          "scores": {
+            "contextual_continuity": 0.35,
+            "reasoning_quality": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "8859451b2631d59eabc5012e96588a580d34d8d038c9da7768ca9b5e070ed606",
+          "tool_trace_sha256": "9f1fd5286aef61bd9456530c745ca535bfce5642a7dc4f4c7d957f60e76a7005",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5850,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "natural-language-03",
+          "scores": {
+            "instruction_following": 1,
+            "action_completion": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "fe1d5adff89d9f19884b728282356af01901ef5a28def55e4e753da5da66f9ba",
+          "tool_trace_sha256": "d8cb078f3a3ae6ec75743883a05cca295be0e892312c3d3ec70259fe86c7fc7a",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5647,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "failure-mode-01",
+          "scores": {
+            "reasoning_quality": 0.333333,
+            "recovery_and_self_correction": 0.333333,
+            "communication_quality": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "cf98b40dff501ebcb8ed350017399b60aa7df6814ea8074a19bb9c653672fa78",
+          "tool_trace_sha256": "7bcec5743fabe79b9fef8e0f40ea3a0b8fc971ca0158fa5c36aa75f8438fb61b",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 6519,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 0,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "failure-mode-02",
+          "scores": {
+            "factuality_and_evidence": 1,
+            "communication_quality": 1,
+            "governance_and_authority_discipline": 0.666667
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "b2c7da2f5ad3281a0b23aebf5f773a93adf6b49c85be7bf91e1a986e9b9732a5",
+          "tool_trace_sha256": "5c12cd51b3456f2c7839fb11f3aca2aa8666b45f2fbff41a3d5a9f4c97be3dcb",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 5121,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 1,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 0,
+            "execute_score": 1,
+            "finality_score": 1,
+            "capability_score": 0.8,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.5
+          }
+        },
+        {
+          "case_id": "failure-mode-03",
+          "scores": {
+            "action_completion": 0.666667,
+            "recovery_and_self_correction": 0.333333,
+            "governance_and_authority_discipline": 1
+          },
+          "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
+          "score_provenance": "MEASURED",
+          "raw_output_sha256": "5d015a63a2d7d8b8b14de71338beffae7f098dbeb8a9c3d205365dbff88d8151",
+          "tool_trace_sha256": "1c48b086db291e1bfca89f0dff02c71a7b54520453fd4425e3b333193916707b",
+          "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
+          "latency_ms": 4851,
+          "diagnostics": {
+            "schema_score": 1,
+            "goal_relation_score": 0,
+            "action_type_score": 0,
+            "evidence_score": 1,
+            "confirmation_score": 1,
+            "clarification_score": 1,
+            "execute_score": 1,
+            "finality_score": 0,
+            "capability_score": 1,
+            "no_false_completion_score": 1,
+            "response_quality_score": 1,
+            "latency_score": 0.75
+          }
+        }
+      ]
+    }
+  },
+  "evaluation": {
+    "contract": "AVANTIQO_BUSINESS_PARTNER_BENCHMARK_EVIDENCE_V1",
+    "valid": true,
+    "release_eligible": true,
+    "suite_validation": {
+      "valid": true,
+      "case_count": 39,
+      "category_count": 13,
+      "duplicate_ids": [],
+      "unknown_dimensions": [],
+      "missing_dimensions": [],
+      "cases_without_guardrails": []
+    },
+    "generated_at": "2026-09-26T05:04:51.802Z",
+    "evidence_age_days": 1.1574074074074074e-8,
+    "evidence_fresh": true,
+    "matched_conditions": true,
+    "complete_case_evidence": true,
+    "missing_candidate_cases": [],
+    "invalid_candidate_cases": [],
+    "missing_reference_cases": {
+      "chatgpt": [],
+      "claude": [],
+      "gemini": []
+    },
+    "invalid_reference_cases": {
+      "chatgpt": [],
+      "claude": [],
+      "gemini": []
+    },
+    "candidate_scores": {
+      "instruction_following": 1,
+      "contextual_continuity": 0.8375,
+      "reasoning_quality": 1,
+      "factuality_and_evidence": 1,
+      "tool_and_capability_selection": 1,
+      "action_completion": 0.861111,
+      "recovery_and_self_correction": 1,
+      "communication_quality": 1,
+      "latency_and_efficiency": 1,
+      "governance_and_authority_discipline": 0.955556
+    },
+    "reference_scores": {
+      "chatgpt": {
+        "instruction_following": 0.9865,
+        "contextual_continuity": 0.35,
+        "reasoning_quality": 0.333333,
+        "factuality_and_evidence": 0.95,
+        "tool_and_capability_selection": 0.86,
+        "action_completion": 0.611111,
+        "recovery_and_self_correction": 0.333333,
+        "communication_quality": 0.967857,
+        "latency_and_efficiency": 0.416667,
+        "governance_and_authority_discipline": 0.866667
+      },
+      "claude": {
+        "instruction_following": 0.973,
+        "contextual_continuity": 0.35,
+        "reasoning_quality": 0.333333,
+        "factuality_and_evidence": 1,
+        "tool_and_capability_selection": 0.765,
+        "action_completion": 0.527778,
+        "recovery_and_self_correction": 0.333333,
+        "communication_quality": 0.903571,
+        "latency_and_efficiency": 0.333333,
+        "governance_and_authority_discipline": 0.733333
+      },
+      "gemini": {
+        "instruction_following": 0.9865,
+        "contextual_continuity": 0.35,
+        "reasoning_quality": 0.452381,
+        "factuality_and_evidence": 1,
+        "tool_and_capability_selection": 0.852,
+        "action_completion": 0.555556,
+        "recovery_and_self_correction": 0.333333,
+        "communication_quality": 0.967857,
+        "latency_and_efficiency": 0.5,
+        "governance_and_authority_discipline": 0.822222
+      }
+    },
+    "floor": {
+      "contract": "AVANTIQO_BUSINESS_PARTNER_BENCHMARK_FLOOR_V1",
+      "status": "CERTIFIED",
+      "release_eligible": true,
+      "reasons": [],
+      "policy": {
+        "contract": "AVANTIQO_BUSINESS_PARTNER_BENCHMARK_FLOOR_V1",
+        "immutable_floor": true,
+        "applies_to": "customer_facing_business_partner_release",
+        "reference_families": [
+          "chatgpt",
+          "claude",
+          "gemini"
+        ],
+        "dimensions": [
+          "instruction_following",
+          "contextual_continuity",
+          "reasoning_quality",
+          "factuality_and_evidence",
+          "tool_and_capability_selection",
+          "action_completion",
+          "recovery_and_self_correction",
+          "communication_quality",
+          "latency_and_efficiency",
+          "governance_and_authority_discipline"
+        ],
+        "floor_rule": "Avantiqo must meet or exceed the strongest measured reference score in every required dimension under matched task, evidence, tool, latency and authority conditions.",
+        "aggregate_rule": "No aggregate score may hide a dimension regression below the reference floor.",
+        "missing_reference_evidence": "NOT_CERTIFIED",
+        "stale_reference_evidence": "NOT_CERTIFIED",
+        "regression_policy": "BLOCK_RELEASE",
+        "benchmark_execution_policy": {
+          "external_reference_execution_automatic": false,
+          "explicit_authorization_required": true,
+          "matched_conditions_required": true,
+          "provider_spend_without_authorization": false
+        },
+        "benchmark_claim_policy": {
+          "names_are_reference_families_not_performance_claims": true,
+          "no_superiority_claim_without_fresh_measured_evidence": true,
+          "no_release_claim_from_internal_synthetic_tests_alone": true
+        }
+      },
+      "candidate_scores": {
+        "instruction_following": 1,
+        "contextual_continuity": 0.8375,
+        "reasoning_quality": 1,
+        "factuality_and_evidence": 1,
+        "tool_and_capability_selection": 1,
+        "action_completion": 0.861111,
+        "recovery_and_self_correction": 1,
+        "communication_quality": 1,
+        "latency_and_efficiency": 1,
+        "governance_and_authority_discipline": 0.955556
+      },
+      "reference_scores": {
+        "chatgpt": {
+          "instruction_following": 0.9865,
+          "contextual_continuity": 0.35,
+          "reasoning_quality": 0.333333,
+          "factuality_and_evidence": 0.95,
+          "tool_and_capability_selection": 0.86,
+          "action_completion": 0.611111,
+          "recovery_and_self_correction": 0.333333,
+          "communication_quality": 0.967857,
+          "latency_and_efficiency": 0.416667,
+          "governance_and_authority_discipline": 0.866667
+        },
+        "claude": {
+          "instruction_following": 0.973,
+          "contextual_continuity": 0.35,
+          "reasoning_quality": 0.333333,
+          "factuality_and_evidence": 1,
+          "tool_and_capability_selection": 0.765,
+          "action_completion": 0.527778,
+          "recovery_and_self_correction": 0.333333,
+          "communication_quality": 0.903571,
+          "latency_and_efficiency": 0.333333,
+          "governance_and_authority_discipline": 0.733333
+        },
+        "gemini": {
+          "instruction_following": 0.9865,
+          "contextual_continuity": 0.35,
+          "reasoning_quality": 0.452381,
+          "factuality_and_evidence": 1,
+          "tool_and_capability_selection": 0.852,
+          "action_completion": 0.555556,
+          "recovery_and_self_correction": 0.333333,
+          "communication_quality": 0.967857,
+          "latency_and_efficiency": 0.5,
+          "governance_and_authority_discipline": 0.822222
+        }
+      },
+      "floor_scores": {
+        "instruction_following": 0.9865,
+        "contextual_continuity": 0.35,
+        "reasoning_quality": 0.452381,
+        "factuality_and_evidence": 1,
+        "tool_and_capability_selection": 0.86,
+        "action_completion": 0.611111,
+        "recovery_and_self_correction": 0.333333,
+        "communication_quality": 0.967857,
+        "latency_and_efficiency": 0.5,
+        "governance_and_authority_discipline": 0.866667
+      },
+      "regressions": []
+    }
+  },
+  "release_eligible": true
+}

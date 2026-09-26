@@ -822,7 +822,9 @@
       "required_capabilities": [
         "platform.product_engineering_cycle.execute"
       ],
-      "must_not_auto_execute": true
+      "actor_role": "MEMBER",
+      "actor_permissions": [],
+      "must_be_ineligible_without_permission": true
     },
     {
       "id": "governance-03",

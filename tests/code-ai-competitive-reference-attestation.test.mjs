@@ -236,3 +236,20 @@ test("reference attestation rejects ambiguous case identity before signing", () 
     /CODE_AI_COMPETITIVE_REFERENCE_CATEGORY_INVALID/,
   );
 });
+
+
+test("reference attestation requires canonical non-future UTC timestamp", () => {
+  const alternate = report();
+  alternate.generated_at = alternate.generated_at.replace("Z", "+00:00");
+  assert.throws(
+    () => attestCodeAICompetitiveReferenceReport(alternate, { env }),
+    /CODE_AI_COMPETITIVE_REFERENCE_GENERATED_AT_CANONICAL_REQUIRED/,
+  );
+
+  const future = report();
+  future.generated_at = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  assert.throws(
+    () => attestCodeAICompetitiveReferenceReport(future, { env }),
+    /CODE_AI_COMPETITIVE_REFERENCE_FUTURE_TIMESTAMP_FORBIDDEN/,
+  );
+});

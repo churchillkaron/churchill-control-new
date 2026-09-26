@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import {
   runCodeAICompetitiveReferenceLiveBenchmark,
+  gradeCodeAICompetitiveReferenceCase,
 } from "../lib/code/runtime/CodeAICompetitiveReferenceLiveRunnerRuntime.js";
 import {
   verifyCodeAICompetitiveReferenceReport,
@@ -105,4 +106,33 @@ test("live provider script fails closed before network execution without explici
   });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /AVANTIQO_CODE_COMPETITIVE_LIVE_REFERENCE_APPROVED=YES_REQUIRED/);
+});
+
+
+test("reference grading exposes deterministic quality depth without raw output persistence", () => {
+  const benchmarkCase = {
+    case_id: "depth-case",
+    required_evidence: ["proof_a", "proof_b"],
+  };
+  const shallow = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify({
+    case_id: "depth-case",
+    diagnosis: "A concrete diagnosis with enough detail to satisfy the minimum requirement.",
+    solution: "A concrete solution with enough detail to satisfy the minimum requirement.",
+    verification: "A concrete verification plan with enough detail to satisfy the minimum requirement.",
+    evidence: { proof_a: "Concrete proof A here.", proof_b: "Concrete proof B here." },
+  }));
+  const deep = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify({
+    case_id: "depth-case",
+    diagnosis: "The failure is isolated to the request boundary where independently safe reads are serialized behind one another, increasing interactive latency without changing semantics. The diagnosis distinguishes transport delay from computation and identifies the exact concurrency boundary that must remain scoped.",
+    solution: "Run only the independent reads concurrently with Promise.all while preserving the existing authorization checks, error propagation, and output ordering. Keep dependent reads sequential and avoid broadening mutation authority or swallowing a failed read.",
+    verification: "Measure wall time before and after on the same inputs, assert identical response payloads, preserve individual failure behavior, and run the existing regression suite plus a focused concurrency test that proves both reads begin before either completes.",
+    evidence: {
+      proof_a: "The solution names the exact parallelization boundary, preserves existing authorization and error semantics, and avoids unrelated changes.",
+      proof_b: "The verification plan requires semantic equivalence, measured latency improvement, and a focused concurrency assertion rather than a generic test claim.",
+    },
+  }));
+  assert.equal(shallow.passed, true);
+  assert.equal(deep.passed, true);
+  assert.ok(deep.quality_score > shallow.quality_score);
+  assert.equal(deep.evidence_key_count, 2);
 });

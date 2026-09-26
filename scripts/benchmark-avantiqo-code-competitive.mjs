@@ -58,7 +58,13 @@ function compareCase(owned, reference) {
   const referencePassed = reference?.passed === true;
   const ownedLatency = finite(owned?.wall_ms);
   const referenceLatency = finite(reference?.wall_ms);
-  const qualityOutcome = ownedPassed === referencePassed ? "TIE" : ownedPassed ? "WIN" : "LOSS";
+  const ownedQuality = finite(owned?.quality_score);
+  const referenceQuality = finite(reference?.quality_score);
+  const qualityOutcome = ownedPassed !== referencePassed
+    ? ownedPassed ? "WIN" : "LOSS"
+    : ownedPassed && referencePassed && ownedQuality !== null && referenceQuality !== null
+      ? ownedQuality === referenceQuality ? "TIE" : ownedQuality > referenceQuality ? "WIN" : "LOSS"
+      : "TIE";
   const latencyOutcome = ownedLatency !== null && referenceLatency !== null
     ? referenceLatency === ownedLatency ? "TIE" : ownedLatency < referenceLatency ? "WIN" : "LOSS"
     : "UNKNOWN";
@@ -68,6 +74,8 @@ function compareCase(owned, reference) {
     reference_passed: referencePassed,
     owned_wall_ms: ownedLatency,
     reference_wall_ms: referenceLatency,
+    owned_quality_score: ownedQuality,
+    reference_quality_score: referenceQuality,
     quality_outcome: qualityOutcome,
     latency_outcome: latencyOutcome,
     outcome: qualityOutcome,
@@ -219,6 +227,7 @@ const report = {
     minimum_cases_per_reference: MIN_CASES,
     maximum_reference_age_days: MAX_REFERENCE_AGE_DAYS,
     minimum_quality_non_loss_rate: MIN_NON_LOSS_RATE,
+    deterministic_quality_score_required_for_passed_cases: true,
     maximum_p95_latency_ratio: MAX_P95_LATENCY_RATIO,
     maximum_cost_ratio: MAX_COST_RATIO,
     identical_task_ids_required: true,

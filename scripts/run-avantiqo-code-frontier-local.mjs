@@ -175,6 +175,8 @@ for (const entry of prompts) {
     category: text(entry.case.category, 160) || null,
     passed: grade.passed,
     failures: grade.failures,
+    quality_score: Number(grade.quality_score || 0),
+    evidence_key_count: Number(grade.evidence_key_count || 0),
     wall_ms: wallMs,
     input_tokens: tokenMetric(metrics, ["input_tokens", "prompt_tokens", "prompt_eval_count"]),
     output_tokens: tokenMetric(metrics, ["output_tokens", "completion_tokens", "eval_count"]),

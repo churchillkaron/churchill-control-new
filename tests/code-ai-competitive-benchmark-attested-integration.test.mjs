@@ -22,8 +22,9 @@ const sha256 = (value) => createHash("sha256").update(value, "utf8").digest("hex
 const REPOSITORY_VERIFIER_RUNTIME_IDENTITY = Object.freeze({ engine: "node", version: "v24.14.1", platform: "linux", arch: "x64" });
 const REPOSITORY_VERIFIER_RUNTIME_SHA256 = sha256(JSON.stringify(REPOSITORY_VERIFIER_RUNTIME_IDENTITY));
 const REPOSITORY_VERIFIER_ENVIRONMENT_SHA256 = sha256(JSON.stringify({ NODE_ENV: "test", TZ: "UTC", LANG: "C", LC_ALL: "C" }));
+const REPOSITORY_VERIFIER_INVOCATION_SHA256 = sha256(JSON.stringify({ engine: "node", script: "hidden-acceptance.mjs", argv: [], cwd: "VERIFIER_REPOSITORY_ROOT" }));
 const repositoryVerifierProtocolSha256 = sha256(JSON.stringify({ contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1", evidence_source: "INDEPENDENT_RUNNER", runtime: "node", candidate_binding: "DIFF_AND_ARTIFACT_SHA256", hidden_acceptance_required: true, protected_baseline_required: true }));
-const repositoryBaselineDigest = ({ caseId, hiddenSha }) => sha256(JSON.stringify({ case_id: caseId, base_commit: "1".repeat(40), hidden_acceptance_sha256: hiddenSha, verifier_environment_sha256: REPOSITORY_VERIFIER_ENVIRONMENT_SHA256, exit_code: 1, passed: false }));
+const repositoryBaselineDigest = ({ caseId, hiddenSha }) => sha256(JSON.stringify({ case_id: caseId, base_commit: "1".repeat(40), hidden_acceptance_sha256: hiddenSha, verifier_environment_sha256: REPOSITORY_VERIFIER_ENVIRONMENT_SHA256, verifier_invocation_sha256: REPOSITORY_VERIFIER_INVOCATION_SHA256, exit_code: 1, passed: false }));
 
 function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85, categoryByCase = {}, evidenceCountByCase = {}, benchmarkRunId = "55555555-5555-4555-8555-555555555555", suiteSha = null } = {}) {
   return caseIds.map((case_id, index) => ({
@@ -74,6 +75,8 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
         verifier_runtime_sha256: REPOSITORY_VERIFIER_RUNTIME_SHA256,
         verifier_environment_contract: "AVANTIQO_CODE_REPOSITORY_DETERMINISTIC_ENV_V1",
         verifier_environment_sha256: REPOSITORY_VERIFIER_ENVIRONMENT_SHA256,
+        verifier_invocation_contract: "AVANTIQO_CODE_REPOSITORY_NODE_INVOCATION_V1",
+        verifier_invocation_sha256: REPOSITORY_VERIFIER_INVOCATION_SHA256,
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: ((index + 2).toString(16).padStart(2, "0")).repeat(32),
         candidate_artifact_sha256: ((index + 40).toString(16).padStart(2, "0")).repeat(32),
@@ -94,6 +97,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
         protected_baseline_hidden_acceptance_sha256: ((index + 80).toString(16).padStart(2, "0")).repeat(32),
         protected_baseline_verifier_runtime_sha256: REPOSITORY_VERIFIER_RUNTIME_SHA256,
         protected_baseline_verifier_environment_sha256: REPOSITORY_VERIFIER_ENVIRONMENT_SHA256,
+        protected_baseline_verifier_invocation_sha256: REPOSITORY_VERIFIER_INVOCATION_SHA256,
         protected_baseline_exit_code: 1,
         protected_baseline_passed: false,
         candidate_self_report_authority: false,

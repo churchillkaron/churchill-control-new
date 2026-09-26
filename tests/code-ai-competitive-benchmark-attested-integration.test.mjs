@@ -654,7 +654,7 @@ test("separate repository reference evidence must match the required provider an
   const paths = await fixture();
   const referenceRepository = JSON.parse(await readFile(paths.refARepositoryPath, "utf8"));
   referenceRepository.model = { provider: "openai", product_model: "wrong-model" };
-  await writeFile(paths.refARepositoryPath, JSON.stringify(referenceRepository));
+  await writeFile(paths.refARepositoryPath, JSON.stringify(attestCodeAIRepositoryReferenceReport(referenceRepository, { env })));
   const run = runBenchmark(paths);
   assert.notEqual(run.status, 0);
   assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_REPOSITORY_REFERENCE_MISSING:openai/);
@@ -691,4 +691,25 @@ test("tampered signed owned repository evidence is rejected", async () => {
   const run = runBenchmark(paths);
   assert.notEqual(run.status, 0);
   assert.match(`${run.stderr}\n${run.stdout}`, /AVANTIQO_CODE_COMPETITIVE_REPOSITORY_OWNED_ATTESTATION_INVALID/);
+});
+
+test("stale signed owned repository evidence is rejected", async () => {
+  const paths = await fixture();
+  const report = JSON.parse(await readFile(paths.ownedRepositoryPath, "utf8"));
+  report.generated_at = new Date(Date.now() - (40 * 24 * 60 * 60 * 1000)).toISOString();
+  await writeFile(paths.ownedRepositoryPath, JSON.stringify(attestCodeAIRepositoryOwnedReport(report, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(`${run.stderr}\n${run.stdout}`, /AVANTIQO_CODE_COMPETITIVE_REPOSITORY_EVIDENCE_STALE:owned/);
+});
+
+test("signed repository evidence must align in time with its frontier reference", async () => {
+  const paths = await fixture();
+  const frontier = JSON.parse(await readFile(paths.refAPath, "utf8"));
+  const report = JSON.parse(await readFile(paths.refARepositoryPath, "utf8"));
+  report.generated_at = new Date(Date.parse(frontier.generated_at) - (48 * 60 * 60 * 1000)).toISOString();
+  await writeFile(paths.refARepositoryPath, JSON.stringify(attestCodeAIRepositoryReferenceReport(report, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(`${run.stderr}\n${run.stdout}`, /AVANTIQO_CODE_COMPETITIVE_REPOSITORY_FRONTIER_SKEW_EXCEEDED:openai:model-a/);
 });

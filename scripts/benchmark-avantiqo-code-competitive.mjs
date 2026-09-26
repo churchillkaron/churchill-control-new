@@ -91,6 +91,22 @@ function exactObservationIds(report, requiredCaseIds) {
   return ids.length === requiredCaseIds.length && ids.every((id, index) => id === requiredCaseIds[index]);
 }
 
+function assertRepositoryEvidenceTimeCoherence(repositoryReport, frontierReport, label) {
+  const repositoryMeasuredAt = Date.parse(text(repositoryReport?.generated_at));
+  const frontierMeasuredAt = Date.parse(text(frontierReport?.generated_at));
+  if (!Number.isFinite(repositoryMeasuredAt) || !Number.isFinite(frontierMeasuredAt)) {
+    throw new Error(`AVANTIQO_CODE_COMPETITIVE_REPOSITORY_MEASURED_AT_REQUIRED:${label}`);
+  }
+  const ageDays = (Date.now() - repositoryMeasuredAt) / (24 * 60 * 60 * 1000);
+  if (ageDays < 0 || ageDays > MAX_REFERENCE_AGE_DAYS) {
+    throw new Error(`AVANTIQO_CODE_COMPETITIVE_REPOSITORY_EVIDENCE_STALE:${label}`);
+  }
+  const skewMs = Math.abs(repositoryMeasuredAt - frontierMeasuredAt);
+  if (skewMs > MAX_CROSS_EVIDENCE_SKEW_HOURS * 60 * 60 * 1000) {
+    throw new Error(`AVANTIQO_CODE_COMPETITIVE_REPOSITORY_FRONTIER_SKEW_EXCEEDED:${label}`);
+  }
+}
+
 function percentile(values, p) {
   const safe = values.map(finite).filter((value) => value !== null).sort((a, b) => a - b);
   if (!safe.length) return null;
@@ -495,14 +511,19 @@ if (separateRepositoryEvidenceRequested) {
   const referenceRepositoryReports = await Promise.all(referenceRepositoryEvidenceInputs.map(async (path) =>
     JSON.parse(await readFile(resolve(path), "utf8")),
   ));
-  const validateRepositoryReport = (report, { expectedProvider = null, expectedModel = null, ownedEvidence = false } = {}) => {
-    if (ownedEvidence) {
-      try {
-        verifyCodeAIRepositoryOwnedReport(report, { env: process.env });
-      } catch {
-        throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_OWNED_ATTESTATION_INVALID");
-      }
+  try {
+    verifyCodeAIRepositoryOwnedReport(ownedRepositoryReport, { env: process.env });
+  } catch {
+    throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_OWNED_ATTESTATION_INVALID");
+  }
+  for (const repositoryReport of referenceRepositoryReports) {
+    try {
+      verifyCodeAIRepositoryReferenceReport(repositoryReport, { env: process.env });
+    } catch {
+      throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_REFERENCE_ATTESTATION_INVALID");
     }
+  }
+  const validateRepositoryReport = (report, { expectedProvider = null, expectedModel = null, ownedEvidence = false } = {}) => {
     if (text(report?.suite_contract) !== REPOSITORY_SUITE_CONTRACT || text(report?.suite_sha256).toLowerCase() !== repositorySuiteSha256.toLowerCase()) {
       throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_SUITE_MISMATCH");
     }
@@ -520,11 +541,6 @@ if (separateRepositoryEvidenceRequested) {
       }
     }
     if (!ownedEvidence) {
-      try {
-        verifyCodeAIRepositoryReferenceReport(report, { env: process.env });
-      } catch {
-        throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_REFERENCE_ATTESTATION_INVALID");
-      }
       const provider = canonicalReferenceProvider(report?.provider || report?.model?.provider);
       const model = text(report?.model?.product_model || report?.model);
       if (provider !== expectedProvider || model !== expectedModel) {
@@ -540,6 +556,7 @@ if (separateRepositoryEvidenceRequested) {
     }
     return assessed;
   };
+  assertRepositoryEvidenceTimeCoherence(ownedRepositoryReport, owned, "owned");
   ownedRepositoryTaskEvidence = validateRepositoryReport(ownedRepositoryReport, { ownedEvidence: true });
   referenceRepositoryTaskEvidence = requiredProviders.map((provider) => {
     const expectedModel = requiredModels[provider];
@@ -548,6 +565,12 @@ if (separateRepositoryEvidenceRequested) {
       text(candidate?.model?.product_model || candidate?.model) === expectedModel,
     );
     if (!report) throw new Error(`AVANTIQO_CODE_COMPETITIVE_REPOSITORY_REFERENCE_MISSING:${provider}`);
+    const frontierReport = references.find((candidate) =>
+      canonicalReferenceProvider(candidate?.provider) === provider &&
+      text(candidate?.model?.product_model) === expectedModel,
+    );
+    if (!frontierReport) throw new Error(`AVANTIQO_CODE_COMPETITIVE_REPOSITORY_FRONTIER_MATCH_REQUIRED:${provider}`);
+    assertRepositoryEvidenceTimeCoherence(report, frontierReport, `${provider}:${expectedModel}`);
     return validateRepositoryReport(report, { expectedProvider: provider, expectedModel });
   });
 } else {
@@ -616,6 +639,8 @@ const report = {
     canonical_executable_repository_suite_required: true,
     cryptographic_repository_reference_attestation_required: true,
     cryptographic_repository_owned_attestation_required: true,
+    repository_evidence_freshness_required: true,
+    repository_frontier_time_coherence_required: true,
     speed_alone_cannot_establish_quality_superiority: true,
     quality_superiority_requires_reference_quality_win: true,
     minimum_superiority_quality_win_rate_per_reference: MIN_SUPERIORITY_WIN_RATE,

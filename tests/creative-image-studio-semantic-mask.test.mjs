@@ -31,3 +31,27 @@ test("semantic matte cannot silently belong to another source image",()=>{
   assert.equal(result.ready,false);
   assert.ok(result.failures.includes("SEMANTIC_MASK_SOURCE_MISMATCH"));
 });
+
+
+test("editor exposes semantic selections as first-class mask operations", async()=>{
+  const fs=await import("node:fs");
+  const inspector=fs.readFileSync("components/creative/specialist/ImageStudioLayerInspector.jsx","utf8");
+  const store=fs.readFileSync("components/creative/specialist/useImageStudioWorkspaceStore.js","utf8");
+  const canvas=fs.readFileSync("components/creative/specialist/ImageStudioCanvasSurface.jsx","utf8");
+  assert.match(inspector,/Semantic selections/);
+  assert.match(inspector,/Subject mask/);
+  assert.match(inspector,/Background mask/);
+  assert.match(inspector,/Color range/);
+  assert.match(store,/createSemanticMaskFromSelected/);
+  assert.match(store,/attachSemanticMatteToMask/);
+  assert.match(canvas,/semantic_mask_mode/);
+});
+
+test("deterministic export applies semantic masks and declares supported modes", async()=>{
+  const fs=await import("node:fs");
+  const exporter=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js","utf8");
+  assert.match(exporter,/semanticMaskAlphaForPixel/);
+  assert.match(exporter,/semanticExternalMatteBuffer/);
+  assert.match(exporter,/IMAGE_STUDIO_SEMANTIC_MASK_NOT_READY/);
+  assert.match(exporter,/semantic_modes:\["LUMINANCE","COLOR_RANGE","ALPHA","SUBJECT","BACKGROUND"\]/);
+});

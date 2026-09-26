@@ -59,5 +59,5 @@ test("deterministic export declares and activates Color Grade V1", async()=>{
   assert.match(exporter,/channel_mixer: true/);
   assert.match(exporter,/selective_color: true/);
   assert.match(adjustment,/applyImageStudioColorGrade/);
-  assert.match(adjustment,/CREATIVE_IMAGE_STUDIO_ADJUSTMENT_V3/);
+  assert.match(adjustment,/CREATIVE_IMAGE_STUDIO_ADJUSTMENT_V4/);
 });

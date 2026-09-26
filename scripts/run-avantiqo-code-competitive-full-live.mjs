@@ -7,6 +7,9 @@ import {
   attestCodeAICompetitiveFullRunManifest,
   verifyCodeAICompetitiveFullRunManifest,
 } from "../lib/code/runtime/CodeAICompetitiveFullRunAttestationRuntime.js";
+import {
+  assessCodeAICompetitiveFullRunPreflight,
+} from "../lib/code/runtime/CodeAICompetitiveFullRunPreflightRuntime.js";
 
 loadAvantiqoEnv();
 
@@ -86,6 +89,15 @@ const referencePaths = Object.fromEntries(providers.map((provider) => [provider,
   frontier: resolve(runRoot, `avantiqo-code-competitive-reference-${provider}.json`),
   repository: resolve(runRoot, `avantiqo-code-executable-repository-reference-${provider}.json`),
 }]));
+const preflightSourcePaths = [
+  { label: "OWNED_FRONTIER_RUNNER", path: resolve("scripts/run-avantiqo-code-frontier-local.mjs") },
+  { label: "REFERENCE_FRONTIER_RUNNER", path: resolve("scripts/run-avantiqo-code-competitive-reference-live.mjs") },
+  { label: "EXECUTABLE_REPOSITORY_RUNNER", path: resolve("scripts/run-avantiqo-code-executable-repository-local.mjs") },
+  { label: "COMPETITIVE_CERTIFIER", path: resolve("scripts/benchmark-avantiqo-code-competitive.mjs") },
+  { label: "FRONTIER_SUITE", path: resolve(text(process.env.AVANTIQO_CODE_COMPETITIVE_SUITE) || "benchmarks/avantiqo-code-frontier-engineering-suite.json") },
+  { label: "FRONTIER_PROMPT_CONTRACT", path: resolve(text(process.env.AVANTIQO_CODE_COMPETITIVE_PROMPT_CONTRACT) || "benchmarks/avantiqo-code-frontier-prompt-contract.json") },
+  { label: "EXECUTABLE_REPOSITORY_SUITE", path: resolve("benchmarks/avantiqo-code-executable-repository-suite.json") },
+];
 
 const plan = {
   contract: CONTRACT,
@@ -103,6 +115,7 @@ const plan = {
     "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_LOCAL_APPROVED",
     "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_REFERENCE_APPROVED",
   ],
+  live_preflight_required: true,
   fresh_artifact_policy: {
     stale_output_reuse_forbidden: true,
     generated_at_must_be_within_orchestrator_run: true,
@@ -122,6 +135,40 @@ for (const lowerApproval of plan.approvals_required.slice(1)) {
   if (!approved(process.env[lowerApproval])) throw new Error(`${lowerApproval}=YES_REQUIRED`);
 }
 const orchestratorSource = sourceProvenance();
+
+async function verifyEvidenceRootWritable() {
+  await mkdir(evidenceRoot, { recursive: true });
+  const probe = resolve(evidenceRoot, `.avantiqo-code-preflight-${orchestratorRunId}`);
+  try {
+    await writeFile(probe, "preflight", { encoding: "utf8", flag: "wx" });
+    await rm(probe, { force: true });
+    return true;
+  } catch {
+    await rm(probe, { force: true }).catch(() => {});
+    return false;
+  }
+}
+
+async function runLivePreflight() {
+  const sourceFiles = await Promise.all(preflightSourcePaths.map(async (entry) => {
+    const info = await stat(entry.path).catch(() => null);
+    return { label: entry.label, path: entry.path, exists: info?.isFile() === true };
+  }));
+  const result = assessCodeAICompetitiveFullRunPreflight({
+    providers,
+    env: process.env,
+    source_files: sourceFiles,
+    evidence_root_writable: await verifyEvidenceRootWritable(),
+  });
+  if (!result.success) {
+    throw new Error(`${CONTRACT}_PREFLIGHT_FAILED:${JSON.stringify({
+      missing_provider_credentials: result.missing_provider_credentials,
+      missing_source_files: result.missing_source_files,
+      evidence_root_writable: result.evidence_root_writable,
+    })}`);
+  }
+  return result;
+}
 
 async function prepareRunDirectory() {
   await mkdir(evidenceRoot, { recursive: true });
@@ -184,6 +231,7 @@ function runNode(script, args, env, label) {
   return result;
 }
 
+const livePreflight = await runLivePreflight();
 await prepareRunDirectory();
 await clearRunOutputs();
 const producedArtifacts = [];
@@ -291,6 +339,7 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   orchestrator_run_id: orchestratorRunId,
   providers,
+  preflight_passed: livePreflight.success === true,
   competitive_report: paths.competitive,
   manifest: paths.manifest,
   manifest_sha256: manifestSha256,

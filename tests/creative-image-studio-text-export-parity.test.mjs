@@ -7,7 +7,7 @@ test("text export composites inside the sorted layer loop instead of forcing tex
   const loop=source.indexOf("for (const layer of visible)");
   const textBranch=source.indexOf('if (layer.layer_type === "TEXT")',loop);
   const imageComposite=source.indexOf("const subjectComposite=",textBranch);
-  const baseComposite=source.indexOf("const base = sharp",imageComposite);
+  const baseComposite=source.indexOf("base = sharp",imageComposite);
   assert.ok(loop>=0&&textBranch>loop&&imageComposite>textBranch&&baseComposite>imageComposite);
   assert.doesNotMatch(source,/const text = \[\]/);
   assert.doesNotMatch(source,/text\.join\(""\)/);

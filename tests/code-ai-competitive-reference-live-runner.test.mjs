@@ -136,3 +136,25 @@ test("reference grading exposes deterministic quality depth without raw output p
   assert.ok(deep.quality_score > shallow.quality_score);
   assert.equal(deep.evidence_key_count, 2);
 });
+
+test("quality depth resists verbosity padding with repeated language", () => {
+  const benchmarkCase = { case_id: "padding-case", required_evidence: ["proof"] };
+  const repeated = "repeat token ".repeat(80);
+  const padded = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify({
+    case_id: "padding-case",
+    diagnosis: repeated,
+    solution: repeated,
+    verification: repeated,
+    evidence: { proof: repeated },
+  }));
+  const specific = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify({
+    case_id: "padding-case",
+    diagnosis: "The authorization check is evaluated before organization scope is bound, allowing a valid user token to reach records outside the selected organization boundary.",
+    solution: "Resolve organization_id from the authenticated business context first, require it in the query predicate, and reject any caller-supplied organization that differs from the resolved scope.",
+    verification: "Run one positive same-organization read and one negative cross-organization read, asserting the negative case returns no records and cannot fall back to an unscoped query.",
+    evidence: { proof: "The proposed check binds authenticated organization scope directly into the data predicate and includes an explicit cross-organization negative test." },
+  }));
+  assert.equal(padded.passed, true);
+  assert.equal(specific.passed, true);
+  assert.ok(specific.quality_score > padded.quality_score);
+});

@@ -21,6 +21,7 @@ import {
   Ungroup,
   Scissors,
   SlidersHorizontal,
+  Paintbrush,
 } from "lucide-react";
 
 const TOOLS = [
@@ -29,6 +30,7 @@ const TOOLS = [
   ["text", Type],
   ["comment", MessageSquare],
   ["region", Scan],
+  ["mask_brush", Paintbrush],
 ];
 
 export default function ImageStudioCanvasToolbar({ workspace, persistence }) {
@@ -36,8 +38,8 @@ export default function ImageStudioCanvasToolbar({ workspace, persistence }) {
   return (
     <div className="mx-4 hidden items-center gap-1 rounded-lg border border-[#DDD8D0] bg-[#FBFAF8] p-1 lg:flex">
       {TOOLS.map(([tool, Icon]) => (
-        <button key={tool} type="button" title={tool} onClick={() => workspace.setTool(tool)}
-          className={`rounded-md p-1.5 ${workspace.ui.tool === tool ? "bg-[#D6A66A]/10 text-[#D6A66A]" : "text-[#918B83] hover:text-[#665F57]"}`}>
+        <button key={tool} type="button" title={tool} disabled={tool==="mask_brush"&&!workspace.layers.some((layer)=>workspace.selection.layer_ids?.includes(layer.id)&&layer.layer_type==="MASK"&&!layer.locked)} onClick={() => workspace.setTool(tool)}
+          className={`rounded-md p-1.5 ${workspace.ui.tool === tool ? "bg-[#D6A66A]/10 text-[#D6A66A]" : "text-[#918B83] hover:text-[#665F57]"} disabled:cursor-not-allowed disabled:opacity-20`}>
           <Icon className="h-3.5 w-3.5" />
         </button>
       ))}

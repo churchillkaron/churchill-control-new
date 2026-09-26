@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { assessCodeAIRepositoryTaskBenchmark } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
+const BENCHMARK_RUN_ID = "11111111-1111-4111-8111-111111111111";
+
 function proof(overrides = {}) {
   return {
     case_id: "case-1",
@@ -16,6 +18,7 @@ function proof(overrides = {}) {
     artifact_bytes: 1024,
     repository_verification: {
       case_id: overrides.case_id || "case-1",
+      benchmark_run_id: overrides.benchmark_run_id || BENCHMARK_RUN_ID,
       independent: true,
       verifier: "hidden-node-test",
       evidence_source: "INDEPENDENT_RUNNER",
@@ -40,14 +43,14 @@ function proof(overrides = {}) {
 }
 
 test("repository benchmark requires actual independently verified artifacts", () => {
-  const result = assessCodeAIRepositoryTaskBenchmark({ runner_source_commit: "1".repeat(40), observations: [proof()] });
+  const result = assessCodeAIRepositoryTaskBenchmark({ benchmark_run_id: BENCHMARK_RUN_ID, runner_source_commit: "1".repeat(40), observations: [proof()] });
   assert.equal(result.repository_task_artifact_certified, true);
   assert.equal(result.candidate_self_report_authority, false);
   assert.equal(result.cases[0].passed, true);
 });
 
 test("candidate pass flag alone cannot certify repository task superiority", () => {
-  const result = assessCodeAIRepositoryTaskBenchmark({ runner_source_commit: "1".repeat(40), observations: [{ case_id: "case-1", passed: true }] });
+  const result = assessCodeAIRepositoryTaskBenchmark({ benchmark_run_id: BENCHMARK_RUN_ID, runner_source_commit: "1".repeat(40), observations: [{ case_id: "case-1", passed: true }] });
   assert.equal(result.repository_task_artifact_certified, false);
   assert.equal(result.cases[0].passed, false);
 });
@@ -60,6 +63,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
     artifact_sha256: "3".repeat(64),
     repository_verification: {
       case_id: "case-2",
+      benchmark_run_id: BENCHMARK_RUN_ID,
       independent: true,
       verifier: "hidden-node-test",
       evidence_source: "INDEPENDENT_RUNNER",
@@ -78,7 +82,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       candidate_self_report_authority: false,
     },
   };
-  const result = assessCodeAIRepositoryTaskBenchmark({ runner_source_commit: "1".repeat(40), observations: [synthetic] });
+  const result = assessCodeAIRepositoryTaskBenchmark({ benchmark_run_id: BENCHMARK_RUN_ID, runner_source_commit: "1".repeat(40), observations: [synthetic] });
   assert.equal(result.repository_task_artifact_certified, false);
   assert.equal(result.cases[0].gates.repository_mutation_observed, false);
   assert.equal(result.cases[0].gates.hidden_acceptance_bound, false);
@@ -88,7 +92,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
 test("reused proof identity across cases is rejected", () => {
   const first = proof();
   const second = proof({ case_id: "case-2" });
-  const result = assessCodeAIRepositoryTaskBenchmark({ runner_source_commit: "1".repeat(40), observations: [first, second] });
+  const result = assessCodeAIRepositoryTaskBenchmark({ benchmark_run_id: BENCHMARK_RUN_ID, runner_source_commit: "1".repeat(40), observations: [first, second] });
   assert.equal(result.passed_case_count, 2);
   assert.equal(result.repository_proof_identity_unique_per_case, false);
   assert.equal(result.unique_repository_proof_identity_count, 1);
@@ -110,7 +114,7 @@ test("distinct proof identities across cases certify", () => {
       protected_baseline_hidden_acceptance_sha256: "8".repeat(64),
     },
   };
-  const result = assessCodeAIRepositoryTaskBenchmark({ runner_source_commit: "1".repeat(40), observations: [first, second] });
+  const result = assessCodeAIRepositoryTaskBenchmark({ benchmark_run_id: BENCHMARK_RUN_ID, runner_source_commit: "1".repeat(40), observations: [first, second] });
   assert.equal(result.repository_proof_identity_unique_per_case, true);
   assert.equal(result.unique_repository_proof_identity_count, 2);
   assert.equal(result.repository_task_artifact_certified, true);
@@ -119,6 +123,8 @@ test("distinct proof identities across cases certify", () => {
 
 test("mismatched verification case id cannot certify", () => {
   const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
     observations: [proof({
       case_id: "case-1",
       repository_verification: {
@@ -134,7 +140,7 @@ test("mismatched verification case id cannot certify", () => {
 
 test("failed benchmark case cannot certify repository proof", () => {
   const failed = proof({ passed: false });
-  const result = assessCodeAIRepositoryTaskBenchmark({ runner_source_commit: "1".repeat(40), observations: [failed] });
+  const result = assessCodeAIRepositoryTaskBenchmark({ benchmark_run_id: BENCHMARK_RUN_ID, runner_source_commit: "1".repeat(40), observations: [failed] });
   assert.equal(result.cases[0].gates.candidate_case_passed, false);
   assert.equal(result.cases[0].passed, false);
   assert.equal(result.repository_task_artifact_certified, false);
@@ -143,6 +149,7 @@ test("failed benchmark case cannot certify repository proof", () => {
 
 test("repository proof base commit must match attested runner commit", () => {
   const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
     runner_source_commit: "9".repeat(40),
     observations: [proof()],
   });
@@ -154,6 +161,7 @@ test("repository proof base commit must match attested runner commit", () => {
 test("verification proof must bind the exact candidate diff and artifact", () => {
   const base = proof();
   const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
     runner_source_commit: "1".repeat(40),
     observations: [{
       ...base,
@@ -171,6 +179,7 @@ test("verification proof must bind the exact candidate diff and artifact", () =>
 test("protected baseline must bind the exact base commit and hidden acceptance program", () => {
   const base = proof();
   const wrongHidden = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
     runner_source_commit: "1".repeat(40),
     observations: [{
       ...base,
@@ -184,6 +193,7 @@ test("protected baseline must bind the exact base commit and hidden acceptance p
   assert.equal(wrongHidden.repository_task_artifact_certified, false);
 
   const passingBaseline = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
     runner_source_commit: "1".repeat(40),
     observations: [{
       ...base,
@@ -196,4 +206,22 @@ test("protected baseline must bind the exact base commit and hidden acceptance p
   });
   assert.equal(passingBaseline.cases[0].gates.protected_baseline_bound, false);
   assert.equal(passingBaseline.repository_task_artifact_certified, false);
+});
+
+
+test("repository verification must match the exact benchmark run id", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        benchmark_run_id: "99999999-9999-4999-8999-999999999999",
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.verification_run_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
 });

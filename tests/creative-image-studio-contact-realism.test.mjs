@@ -44,3 +44,17 @@ test("inspector exposes contact realism controls",()=>{
   for(const label of ["Light wrap %","Wrap width px","Shadow opacity %","Shadow blur px","Shadow offset X","Shadow offset Y","Shadow vertical scale %"])assert.match(source,new RegExp(label));
   assert.match(source,/Ground shadow/);
 });
+
+test("ground shadow opacity inherits subject layer opacity",()=>{
+  const shadow=imageStudioShadowSpec({opacity:.3,contact_realism:{shadow_enabled:true,shadow_opacity:.5}});
+  assert.equal(shadow.subject_opacity,.3);
+  assert.equal(shadow.configured_opacity,.5);
+  assert.equal(shadow.opacity,.15);
+  assert.equal(shadow.enabled,true);
+});
+
+test("fully transparent subject cannot retain a visible ground shadow",()=>{
+  const shadow=imageStudioShadowSpec({opacity:0,contact_realism:{shadow_enabled:true,shadow_opacity:1}});
+  assert.equal(shadow.opacity,0);
+  assert.equal(shadow.enabled,false);
+});

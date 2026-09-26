@@ -42,6 +42,26 @@ function requiredReferenceProviders() {
   return [...new Set(configured.length ? configured : DEFAULT_REQUIRED_REFERENCE_PROVIDERS)].sort();
 }
 
+
+function requiredReferenceModels(requiredProviders) {
+  const raw = text(process.env.AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_MODELS);
+  if (!raw) throw new Error("AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_MODELS_REQUIRED");
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch {
+    throw new Error("AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_MODELS_INVALID_JSON");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_MODELS_INVALID");
+  }
+  const normalized = {};
+  for (const provider of requiredProviders) {
+    const model = text(parsed[provider]);
+    if (!model) throw new Error(`AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_MODEL_MISSING:${provider}`);
+    normalized[provider] = model;
+  }
+  return normalized;
+}
+
 function percentile(values, p) {
   const safe = values.map(finite).filter((value) => value !== null).sort((a, b) => a - b);
   if (!safe.length) return null;
@@ -254,10 +274,18 @@ if (
 }
 const references = await Promise.all(referencePaths.map(async (path) => JSON.parse(await readFile(path, "utf8"))));
 const requiredProviders = requiredReferenceProviders();
+const requiredModels = requiredReferenceModels(requiredProviders);
 const availableProviders = [...new Set(references.map((reference) => canonicalReferenceProvider(reference?.provider)).filter(Boolean))].sort();
 const missingProviders = requiredProviders.filter((provider) => !availableProviders.includes(provider));
 if (missingProviders.length) {
   throw new Error(`AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_PROVIDERS_MISSING:${missingProviders.join(",")}`);
+}
+for (const provider of requiredProviders) {
+  const matches = references.filter((reference) => canonicalReferenceProvider(reference?.provider) === provider);
+  const expectedModel = requiredModels[provider];
+  if (!matches.some((reference) => text(reference?.model?.product_model) === expectedModel)) {
+    throw new Error(`AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_MODEL_MISMATCH:${provider}`);
+  }
 }
 for (const reference of references) {
   verifyCodeAICompetitiveReferenceReport(reference, {
@@ -272,10 +300,16 @@ for (const reference of references) {
   }
 }
 const comparisons = references.map((reference) => compareReference(owned, reference, requiredCaseIds));
+const referenceModelBindingsCertified = requiredProviders.every((provider) =>
+  references.some((reference) =>
+    canonicalReferenceProvider(reference?.provider) === provider &&
+    text(reference?.model?.product_model) === requiredModels[provider],
+  ),
+);
 const providerDiversityCertified =
   requiredProviders.every((provider) => availableProviders.includes(provider)) &&
   availableProviders.length >= requiredProviders.length;
-const competitiveCertified = providerDiversityCertified && comparisons.length >= 2 && comparisons.every((item) => item.passed);
+const competitiveCertified = providerDiversityCertified && referenceModelBindingsCertified && comparisons.length >= 2 && comparisons.every((item) => item.passed);
 const ownedRepositoryTaskEvidence = assessCodeAIRepositoryTaskBenchmark(owned);
 const referenceRepositoryTaskEvidence = references.map((reference) => assessCodeAIRepositoryTaskBenchmark(reference));
 const repositoryTaskArtifactCertified =
@@ -315,6 +349,7 @@ const report = {
     maximum_cost_ratio: MAX_COST_RATIO,
     identical_task_ids_required: true,
     distinct_required_reference_providers: true,
+    explicit_reference_model_binding_required: true,
     default_required_reference_providers: DEFAULT_REQUIRED_REFERENCE_PROVIDERS,
     canonical_suite_exact_match_required: true,
     cryptographic_reference_attestation_required: true,
@@ -339,7 +374,9 @@ const report = {
   },
   competitive_certified: competitiveCertified,
   provider_diversity_certified: providerDiversityCertified,
+  reference_model_bindings_certified: referenceModelBindingsCertified,
   required_reference_providers: requiredProviders,
+  required_reference_models: requiredModels,
   available_reference_providers: availableProviders,
   quality_superiority_observed: qualitySuperiorityObserved,
   superiority_claim_allowed: superiorityClaimAllowed,
@@ -352,7 +389,9 @@ console.log(JSON.stringify({
   output_path: outputPath,
   competitive_certified: competitiveCertified,
   provider_diversity_certified: providerDiversityCertified,
+  reference_model_bindings_certified: referenceModelBindingsCertified,
   required_reference_providers: requiredProviders,
+  required_reference_models: requiredModels,
   available_reference_providers: availableProviders,
   repository_task_artifact_certified: repositoryTaskArtifactCertified,
   superiority_claim_allowed: superiorityClaimAllowed,

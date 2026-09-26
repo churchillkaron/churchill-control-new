@@ -1,13 +1,16 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { dirname, resolve } from "node:path";
 
 const CONTRACT = "AVANTIQO_CODE_COMPETITIVE_IMPROVEMENT_BACKLOG_V1";
 const SUITE_CONTRACT = "AVANTIQO_CODE_FRONTIER_ENGINEERING_SUITE_V1";
 const REPORT_CONTRACT = "AVANTIQO_CODE_COMPETITIVE_BENCHMARK_V1";
 const reportPath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_REPORT || "/tmp/avantiqo-code-competitive-benchmark.json");
 const suitePath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_SUITE || "benchmarks/avantiqo-code-frontier-engineering-suite.json");
-const outputPath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_BACKLOG || "/tmp/avantiqo-code-competitive-backlog.json");
-const report = JSON.parse(await readFile(reportPath, "utf8"));
+const outputPath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_BACKLOG || resolve(dirname(reportPath), "avantiqo-code-competitive-backlog.json"));
+const reportRaw = await readFile(reportPath);
+const report = JSON.parse(reportRaw.toString("utf8"));
+const sourceReportSha256 = createHash("sha256").update(reportRaw).digest("hex");
 const suite = JSON.parse(await readFile(suitePath, "utf8"));
 if (report.contract !== REPORT_CONTRACT) throw new Error("AVANTIQO_CODE_COMPETITIVE_REPORT_CONTRACT_INVALID");
 if (suite.contract !== SUITE_CONTRACT) throw new Error("AVANTIQO_CODE_COMPETITIVE_SUITE_CONTRACT_INVALID");
@@ -30,6 +33,8 @@ const payload = {
   contract: CONTRACT,
   generated_at: new Date().toISOString(),
   source_report_contract: REPORT_CONTRACT,
+  source_report_sha256: sourceReportSha256,
+  source_report_generated_at: report.generated_at || null,
   source_suite_contract: SUITE_CONTRACT,
   authorization_effect: "NONE",
   automatic_commit_allowed: false,

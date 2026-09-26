@@ -52,10 +52,22 @@ test("edge preview filter uses SourceAlpha erosion without inventing RGB",()=>{
   assert.match(source,/SourceGraphic/);
 });
 
-test("edge alpha changes disable light wrap preview because export wraps post-edge alpha",()=>{
+test("simple positive edge erosion feeds the light wrap preview post-edge alpha boundary",()=>{
+  const edge=imageStudioEdgePreview({style:{edge_integration:{matte_choke_px:2}},scale:1});
   const preview=imageStudioLightWrapPreview({
     style:{contact_realism:{light_wrap_strength:.5,light_wrap_width_px:6}},
-    asset_url:"https://example.com/a.png",preview:{image:{width:200,height:100}},has_edge_alpha:true,
+    asset_url:"https://example.com/a.png",preview:{image:{width:200,height:100}},edge_preview:edge,
+  });
+  assert.equal(preview.preview_supported,true);
+  assert.equal(preview.edge_radius,2);
+  assert.equal(preview.fidelity,"APPROXIMATE_RASTER_EXACT_EDGE_BOUNDARY_CONCEPT");
+});
+
+test("unsupported edge alpha pipelines keep light wrap export-authoritative",()=>{
+  const edge=imageStudioEdgePreview({style:{edge_integration:{edge_soften_px:2}},scale:1});
+  const preview=imageStudioLightWrapPreview({
+    style:{contact_realism:{light_wrap_strength:.5,light_wrap_width_px:6}},
+    asset_url:"https://example.com/a.png",preview:{image:{width:200,height:100}},edge_preview:edge,
   });
   assert.equal(preview.preview_supported,false);
   assert.equal(preview.reason,"EDGE_FINISHED_LIGHT_WRAP_EXPORT_ONLY");

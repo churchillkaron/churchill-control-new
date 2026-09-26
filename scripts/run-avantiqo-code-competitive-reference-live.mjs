@@ -34,9 +34,10 @@ function currentCleanMainProvenance() {
 if (!approved(process.env.AVANTIQO_CODE_COMPETITIVE_LIVE_REFERENCE_APPROVED)) {
   throw new Error("AVANTIQO_CODE_COMPETITIVE_LIVE_REFERENCE_APPROVED=YES_REQUIRED");
 }
-const provider = text(process.env.AVANTIQO_CODE_COMPETITIVE_REFERENCE_PROVIDER).toLowerCase();
+const providerInput = text(process.env.AVANTIQO_CODE_COMPETITIVE_REFERENCE_PROVIDER).toLowerCase();
+const provider = providerInput === "gemini" ? "google" : providerInput;
 const model = text(process.env.AVANTIQO_CODE_COMPETITIVE_REFERENCE_MODEL);
-if (!new Set(["openai", "anthropic"]).has(provider)) {
+if (!new Set(["openai", "anthropic", "google"]).has(provider)) {
   throw new Error("AVANTIQO_CODE_COMPETITIVE_REFERENCE_PROVIDER_INVALID");
 }
 if (!model) throw new Error("AVANTIQO_CODE_COMPETITIVE_REFERENCE_MODEL_REQUIRED");
@@ -82,7 +83,7 @@ if (provider === "openai") {
       cost_usd: costFor(inputTokens, outputTokens),
     };
   };
-} else {
+} else if (provider === "anthropic") {
   const apiKey = text(process.env.ANTHROPIC_API_KEY);
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY_REQUIRED_FOR_COMPETITIVE_REFERENCE");
   executeProvider = async ({ prompt }) => {
@@ -119,6 +120,56 @@ if (provider === "openai") {
       pricing_output_usd_per_1m: outputUsdPer1m,
       pricing_source: "OPERATOR_APPROVED_REFERENCE_PRICING_V1",
       cost_usd: costFor(inputTokens, outputTokens),
+    };
+  };
+} else {
+  const apiKey = text(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+  if (!apiKey) throw new Error("GEMINI_API_KEY_REQUIRED_FOR_COMPETITIVE_REFERENCE");
+  const modelId = model.replace(/^models\//i, "");
+  executeProvider = async ({ prompt }) => {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+        }),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`GEMINI_COMPETITIVE_REFERENCE_REQUEST_FAILED:${response.status}`);
+    }
+    const body = await response.json();
+    const output = Array.isArray(body?.candidates)
+      ? body.candidates.flatMap((candidate) =>
+          Array.isArray(candidate?.content?.parts)
+            ? candidate.content.parts.map((part) => text(part?.text)).filter(Boolean)
+            : [],
+        ).join("\n")
+      : "";
+    const usage = body?.usageMetadata && typeof body.usageMetadata === "object" ? body.usageMetadata : {};
+    const inputTokens = Number(usage.promptTokenCount);
+    const candidateTokens = Number(usage.candidatesTokenCount);
+    const thoughtTokens = Number(usage.thoughtsTokenCount || 0);
+    const outputTokens =
+      Number.isFinite(candidateTokens) && Number.isFinite(thoughtTokens)
+        ? candidateTokens + thoughtTokens
+        : Number.NaN;
+    return {
+      text: output,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      token_usage_source: "PROVIDER_API_USAGE_V1",
+      pricing_input_usd_per_1m: inputUsdPer1m,
+      pricing_output_usd_per_1m: outputUsdPer1m,
+      pricing_source: "OPERATOR_APPROVED_REFERENCE_PRICING_V1",
+      cost_usd: Number.isFinite(inputTokens) && Number.isFinite(outputTokens)
+        ? costFor(inputTokens, outputTokens)
+        : null,
     };
   };
 }

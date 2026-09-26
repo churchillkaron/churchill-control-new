@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { imageStudioSharpIccProfile, normalizeImageStudioOutputColorSpace, resolveImageStudioOutputDensity } from "../lib/creative/stills/runtime/CreativeImageStudioColorManagementRuntime.js";
+import { imageStudioPdfPageSize, imageStudioSharpIccProfile, normalizeImageStudioOutputColorSpace, resolveImageStudioOutputDensity } from "../lib/creative/stills/runtime/CreativeImageStudioColorManagementRuntime.js";
 
 test("Image Studio output color management defaults to canonical sRGB",()=>{
   assert.equal(normalizeImageStudioOutputColorSpace(),"SRGB");
@@ -36,4 +36,19 @@ test("deterministic export writes governed density metadata without inventing it
   assert.match(source,/withMetadata\(\{density:outputDensity\}\)/);
   assert.match(source,/output_density_dpi:outputDensity/);
   assert.match(source,/density_metadata_embedded:Boolean\(outputDensity\)/);
+});
+
+test("print PDF page size converts governed pixels and DPI into physical PDF points",()=>{
+  const page=imageStudioPdfPageSize(2480,3508,300);
+  assert.equal(Math.round(page.width_points*100)/100,595.2);
+  assert.equal(Math.round(page.height_points*100)/100,841.92);
+  assert.equal(Math.round(page.width_inches*1000)/1000,8.267);
+  assert.equal(Math.round(page.height_inches*1000)/1000,11.693);
+});
+
+test("PDF export uses physical page points when output density is governed",()=>{
+  const source=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js","utf8");
+  assert.match(source,/imageStudioPdfPageSize\(width,height,outputDensity\)/);
+  assert.match(source,/pdf\.addPage\(\[pdfPage\.width_points, pdfPage\.height_points\]\)/);
+  assert.match(source,/width:pdfPage\.width_points, height:pdfPage\.height_points/);
 });

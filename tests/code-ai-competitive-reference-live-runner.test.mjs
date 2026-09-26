@@ -193,3 +193,40 @@ test("quality scoring rewards evidence grounded in the case obligations", () => 
   assert.ok(grounded.evidence_grounding_score > 0);
   assert.ok(grounded.quality_score > generic.quality_score);
 });
+
+
+test("narrative grounding penalizes generic diagnosis solution and verification", () => {
+  const benchmarkCase = {
+    case_id: "narrative-grounding-case",
+    category: "performance",
+    title: "Parallelize independent reads while preserving semantic equivalence",
+    required_evidence: ["parallelized", "semantic_equivalence", "latency_measurement"],
+  };
+  const generic = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify({
+    case_id: "narrative-grounding-case",
+    diagnosis: "The implementation contains a concrete issue that should be corrected with a narrowly scoped change while preserving unrelated behavior.",
+    solution: "Apply the smallest safe implementation change at the relevant boundary and keep existing authorization and error handling intact.",
+    verification: "Use focused regression checks to confirm the intended behavior and make sure no unrelated behavior changes after the update.",
+    evidence: {
+      parallelized: "Independent reads are parallelized at the request boundary rather than executed serially.",
+      semantic_equivalence: "Semantic equivalence is verified by comparing the response payload and failure behavior before and after parallelization.",
+      latency_measurement: "Latency measurement captures the same request before and after the independent reads are parallelized.",
+    },
+  }));
+  const grounded = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify({
+    case_id: "narrative-grounding-case",
+    diagnosis: "Two independent reads execute serially, adding avoidable request latency even though neither read depends on the other result.",
+    solution: "Parallelize the independent reads with Promise.all while preserving semantic equivalence, output ordering, and the existing per-read failure behavior.",
+    verification: "Measure request latency before and after parallelization and compare payload semantics so the faster path remains behaviorally equivalent.",
+    evidence: {
+      parallelized: "Independent reads are parallelized at the request boundary rather than executed serially.",
+      semantic_equivalence: "Semantic equivalence is verified by comparing the response payload and failure behavior before and after parallelization.",
+      latency_measurement: "Latency measurement captures the same request before and after the independent reads are parallelized.",
+    },
+  }));
+  assert.equal(generic.passed, true);
+  assert.equal(grounded.passed, true);
+  assert.ok(generic.narrative_grounding_score < 0.5);
+  assert.ok(grounded.narrative_grounding_score >= 0.5);
+  assert.ok(grounded.quality_score > generic.quality_score);
+});

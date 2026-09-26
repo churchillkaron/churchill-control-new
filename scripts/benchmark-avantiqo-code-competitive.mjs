@@ -14,6 +14,7 @@ const PROMPT_CONTRACT = "AVANTIQO_CODE_FRONTIER_PROMPT_CONTRACT_V1";
 const MIN_CASES = 20;
 const MAX_REFERENCE_AGE_DAYS = 30;
 const MIN_NON_LOSS_RATE = 0.95;
+const MIN_NARRATIVE_GROUNDING_SCORE = 0.5;
 const MAX_P95_LATENCY_RATIO = 1.25;
 const MAX_COST_RATIO = 1.25;
 
@@ -62,6 +63,8 @@ function compareCase(owned, reference) {
   const referenceQuality = finite(reference?.quality_score);
   const ownedGrounding = finite(owned?.evidence_grounding_score);
   const referenceGrounding = finite(reference?.evidence_grounding_score);
+  const ownedNarrativeGrounding = finite(owned?.narrative_grounding_score);
+  const referenceNarrativeGrounding = finite(reference?.narrative_grounding_score);
   const qualityOutcome = ownedPassed !== referencePassed
     ? ownedPassed ? "WIN" : "LOSS"
     : ownedPassed && referencePassed && ownedQuality !== null && referenceQuality !== null
@@ -80,6 +83,8 @@ function compareCase(owned, reference) {
     reference_quality_score: referenceQuality,
     owned_evidence_grounding_score: ownedGrounding,
     reference_evidence_grounding_score: referenceGrounding,
+    owned_narrative_grounding_score: ownedNarrativeGrounding,
+    reference_narrative_grounding_score: referenceNarrativeGrounding,
     quality_outcome: qualityOutcome,
     latency_outcome: latencyOutcome,
     outcome: qualityOutcome,
@@ -112,6 +117,10 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
     (!item.owned_passed || (item.owned_evidence_grounding_score !== null && item.owned_evidence_grounding_score > 0 && item.owned_evidence_grounding_score <= 1)) &&
     (!item.reference_passed || (item.reference_evidence_grounding_score !== null && item.reference_evidence_grounding_score > 0 && item.reference_evidence_grounding_score <= 1)),
   );
+  const narrativeGroundingComplete = comparisons.every((item) =>
+    (!item.owned_passed || (item.owned_narrative_grounding_score !== null && item.owned_narrative_grounding_score >= MIN_NARRATIVE_GROUNDING_SCORE && item.owned_narrative_grounding_score <= 1)) &&
+    (!item.reference_passed || (item.reference_narrative_grounding_score !== null && item.reference_narrative_grounding_score >= MIN_NARRATIVE_GROUNDING_SCORE && item.reference_narrative_grounding_score <= 1)),
+  );
   const ownedP95 = percentile(comparisons.map((item) => item.owned_wall_ms), 0.95);
   const referenceP95 = percentile(comparisons.map((item) => item.reference_wall_ms), 0.95);
   const latencyRatio = ownedP95 !== null && referenceP95 > 0 ? ownedP95 / referenceP95 : null;
@@ -131,6 +140,7 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
     owned_quality_non_loss_rate: nonLossRate >= MIN_NON_LOSS_RATE,
     deterministic_quality_scores_complete: qualityScoresComplete,
     case_specific_evidence_grounding_complete: evidenceGroundingComplete,
+    case_specific_narrative_grounding_complete: narrativeGroundingComplete,
     reference_fresh: referenceFresh,
     p95_latency_competitive: latencyRatio !== null && latencyRatio <= MAX_P95_LATENCY_RATIO,
     cost_competitive: costRatio !== null && costRatio <= MAX_COST_RATIO,
@@ -243,6 +253,8 @@ const report = {
     minimum_quality_non_loss_rate: MIN_NON_LOSS_RATE,
     deterministic_quality_score_required_for_passed_cases: true,
     case_specific_evidence_grounding_required_for_passed_cases: true,
+    case_specific_narrative_grounding_required_for_passed_cases: true,
+    minimum_narrative_grounding_score: MIN_NARRATIVE_GROUNDING_SCORE,
     maximum_p95_latency_ratio: MAX_P95_LATENCY_RATIO,
     maximum_cost_ratio: MAX_COST_RATIO,
     identical_task_ids_required: true,

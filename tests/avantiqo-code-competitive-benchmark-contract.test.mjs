@@ -27,6 +27,8 @@ test("competitive benchmark measures quality latency and cost", () => {
   assert.match(source, /owned_quality_non_loss_rate/);
   assert.match(source, /deterministic_quality_scores_complete/);
   assert.match(source, /case_specific_evidence_grounding_complete/);
+  assert.match(source, /case_specific_narrative_grounding_complete/);
+  assert.match(source, /MIN_NARRATIVE_GROUNDING_SCORE/);
   assert.match(source, /latency_outcome/);
   assert.match(source, /p95_latency_competitive/);
   assert.match(source, /cost_competitive/);

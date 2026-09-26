@@ -19,11 +19,12 @@ function responseFor(item) {
   const evidence = Object.fromEntries(
     item.required_evidence.map((key) => [key, `Concrete verification requirement for ${key}`]),
   );
+  const anchors = item.required_evidence.join(" ").replaceAll("_", " ");
   return JSON.stringify({
     case_id: item.case_id,
-    diagnosis: "The scenario requires a bounded root-cause diagnosis using the supplied constraints.",
-    solution: "Apply the smallest compatible correction at the canonical ownership boundary and preserve unrelated behavior.",
-    verification: "Run the exact targeted checks and regression evidence required by the scenario before completion.",
+    diagnosis: `${item.title} requires diagnosis grounded in ${item.category} constraints and the obligations ${anchors}.`,
+    solution: `Apply the smallest ${item.category} correction that directly satisfies ${anchors} while preserving unrelated behavior.`,
+    verification: `Verify ${anchors} against the ${item.title} scenario with targeted checks before completion.`,
     evidence,
   });
 }

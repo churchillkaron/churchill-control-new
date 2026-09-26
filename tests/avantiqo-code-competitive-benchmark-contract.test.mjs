@@ -24,7 +24,8 @@ test("competitive benchmark requires substantial identical current reference evi
 
 test("competitive benchmark measures quality latency and cost", () => {
   assert.match(source, /owned_pass_rate_not_worse/);
-  assert.match(source, /owned_win_rate/);
+  assert.match(source, /owned_quality_non_loss_rate/);
+  assert.match(source, /latency_outcome/);
   assert.match(source, /p95_latency_competitive/);
   assert.match(source, /cost_competitive/);
 });
@@ -32,6 +33,8 @@ test("competitive benchmark measures quality latency and cost", () => {
 test("superiority claim fails closed and never changes runtime provider routing", () => {
   assert.match(source, /comparisons\.length >= 2 && comparisons\.every/);
   assert.match(source, /superiority_claim_allowed: superiorityClaimAllowed/);
+  assert.match(source, /speed_alone_cannot_establish_quality_superiority: true/);
+  assert.match(source, /quality_superiority_requires_reference_quality_win: true/);
   assert.match(source, /actual_repository_mutation_evidence_required_for_superiority: true/);
   assert.match(source, /hidden_acceptance_evidence_required_for_superiority: true/);
   assert.match(source, /runtime_provider_effect: "NONE"/);

@@ -100,6 +100,10 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
   const latencyTies = comparisons.filter((item) => item.latency_outcome === "TIE").length;
   const ownedPassRate = comparisons.length ? comparisons.filter((item) => item.owned_passed).length / comparisons.length : 0;
   const referencePassRate = comparisons.length ? comparisons.filter((item) => item.reference_passed).length / comparisons.length : 0;
+  const qualityScoresComplete = comparisons.every((item) =>
+    (!item.owned_passed || (item.owned_quality_score !== null && item.owned_quality_score > 0 && item.owned_quality_score <= 1)) &&
+    (!item.reference_passed || (item.reference_quality_score !== null && item.reference_quality_score > 0 && item.reference_quality_score <= 1)),
+  );
   const ownedP95 = percentile(comparisons.map((item) => item.owned_wall_ms), 0.95);
   const referenceP95 = percentile(comparisons.map((item) => item.reference_wall_ms), 0.95);
   const latencyRatio = ownedP95 !== null && referenceP95 > 0 ? ownedP95 / referenceP95 : null;
@@ -117,6 +121,7 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
     minimum_case_count: comparisons.length >= MIN_CASES,
     owned_pass_rate_not_worse: ownedPassRate >= referencePassRate,
     owned_quality_non_loss_rate: nonLossRate >= MIN_NON_LOSS_RATE,
+    deterministic_quality_scores_complete: qualityScoresComplete,
     reference_fresh: referenceFresh,
     p95_latency_competitive: latencyRatio !== null && latencyRatio <= MAX_P95_LATENCY_RATIO,
     cost_competitive: costRatio !== null && costRatio <= MAX_COST_RATIO,

@@ -277,3 +277,43 @@ test("evidence obligations must be independently substantiated rather than dupli
   assert.ok(distinctGrade.evidence_distinctness_score >= 0.25);
   assert.ok(distinctGrade.quality_score > duplicateGrade.quality_score);
 });
+
+
+test("template fingerprint ignores case anchor substitutions while preserving substantive structure", () => {
+  const firstCase = {
+    case_id: "template-a",
+    category: "security",
+    title: "Protect shared request boundary with organization scope",
+    required_evidence: ["organization_bound", "negative_test"],
+  };
+  const secondCase = {
+    case_id: "template-b",
+    category: "performance",
+    title: "Protect shared request boundary with latency measurement",
+    required_evidence: ["latency_measurement", "semantic_equivalence"],
+  };
+  const first = gradeCodeAICompetitiveReferenceCase(firstCase, JSON.stringify({
+    case_id: "template-a",
+    diagnosis: "Organization scope requires a concrete correction at the shared request boundary while preserving unrelated behavior.",
+    solution: "Organization scope control applies at the shared request boundary while preserving unrelated behavior and existing failure handling.",
+    verification: "Negative test coverage checks the shared request boundary and compares behavior before and after the correction.",
+    evidence: {
+      organization_bound: "Organization scope coverage checks the shared request boundary while unrelated behavior remains preserved.",
+      negative_test: "Negative test control applies at the shared request boundary while unrelated behavior remains preserved.",
+    },
+  }));
+  const second = gradeCodeAICompetitiveReferenceCase(secondCase, JSON.stringify({
+    case_id: "template-b",
+    diagnosis: "Request latency requires a concrete correction at the shared request boundary while preserving unrelated behavior.",
+    solution: "Latency measurement control applies at the shared request boundary while preserving unrelated behavior and existing failure handling.",
+    verification: "Semantic equivalence coverage checks the shared request boundary and compares behavior before and after the correction.",
+    evidence: {
+      latency_measurement: "Latency measurement control applies at the shared request boundary while unrelated behavior remains preserved.",
+      semantic_equivalence: "Semantic equivalence coverage checks the shared request boundary while unrelated behavior remains preserved.",
+    },
+  }));
+  assert.equal(first.passed, true);
+  assert.equal(second.passed, true);
+  assert.match(first.response_template_fingerprint_sha256, /^[a-f0-9]{64}$/);
+  assert.equal(first.response_template_fingerprint_sha256, second.response_template_fingerprint_sha256);
+});

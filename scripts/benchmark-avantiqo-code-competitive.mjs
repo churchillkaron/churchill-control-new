@@ -88,6 +88,26 @@ function qualityFloor(report) {
   };
 }
 
+function templateFingerprintGate(report, requiredCaseIds) {
+  const observations = observationMap(report);
+  const fingerprints = requiredCaseIds.map((caseId) => {
+    const item = observations.get(caseId);
+    if (item?.passed !== true) return null;
+    const value = text(item?.response_template_fingerprint_sha256).toLowerCase();
+    return /^[a-f0-9]{64}$/.test(value) ? value : null;
+  });
+  const complete = fingerprints.every((value) => value !== null);
+  const valid = fingerprints.filter(Boolean);
+  const unique = new Set(valid).size === valid.length;
+  return {
+    complete,
+    unique,
+    passed_case_count: valid.length,
+    unique_fingerprint_count: new Set(valid).size,
+    passed: complete && unique,
+  };
+}
+
 function observationMap(report) {
   return new Map(list(report?.observations).map((item) => [text(item?.case_id), item]).filter(([id]) => id));
 }
@@ -171,6 +191,8 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
   const exactRequiredReference = referenceIds.length === requiredCaseIds.length && referenceIds.every((id, index) => id === requiredCaseIds[index]);
   const sameCases = exactRequiredOwned && exactRequiredReference;
   const comparisons = sameCases ? requiredCaseIds.map((id) => compareCase(owned.get(id), reference.get(id))) : [];
+  const ownedTemplateFingerprints = templateFingerprintGate(ownedReport, requiredCaseIds);
+  const referenceTemplateFingerprints = templateFingerprintGate(referenceReport, requiredCaseIds);
   const wins = comparisons.filter((item) => item.quality_outcome === "WIN").length;
   const losses = comparisons.filter((item) => item.quality_outcome === "LOSS").length;
   const ties = comparisons.filter((item) => item.quality_outcome === "TIE").length;
@@ -221,6 +243,8 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
     case_specific_evidence_grounding_complete: evidenceGroundingComplete,
     case_specific_narrative_grounding_complete: narrativeGroundingComplete,
     distinct_evidence_obligations_complete: evidenceDistinctnessComplete,
+    owned_cross_case_templates_unique: ownedTemplateFingerprints.passed,
+    reference_cross_case_templates_unique: referenceTemplateFingerprints.passed,
     reference_fresh: referenceFresh,
     p95_latency_competitive: latencyRatio !== null && latencyRatio <= MAX_P95_LATENCY_RATIO,
     cost_competitive: costRatio !== null && costRatio <= MAX_COST_RATIO,
@@ -249,6 +273,8 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
     reference_cost_usd: referenceCost,
     cost_ratio: costRatio === null ? null : Number(costRatio.toFixed(4)),
     reference_age_days: ageDays === null ? null : Number(ageDays.toFixed(2)),
+    owned_template_fingerprints: ownedTemplateFingerprints,
+    reference_template_fingerprints: referenceTemplateFingerprints,
     gates,
     passed: Object.values(gates).every(Boolean),
     cases: comparisons,
@@ -419,6 +445,7 @@ const report = {
     case_specific_narrative_grounding_required_for_passed_cases: true,
     minimum_narrative_grounding_score: MIN_NARRATIVE_GROUNDING_SCORE,
     minimum_evidence_distinctness_score: MIN_EVIDENCE_DISTINCTNESS_SCORE,
+    unique_cross_case_template_fingerprints_required: true,
     maximum_p95_latency_ratio: MAX_P95_LATENCY_RATIO,
     maximum_cost_ratio: MAX_COST_RATIO,
     identical_task_ids_required: true,

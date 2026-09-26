@@ -28,6 +28,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
     evidence_grounding_score: 0.9,
     narrative_grounding_score: 0.9,
     evidence_distinctness_score: 0.9,
+    response_template_fingerprint_sha256: ((index + 120).toString(16).padStart(2, "0")).repeat(32),
     latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
     wall_ms: wallMs + index,
     input_tokens: 100,
@@ -371,4 +372,19 @@ test("degraded reference below the absolute quality floor is rejected", async ()
   const run = runBenchmark(paths);
   assert.notEqual(run.status, 0);
   assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_REFERENCE_ABSOLUTE_QUALITY_FLOOR_NOT_MET:google/);
+});
+
+
+test("duplicate cross-case template fingerprints are rejected", async () => {
+  const paths = await fixture();
+  const owned = JSON.parse(await readFile(paths.ownedPath, "utf8"));
+  owned.observations[1].response_template_fingerprint_sha256 = owned.observations[0].response_template_fingerprint_sha256;
+  delete owned.owned_attestation;
+  await writeFile(paths.ownedPath, JSON.stringify(attestCodeAICompetitiveOwnedReport(owned, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  const report = JSON.parse(await readFile(paths.outputPath, "utf8"));
+  assert.equal(report.competitive_certified, false);
+  assert.equal(report.comparisons[0].gates.owned_cross_case_templates_unique, false);
+  assert.equal(report.comparisons[1].gates.owned_cross_case_templates_unique, false);
 });

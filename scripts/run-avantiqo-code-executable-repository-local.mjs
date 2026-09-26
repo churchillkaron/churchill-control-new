@@ -134,10 +134,23 @@ async function seedRepository(benchmarkCase) {
   }
   const baseCommit = text(must("git", ["rev-parse", "HEAD"], repo).stdout, 80);
   const hiddenPath = join(verifier, "hidden-acceptance.mjs");
-  await writeFile(hiddenPath, hiddenSource(benchmarkCase?.hidden_acceptance?.case_set), "utf8");
+  const hiddenAcceptanceSource = hiddenSource(benchmarkCase?.hidden_acceptance?.case_set);
+  const hiddenAcceptanceSha256 = sha256(hiddenAcceptanceSource);
+  await writeFile(hiddenPath, hiddenAcceptanceSource, "utf8");
   const baseline = run(process.execPath, [hiddenPath], verifier);
   if (baseline.status === 0) throw new Error(`${CONTRACT}_BASELINE_MUST_FAIL:${benchmarkCase.case_id}`);
-  return { root, repo, verifier, origin, baseCommit, hiddenPath };
+  const baselineExitCode = Number(baseline.status);
+  const protectedBaselineSha256 = sha256(JSON.stringify({
+    case_id: benchmarkCase.case_id,
+    base_commit: baseCommit,
+    hidden_acceptance_sha256: hiddenAcceptanceSha256,
+    exit_code: baselineExitCode,
+    passed: false,
+  }));
+  return {
+    root, repo, verifier, origin, baseCommit, hiddenPath,
+    hiddenAcceptanceSha256, baselineExitCode, protectedBaselineSha256,
+  };
 }
 
 const suite = JSON.parse(await readFile(suitePath, "utf8"));
@@ -293,14 +306,20 @@ for (const benchmarkCase of cases) {
         independent: true,
         verifier: "avantiqo-hidden-node-assert",
         evidence_source: "INDEPENDENT_RUNNER",
+        candidate_diff_sha256: sha256(patch),
+        candidate_artifact_sha256: sha256(artifact),
         passed: hiddenPassed,
         exit_code: hiddenExitCode,
-        hidden_acceptance_sha256: sha256(hiddenSource(benchmarkCase?.hidden_acceptance?.case_set)),
+        hidden_acceptance_sha256: fixture.hiddenAcceptanceSha256,
         hidden_acceptance_executed: hiddenExitCode !== null,
         hidden_acceptance_test_count: benchmarkCase.case_id.includes("multifile") ? 5 : 4,
-        protected_baseline_sha256: sha256(`baseline-failed:${benchmarkCase.case_id}`),
+        protected_baseline_sha256: fixture.protectedBaselineSha256,
         protected_baseline_executed: true,
         protected_baseline_test_count: 1,
+        protected_baseline_base_commit: fixture.baseCommit,
+        protected_baseline_hidden_acceptance_sha256: fixture.hiddenAcceptanceSha256,
+        protected_baseline_exit_code: fixture.baselineExitCode,
+        protected_baseline_passed: false,
         candidate_self_report_authority: false,
       },
       hidden_stdout: hiddenStdout,

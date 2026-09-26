@@ -46,9 +46,10 @@ test("controlled live reference runner uses the canonical prompt contract and si
     runner_provenance: { source_commit: "2".repeat(40), ref: "main", repository_clean: true },
     execute_provider: async ({ prompt, case_id }) => {
       seenPrompts.push(prompt);
+      if (case_id === suite.cases[0].case_id) await new Promise((resolve) => setTimeout(resolve, 15));
       return {
         text: responseFor(byId.get(case_id)),
-        wall_ms: 25,
+        wall_ms: 1,
         input_tokens: 100,
         output_tokens: 80,
         cost_usd: 0.002,
@@ -64,6 +65,9 @@ test("controlled live reference runner uses the canonical prompt contract and si
   assert.equal(report.normal_avantiqo_code_execution_uses_reference_provider, false);
   assert.equal(report.economics.estimated_supplier_cost_usd, Number((suite.cases.length * 0.002).toFixed(8)));
   assert.ok(report.observations.every((item) => item.raw_output_persisted === false));
+  assert.ok(report.observations.every((item) => item.latency_measurement_source === "RUNNER_MONOTONIC_CLOCK_V1"));
+  assert.equal(report.observations[0].provider_reported_wall_ms, 1);
+  assert.ok(report.observations[0].wall_ms >= 10);
   assert.ok(seenPrompts[0].includes(`Scenario: ${suite.cases[0].title}`));
   assert.equal(verifyCodeAICompetitiveReferenceReport(report, {
     env,

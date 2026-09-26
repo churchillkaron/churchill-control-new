@@ -43,17 +43,66 @@ test("feathered geometric masks preview through the shared SVG alpha contract",(
   }
 });
 
-test("semantic and raster masks stay export-authoritative while brush-refined geometry previews",()=>{
-  const semantic=imageStudioMaskPreviewDescriptor(target,{id:"s",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_source_kind:"SEMANTIC",mask_shape:"RECT"}});
-  const raster=imageStudioMaskPreviewDescriptor(target,{id:"r",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_source_kind:"RASTER_MATTE",mask_shape:"RECT",mask_provenance:{matte_storage_reference:"storage://creative/matte.png"}}});
+test("semantic and raster masks without a governed preview URL stay export-authoritative",()=>{
+  for(const metadata of [
+    {mask_source_kind:"SEMANTIC",mask_shape:"RECT",semantic_mask_mode:"SUBJECT"},
+    {mask_source_kind:"RASTER_MATTE",mask_shape:"RECT",mask_provenance:{matte_storage_reference:"storage://creative/matte.png"}},
+  ]){
+    const preview=imageStudioMaskPreviewDescriptor(target,{id:"m",bounds:{x:0,y:0,width:200,height:100},metadata});
+    assert.equal(preview.preview_supported,false);
+    assert.equal(preview.reason,"MASK_SOURCE_PREVIEW_COMPLEX");
+  }
+});
+
+test("governed raster matte previews by luminance using exact source crop geometry",()=>{
+  const preview=imageStudioMaskPreviewDescriptor(
+    target,
+    {id:"r",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_source_kind:"RASTER_MATTE",mask_shape:"RECT"}},
+    {mask_url:"https://assets.example/matte.png",preview_image:{left:-20,top:-10,width:300,height:180}},
+  );
+  assert.equal(preview.preview_supported,true);
+  assert.equal(preview.fidelity,"BROWSER_LUMINANCE_MATTE_EXACT_GEOMETRY");
+  assert.equal(preview.style.maskMode,"luminance");
+  assert.equal(preview.style.maskSize,"300px 180px");
+  assert.equal(preview.style.maskPosition,"-20px -10px");
+  assert.equal(preview.style.WebkitMaskSize,"300px 180px");
+  assert.equal(preview.style.WebkitMaskPosition,"-20px -10px");
+  assert.match(preview.style.maskImage,/https:\/\/assets\.example\/matte\.png/);
+});
+
+test("owned semantic matte may use its signed governed preview URL",()=>{
+  const preview=imageStudioMaskPreviewDescriptor(
+    target,
+    {id:"s",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_source_kind:"SEMANTIC",semantic_mask_mode:"SUBJECT",semantic_matte_preview_url:"https://signed.example/subject.png"}},
+    {preview_image:{left:0,top:0,width:200,height:100}},
+  );
+  assert.equal(preview.preview_supported,true);
+  assert.equal(preview.style.maskMode,"luminance");
+  assert.match(preview.style.maskImage,/signed\.example\/subject\.png/);
+});
+
+test("raster matte preview stays export-authoritative when extra alpha semantics would diverge",()=>{
+  for(const metadata of [
+    {mask_source_kind:"RASTER_MATTE",mask_invert:true},
+    {mask_source_kind:"RASTER_MATTE",mask_opacity:.5},
+    {mask_source_kind:"RASTER_MATTE",mask_feather:8},
+    {mask_source_kind:"RASTER_MATTE",mask_brush_strokes:[{mode:"ADD",points:[{x:.5,y:.5}],size_px:10,hardness:1,opacity:1}]},
+  ]){
+    const preview=imageStudioMaskPreviewDescriptor(
+      target,
+      {id:"r",bounds:{x:0,y:0,width:200,height:100},metadata},
+      {mask_url:"https://assets.example/matte.png",preview_image:{left:0,top:0,width:200,height:100}},
+    );
+    assert.equal(preview.preview_supported,false);
+    assert.equal(preview.reason,"MASK_SOURCE_PREVIEW_COMPLEX");
+  }
+});
+
+test("brush-refined geometric mask remains previewable",()=>{
   const brush=imageStudioMaskPreviewDescriptor(target,{id:"b",bounds:{x:20,y:10,width:160,height:80},metadata:{mask_shape:"RECT",mask_brush_strokes:[
     {mode:"ADD",points:[{x:.2,y:.2},{x:.8,y:.8}],size_px:32,hardness:.5,opacity:.75},
     {mode:"SUBTRACT",points:[{x:.5,y:.5}],size_px:18,hardness:1,opacity:.4},
   ]}});
-  assert.equal(semantic.preview_supported,false);
-  assert.equal(semantic.reason,"MASK_SOURCE_PREVIEW_COMPLEX");
-  assert.equal(raster.preview_supported,false);
-  assert.equal(raster.reason,"MASK_SOURCE_PREVIEW_COMPLEX");
   assert.equal(brush.preview_supported,true);
   assert.equal(brush.fidelity,"APPROXIMATE_RASTER_EXACT_GEOMETRY");
   assert.match(brush.style.maskImage,/stroke%3D%22white%22/);
@@ -90,4 +139,14 @@ test("adjustment masks inherit brush-refined geometric alpha preview",()=>{
   assert.equal(preview.preview_supported,true);
   assert.deepEqual(preview.failures,[]);
   assert.match(preview.mask_style.maskImage,/stroke%3D%22black%22/);
+});
+
+test("canvas and version compare resolve governed matte URLs with source crop geometry",()=>{
+  const canvas=fs.readFileSync("components/creative/specialist/ImageStudioCanvasSurface.jsx","utf8");
+  const compare=fs.readFileSync("components/creative/specialist/ImageStudioVersionCompare.jsx","utf8");
+  for(const source of [canvas,compare]){
+    assert.match(source,/semantic_matte_preview_url/);
+    assert.match(source,/mask_url:maskAssetUrl/);
+    assert.match(source,/preview_image:preview\.image/);
+  }
 });

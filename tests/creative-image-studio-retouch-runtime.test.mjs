@@ -46,3 +46,30 @@ test("inspector wires Region to non-destructive dodge and burn actions",()=>{
   assert.match(store,/addRetouchOperation/);
   assert.match(store,/buildImageStudioRetouchOperation/);
 });
+
+test("dodge and burn leave fully transparent hidden RGB untouched",()=>{
+  const src=Buffer.from([20,30,40,0]);
+  const out=applyImageStudioRetouchOperations(src,1,1,4,[{kind:"DODGE",region:{x:0,y:0,width:1,height:1},amount:1,feather:0}]);
+  assert.deepEqual([...out.bytes],[20,30,40,0]);
+});
+
+test("clone ignores hidden RGB from a fully transparent source pixel",()=>{
+  const src=Buffer.from([
+    0,255,0,0,
+    100,100,100,255,
+  ]);
+  const out=applyImageStudioRetouchOperations(src,2,1,4,[{kind:"CLONE",source_region:{x:0,y:0,width:.5,height:1},region:{x:.5,y:0,width:.5,height:1},amount:1,feather:0}]);
+  assert.deepEqual([...out.bytes.slice(4,8)],[100,100,100,255]);
+});
+
+test("heal statistics exclude fully transparent source RGB contamination",()=>{
+  const src=Buffer.from([
+    200,20,20,255,
+    0,0,0,0,
+    100,100,100,255,
+    100,100,100,255,
+  ]);
+  const out=applyImageStudioRetouchOperations(src,4,1,4,[{kind:"HEAL",source_region:{x:0,y:0,width:.5,height:1},region:{x:.5,y:0,width:.5,height:1},amount:1,feather:0}]);
+  assert.deepEqual([...out.bytes.slice(8,12)],[100,100,100,255]);
+  assert.deepEqual([...out.bytes.slice(12,16)],[100,100,100,255]);
+});

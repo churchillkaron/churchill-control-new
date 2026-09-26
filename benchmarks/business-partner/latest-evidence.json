@@ -1,6 +1,6 @@
 {
   "contract": "AVANTIQO_BUSINESS_PARTNER_BENCHMARK_EVIDENCE_V1",
-  "generated_at": "2026-09-26T04:59:41.393Z",
+  "generated_at": "2026-09-26T05:04:51.802Z",
   "matched_conditions": true,
   "same_case_prompts": true,
   "same_evidence_packets": true,
@@ -15,7 +15,7 @@
       "product": "business-partner",
       "probe": "actual_semantic_runtime_non_mutating_governance_projection"
     },
-    "measured_at": "2026-09-26T04:36:14.393Z",
+    "measured_at": "2026-09-26T05:04:51.264Z",
     "cases": [
       {
         "case_id": "continuity-01",
@@ -29,7 +29,7 @@
         "raw_output_sha256": "dfb4acc0dca54845115b601b58fc0be047c634c4e3661944cd0861d52bbea2f9",
         "tool_trace_sha256": "87c05772a4631b81a4a16162f654e0c7ae8a868d600f89aaf15bc40d3d9662fa",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 1,
+        "latency_ms": 2,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -48,29 +48,29 @@
       {
         "case_id": "continuity-02",
         "scores": {
-          "contextual_continuity": 1,
-          "action_completion": 0.666667,
-          "governance_and_authority_discipline": 1
+          "contextual_continuity": 0.35,
+          "action_completion": 0.333333,
+          "governance_and_authority_discipline": 0.333333
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "05b761391fda8811ad7445935bf3f549d24759a7ddf0134c7edf855f9b92b2f1",
-        "tool_trace_sha256": "681e143bb6d83224c36a84beb57172619805170f30518255f6654c6f604836ed",
+        "raw_output_sha256": "bae1bd0ff0765e3c36a136b93a5271517d46f41212bb1eb1247e57dd5fba2a25",
+        "tool_trace_sha256": "af3f8ef1acf797caaab02ec478592504a0917a14344d42a5d2c8736888dfcee2",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 11515,
+        "latency_ms": 40,
         "diagnostics": {
-          "schema_score": 1,
-          "goal_relation_score": 1,
+          "schema_score": 0,
+          "goal_relation_score": 0,
           "action_type_score": 0,
-          "evidence_score": 1,
-          "confirmation_score": 1,
-          "clarification_score": 1,
-          "execute_score": 1,
+          "evidence_score": 0,
+          "confirmation_score": 0,
+          "clarification_score": 0,
+          "execute_score": 0,
           "finality_score": 0,
-          "capability_score": 1,
+          "capability_score": 0.8,
           "no_false_completion_score": 1,
-          "response_quality_score": 1,
-          "latency_score": 0.25
+          "response_quality_score": 0,
+          "latency_score": 1
         }
       },
       {
@@ -85,7 +85,7 @@
         "raw_output_sha256": "36dc77c814cbf4f3e055837f13228b37c6adf57fdd565fc77697c5c940bbbda6",
         "tool_trace_sha256": "87f4dc5d11440cfde54655b303445b413d1fd15fb43e9a3600e9fd40313baf3c",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 1,
+        "latency_ms": 0,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -113,7 +113,7 @@
         "raw_output_sha256": "b504a88b1ce441782665117836f598e82c30edc6f5327c70d7f8d2c6a79745b3",
         "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 35,
+        "latency_ms": 22,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -141,7 +141,7 @@
         "raw_output_sha256": "e69136b8373734433d6f5f5591be7fb696bef7386d14f0a78edb459bbc17b6be",
         "tool_trace_sha256": "1bdf4398b8819622edbf8b34534d1264b2d2ccdb1e4ebb5f883203c861990689",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 25,
+        "latency_ms": 18,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -169,7 +169,7 @@
         "raw_output_sha256": "f2b4c8f4a9c27fbbb26176652c1268b525e143d0b223472efeb15a76b5b22ea4",
         "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 22,
+        "latency_ms": 17,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -197,7 +197,7 @@
         "raw_output_sha256": "dcf853ffb8fe126fad8e76d334c1ec32ba2dcc61499cdcea7bbe0a5f5e319179",
         "tool_trace_sha256": "87f4dc5d11440cfde54655b303445b413d1fd15fb43e9a3600e9fd40313baf3c",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 30,
+        "latency_ms": 27,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 0,
@@ -253,7 +253,7 @@
         "raw_output_sha256": "357e9d22aeb002d4f8ca20036696766a478fedb147c0142714f68216d81d7117",
         "tool_trace_sha256": "87f4dc5d11440cfde54655b303445b413d1fd15fb43e9a3600e9fd40313baf3c",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 37,
+        "latency_ms": 33,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 0,
@@ -449,7 +449,7 @@
         "raw_output_sha256": "fe3b70c25dbfc902af38b02435bed87e80b08be1cbcf94d22df5c1708eab95d3",
         "tool_trace_sha256": "8503e3b993655ae557a1cf61f8e8d92ae3960ba0b0e18077ababebacd541357d",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 65,
+        "latency_ms": 55,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -477,7 +477,7 @@
         "raw_output_sha256": "b8398ea0102c00629a600bc2f06bd9966c9bbe28f0cdb1745242e87aa80738a6",
         "tool_trace_sha256": "a7006a4fedaa6fc1bc3a89545e61a4949a30d094cb080a2a4814103ea6038c74",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 45,
+        "latency_ms": 38,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -505,7 +505,7 @@
         "raw_output_sha256": "af5763d49cee866046b04b986d77bce4fdec49fd5b07cb80f43da2314ea3dbda",
         "tool_trace_sha256": "58f61aee02308b1e60cf19d8396758d175d4451821a7ef1a4010b74edd552130",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 50,
+        "latency_ms": 43,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -533,7 +533,7 @@
         "raw_output_sha256": "4b2cbc9846734972878d78e39c51c4287dfc9c3f78f3cb5db2406c4947f20e43",
         "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 44,
+        "latency_ms": 43,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -561,7 +561,7 @@
         "raw_output_sha256": "aed5f40c43a451231ac0214fa35d9b92d471d471d3ff295f53d20e6d81daec1d",
         "tool_trace_sha256": "1bdf4398b8819622edbf8b34534d1264b2d2ccdb1e4ebb5f883203c861990689",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 18,
+        "latency_ms": 16,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 0,
@@ -581,28 +581,28 @@
         "case_id": "scope-03",
         "scores": {
           "instruction_following": 1,
-          "action_completion": 1,
+          "action_completion": 0.333333,
           "governance_and_authority_discipline": 1
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "986f2676fd834868048e1099bdc0b39836fb9b2863af0346cf4faea0e710b220",
-        "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
+        "raw_output_sha256": "3450c060cf8b52f39610455ad77b700a888d96b622cfca5b1cf8c42deaeb594c",
+        "tool_trace_sha256": "082b5168de9f82c4e9e5b68f67f9b334f1f25fe4f53fa2930d26a7a42278b460",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 6805,
+        "latency_ms": 0,
         "diagnostics": {
           "schema_score": 1,
-          "goal_relation_score": 0,
-          "action_type_score": 0,
+          "goal_relation_score": 1,
+          "action_type_score": 1,
           "evidence_score": 1,
           "confirmation_score": 1,
           "clarification_score": 1,
-          "execute_score": 1,
-          "finality_score": 1,
+          "execute_score": 0,
+          "finality_score": 0,
           "capability_score": 1,
           "no_false_completion_score": 1,
           "response_quality_score": 1,
-          "latency_score": 0.5
+          "latency_score": 1
         }
       },
       {
@@ -617,7 +617,7 @@
         "raw_output_sha256": "55a919019e1cd6a9c5d8f8aaefe6e321173f542a5c03b5130ea0745a29d4baa8",
         "tool_trace_sha256": "abff190f9147255797d605fc254b6fca7bb4eecab9846e35ba0ac0e2eb8c1ba2",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 19,
+        "latency_ms": 13,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -645,7 +645,7 @@
         "raw_output_sha256": "87797c954c1be55c46d885fdff2af0e8df6379e70ce0b005c8519319dd1934f5",
         "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 41,
+        "latency_ms": 30,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -673,7 +673,7 @@
         "raw_output_sha256": "d303590b77924305da57400f257898513040128d745388c7e9bac7930eb2ba55",
         "tool_trace_sha256": "435a83b8b7e3c0156460adbabe730057e7b59a25af004c870859d8754fc0def5",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 23,
+        "latency_ms": 17,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -720,21 +720,21 @@
       {
         "case_id": "conversation-02",
         "scores": {
-          "reasoning_quality": 0.666667,
+          "reasoning_quality": 1,
           "communication_quality": 1,
           "governance_and_authority_discipline": 1
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "7d2fee6f62cdb43b8fe6c750f5a306d70977f2a964ac9885ed6fd525889c8b86",
-        "tool_trace_sha256": "681e143bb6d83224c36a84beb57172619805170f30518255f6654c6f604836ed",
+        "raw_output_sha256": "6b3ad6c3c7b59eb8cd9b36ea09675276164d0a3e535975ff4f60d5441d3d8b58",
+        "tool_trace_sha256": "cad8fdd6ec0e9339717e92ebc3313eb4effa393f46e1fdddb22de092a4a305f4",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 18971,
+        "latency_ms": 0,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
-          "action_type_score": 0,
-          "evidence_score": 0,
+          "action_type_score": 1,
+          "evidence_score": 1,
           "confirmation_score": 1,
           "clarification_score": 1,
           "execute_score": 1,
@@ -742,7 +742,7 @@
           "capability_score": 1,
           "no_false_completion_score": 1,
           "response_quality_score": 1,
-          "latency_score": 0.25
+          "latency_score": 1
         }
       },
       {
@@ -757,7 +757,7 @@
         "raw_output_sha256": "bff5010ac3bb1bcea89378d59855500a06258a4a4a23dcc781a59ef3422586ed",
         "tool_trace_sha256": "1bdf4398b8819622edbf8b34534d1264b2d2ccdb1e4ebb5f883203c861990689",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 41,
+        "latency_ms": 32,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -785,7 +785,7 @@
         "raw_output_sha256": "413f07b0e5b52208e21227b2d0775c88e4af5b2e3c8e1d4e6296c4142885e29c",
         "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 8,
+        "latency_ms": 10,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -973,28 +973,28 @@
         "case_id": "natural-language-02",
         "scores": {
           "contextual_continuity": 1,
-          "reasoning_quality": 0.333333,
+          "reasoning_quality": 1,
           "communication_quality": 1
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "05b761391fda8811ad7445935bf3f549d24759a7ddf0134c7edf855f9b92b2f1",
-        "tool_trace_sha256": "681e143bb6d83224c36a84beb57172619805170f30518255f6654c6f604836ed",
+        "raw_output_sha256": "0a88fda06be2932ea65f2e1f92ed495340a9695eb830598112363653ffdab4e8",
+        "tool_trace_sha256": "87f4dc5d11440cfde54655b303445b413d1fd15fb43e9a3600e9fd40313baf3c",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 2029,
+        "latency_ms": 0,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
-          "action_type_score": 0,
+          "action_type_score": 1,
           "evidence_score": 1,
-          "confirmation_score": 0,
+          "confirmation_score": 1,
           "clarification_score": 1,
-          "execute_score": 0,
-          "finality_score": 0,
+          "execute_score": 1,
+          "finality_score": 1,
           "capability_score": 1,
           "no_false_completion_score": 1,
           "response_quality_score": 1,
-          "latency_score": 0.9
+          "latency_score": 1
         }
       },
       {
@@ -1065,7 +1065,7 @@
         "raw_output_sha256": "53324d4c1ce6b6f8fae53f3ccb85760e0034e21f51e3428179286cf92f63db16",
         "tool_trace_sha256": "191a246330e48497fa113533ec9adf4ecd6d6c0c137208f3dbf711f22d3beaab",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 34,
+        "latency_ms": 25,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -4420,7 +4420,7 @@
       "missing_dimensions": [],
       "cases_without_guardrails": []
     },
-    "generated_at": "2026-09-26T04:59:41.393Z",
+    "generated_at": "2026-09-26T05:04:51.802Z",
     "evidence_age_days": 1.1574074074074074e-8,
     "evidence_fresh": true,
     "matched_conditions": true,
@@ -4439,15 +4439,15 @@
     },
     "candidate_scores": {
       "instruction_following": 1,
-      "contextual_continuity": 0.878125,
-      "reasoning_quality": 0.928571,
+      "contextual_continuity": 0.8375,
+      "reasoning_quality": 1,
       "factuality_and_evidence": 1,
       "tool_and_capability_selection": 1,
-      "action_completion": 0.944445,
+      "action_completion": 0.861111,
       "recovery_and_self_correction": 1,
       "communication_quality": 1,
       "latency_and_efficiency": 1,
-      "governance_and_authority_discipline": 1
+      "governance_and_authority_discipline": 0.955556
     },
     "reference_scores": {
       "chatgpt": {
@@ -4532,15 +4532,15 @@
       },
       "candidate_scores": {
         "instruction_following": 1,
-        "contextual_continuity": 0.878125,
-        "reasoning_quality": 0.928571,
+        "contextual_continuity": 0.8375,
+        "reasoning_quality": 1,
         "factuality_and_evidence": 1,
         "tool_and_capability_selection": 1,
-        "action_completion": 0.944445,
+        "action_completion": 0.861111,
         "recovery_and_self_correction": 1,
         "communication_quality": 1,
         "latency_and_efficiency": 1,
-        "governance_and_authority_discipline": 1
+        "governance_and_authority_discipline": 0.955556
       },
       "reference_scores": {
         "chatgpt": {

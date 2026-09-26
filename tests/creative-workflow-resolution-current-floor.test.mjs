@@ -12,3 +12,11 @@ test("workflow resolver cannot reuse a stale temporal checkpoint below today's q
   assert.match(source, /checkpoint_recertified_against_current_quality_floor: true/);
   assert.match(source, /catch \{\s*return null;\s*\}/);
 });
+
+test("post-repair master checkpoints are also recertified before resolver reuse", () => {
+  assert.match(source, /function storedPostRepairMasterCheckpoint/);
+  assert.match(source, /quality_profile: project\.quality_profile \|\| state\.master\.plan\?\.quality_profile \|\| null/);
+  assert.match(source, /resume_checkpoint_contract: state\.contract/);
+  const recertifications = source.match(/checkpoint_recertified_against_current_quality_floor: true/g) || [];
+  assert.ok(recertifications.length >= 2, `expected temporal and post-repair recertification; found ${recertifications.length}`);
+});

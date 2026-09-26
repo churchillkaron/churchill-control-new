@@ -600,7 +600,7 @@ function RunTextJobUnlocked($Job) {
     model = $runtimeModel
     messages = $messages
     stream = $false
-    think = ([string]$Job.lane -eq 'deep')
+    think = (([string]$Job.lane -eq 'deep') -or (([string]$Job.lane -eq 'code') -and $strongCodeModelRequired -and [bool]$payload.think))
     keep_alive = '30m'
     options = @{ temperature = $temperature; num_predict = $numPredict; num_ctx = $(if ($liveConversation) { 2048 } elseif ($Lane -eq 'code') { $codeContextTokens } else { $ContextTokens }) }
   }
@@ -670,7 +670,7 @@ function RunTextJobUnlocked($Job) {
   $result = @{
     status='completed'; provider='avantiqo-intelligence'; infrastructure_provider='AVANTIQO_LOCAL_NODE_V1';
     runtime_model=[string]$raw.model; execution_resource=$executionResource; gpu_vram_bytes=$gpuVramBytes;
-    text=$text; finish_reason=[string]$raw.done_reason;
+    text=$text; finish_reason=[string]$raw.done_reason; raw_reasoning_persisted=$false;
     usage=@{ input_tokens=[int]$raw.prompt_eval_count; output_tokens=[int]$raw.eval_count }
   }
   $metrics = @{
@@ -681,7 +681,7 @@ function RunTextJobUnlocked($Job) {
     code_gpu_headroom_required_mb=[int]$codeGpuMinFreeMb; code_gpu_wait_ms=[int]$codeGpuWaitMs;
     code_runtime_model_already_gpu_resident=[bool]$runtimeModelAlreadyGpuResident; code_cpu_fallback=[bool]$forceCpu;
     code_gpu_reclaim_attempted=[bool]$codeGpuReclaimAttempted; code_gpu_reclaim_wait_ms=[int]$codeGpuReclaimWaitMs;
-    code_gpu_released_model_count=@($codeGpuReleasedModels).Count
+    code_gpu_released_model_count=@($codeGpuReleasedModels).Count; private_thinking_enabled=[bool]$body.think
   }
   CompleteJob $Job $result $metrics
 }

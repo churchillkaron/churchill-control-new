@@ -34,6 +34,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
       artifact_materialized: true,
       artifact_bytes: 1024,
       repository_verification: {
+        case_id,
         independent: true,
         verifier: "hidden-node-test",
         evidence_source: "INDEPENDENT_RUNNER",

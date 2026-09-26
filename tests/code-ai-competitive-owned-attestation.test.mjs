@@ -15,6 +15,7 @@ const PROMPT_SHA = "b".repeat(64);
 function report() {
   return {
     contract: "AVANTIQO_CODE_FRONTIER_LOCAL_RUNNER_V1",
+    benchmark_run_id: "22222222-2222-4222-8222-222222222222",
     generated_at: new Date().toISOString(),
     measurement_mode: "LIVE_OWNED_LOCAL_NODE",
     suite_contract: "AVANTIQO_CODE_FRONTIER_ENGINEERING_SUITE_V1",

@@ -15,6 +15,7 @@ function report(overrides = {}) {
   return {
     contract: "AVANTIQO_CODE_COMPETITIVE_REFERENCE_REPORT_V1",
     generator_contract: "AVANTIQO_CODE_COMPETITIVE_REFERENCE_RUNNER_V1",
+    benchmark_run_id: "11111111-1111-4111-8111-111111111111",
     generated_at: new Date().toISOString(),
     measurement_mode: "LIVE_REFERENCE_PROVIDER",
     provider_execution_performed: true,

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
@@ -241,6 +241,7 @@ const totalSupplierCostUsd = costedObservations.length === observations.length
   : null;
 const report = {
   contract: CONTRACT,
+  benchmark_run_id: randomUUID(),
   generated_at: new Date().toISOString(),
   measurement_mode: "LIVE_OWNED_LOCAL_NODE",
   suite_contract: SUITE_CONTRACT,

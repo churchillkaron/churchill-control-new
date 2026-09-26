@@ -320,6 +320,10 @@ const suite = JSON.parse(suiteSource);
 if (text(suite?.contract) !== SUITE_CONTRACT) throw new Error("AVANTIQO_CODE_COMPETITIVE_SUITE_CONTRACT_INVALID");
 const requiredCaseIds = list(suite?.cases).map((item) => text(item?.case_id)).filter(Boolean).sort();
 const canonicalCategoryByCase = new Map(list(suite?.cases).map((item) => [text(item?.case_id), text(item?.category)]));
+const canonicalEvidenceCountByCase = new Map(list(suite?.cases).map((item) => [
+  text(item?.case_id),
+  list(item?.required_evidence).map((value) => text(value)).filter(Boolean).length,
+]));
 if (requiredCaseIds.length < MIN_CASES || new Set(requiredCaseIds).size !== requiredCaseIds.length) {
   throw new Error("AVANTIQO_CODE_COMPETITIVE_SUITE_INVALID");
 }
@@ -342,6 +346,9 @@ for (const observation of list(owned?.observations)) {
   const caseId = text(observation?.case_id);
   if (!caseId || text(observation?.category) !== canonicalCategoryByCase.get(caseId)) {
     throw new Error(`AVANTIQO_CODE_COMPETITIVE_CANONICAL_CATEGORY_MISMATCH:${caseId || "UNKNOWN"}`);
+  }
+  if (Number(observation?.evidence_key_count) !== canonicalEvidenceCountByCase.get(caseId)) {
+    throw new Error(`AVANTIQO_CODE_COMPETITIVE_CANONICAL_EVIDENCE_COUNT_MISMATCH:${caseId || "UNKNOWN"}`);
   }
 }
 verifyCodeAICompetitiveOwnedReport(owned, {
@@ -390,6 +397,9 @@ for (const reference of references) {
     const caseId = text(observation?.case_id);
     if (!caseId || text(observation?.category) !== canonicalCategoryByCase.get(caseId)) {
       throw new Error(`AVANTIQO_CODE_COMPETITIVE_CANONICAL_CATEGORY_MISMATCH:${caseId || "UNKNOWN"}`);
+    }
+    if (Number(observation?.evidence_key_count) !== canonicalEvidenceCountByCase.get(caseId)) {
+      throw new Error(`AVANTIQO_CODE_COMPETITIVE_CANONICAL_EVIDENCE_COUNT_MISMATCH:${caseId || "UNKNOWN"}`);
     }
   }
   verifyCodeAICompetitiveReferenceReport(reference, {
@@ -474,6 +484,7 @@ const report = {
     maximum_p95_latency_ratio: MAX_P95_LATENCY_RATIO,
     maximum_cost_ratio: MAX_COST_RATIO,
     identical_task_ids_required: true,
+    canonical_evidence_key_count_required: true,
     canonical_case_category_binding_required: true,
     distinct_required_reference_providers: true,
     explicit_reference_model_binding_required: true,

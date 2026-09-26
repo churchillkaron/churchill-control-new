@@ -58,3 +58,12 @@ test("live executable benchmark requires exact fresh Node01 Code worker attestat
   assert.match(liveRunner, /const workerAttestation = await assertCodeWorkerAttested\(\)/);
   assert.match(liveRunner, /worker_attestation: workerAttestation/);
 });
+
+
+test("live executable verifier includes untracked candidate files in edit scope evidence", () => {
+  assert.match(liveRunner, /ls-files/);
+  assert.match(liveRunner, /--others/);
+  assert.match(liveRunner, /--exclude-standard/);
+  assert.match(liveRunner, /value !== "hidden-acceptance\.mjs"/);
+  assert.match(liveRunner, /verifierChangedPaths = \[\.\.\.new Set/);
+});

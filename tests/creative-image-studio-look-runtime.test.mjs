@@ -31,3 +31,33 @@ test("creative look presets are strength blended rather than destructive replace
  assert.notDeepEqual([...graded.bytes.slice(0,3)],[120,100,80]);
  assert.equal(graded.bytes[3],99);
 });
+
+
+test("Image Studio exposes editable gradient maps split toning and governed creative looks", async()=>{
+ const fs=await import("node:fs");
+ const editor=fs.readFileSync("components/creative/specialist/ImageStudioLookEditor.jsx","utf8");
+ const inspector=fs.readFileSync("components/creative/specialist/ImageStudioLayerInspector.jsx","utf8");
+ assert.match(editor,/Finishing look/);
+ assert.match(editor,/Gradient/);
+ assert.match(editor,/Split tone/);
+ assert.match(editor,/Creative look/);
+ assert.match(editor,/Add stop/);
+ assert.match(editor,/up to 8 stops/);
+ assert.match(editor,/Shadow color/);
+ assert.match(editor,/Highlight color/);
+ assert.match(editor,/Governed look preset/);
+ assert.match(editor,/Imported 3D LUTs are governed separately/);
+ assert.match(inspector,/ImageStudioLookEditor/);
+});
+test("deterministic export activates Adjustment V4 look contract", async()=>{
+ const fs=await import("node:fs");
+ const exporter=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js","utf8");
+ const adjustment=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioAdjustmentRuntime.js","utf8");
+ assert.match(exporter,/imageStudioLookIsIdentity/);
+ assert.match(exporter,/CREATIVE_IMAGE_STUDIO_ADJUSTMENT_V4/);
+ assert.match(exporter,/CREATIVE_IMAGE_STUDIO_LOOK_V1/);
+ assert.match(exporter,/gradient_map: true/);
+ assert.match(exporter,/split_toning: true/);
+ assert.match(exporter,/creative_looks: true/);
+ assert.match(adjustment,/applyImageStudioLook/);
+});

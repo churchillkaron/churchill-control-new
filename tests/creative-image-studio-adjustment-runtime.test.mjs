@@ -19,12 +19,12 @@ test("deterministic pixel adjustment changes RGB while preserving alpha",()=>{
 test("master export applies advanced adjustments before compositing",()=>{
   const source=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js","utf8");
   assert.match(source,/applyImageStudioPixelAdjustments/);
-  assert.match(source,/CREATIVE_IMAGE_STUDIO_ADJUSTMENT_V3/);
+  assert.match(source,/CREATIVE_IMAGE_STUDIO_ADJUSTMENT_V4/);
   assert.match(source,/deterministic_pixel_pipeline: true/);
   assert.match(source,/CREATIVE_IMAGE_STUDIO_CURVES_V1/);
   assert.match(source,/CREATIVE_IMAGE_STUDIO_COLOR_GRADE_V1/);
   assert.match(source,/rgb_channel_curves: true/);
-  assert.match(source,/selective_color: true/);
+  assert.match(source,/selective_color: true/);\n  assert.match(source,/CREATIVE_IMAGE_STUDIO_LOOK_V1/);\n  assert.match(source,/gradient_map: true/);\n  assert.match(source,/split_toning: true/);
 });
 
 test("Image Studio inspector exposes governed advanced adjustments",()=>{

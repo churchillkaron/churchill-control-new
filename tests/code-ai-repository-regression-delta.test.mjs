@@ -9,10 +9,12 @@ test("repository regression delta extracts spec and TAP failures deterministical
   const failures = extractRepositoryTestFailures([
     "✖ creative alpha preview stays stable (12.3ms)",
     "not ok 41 - finance posting remains atomic",
+    "test at tests/creative-alpha-preview.test.mjs:21:1",
     "✖ creative alpha preview stays stable (8.1ms)",
   ].join("\n"));
   assert.deepEqual(failures, [
     "creative alpha preview stays stable",
+    "creative alpha preview stays stable @ tests/creative-alpha-preview.test.mjs",
     "finance posting remains atomic",
   ]);
 });
@@ -85,4 +87,21 @@ test("workflow keeps push regression absolute and PR regression baseline-aware",
   assert.match(workflow, /git worktree add --detach/);
   assert.match(workflow, /Dependency manifests changed; installing exact base dependencies/);
   assert.match(workflow, /AVANTIQO_CODE_REPOSITORY_REGRESSION_DELTA=PASS/);
+});
+
+
+test("same-title failure in a different file is detected as new", () => {
+  const baseLog = [
+    "test at tests/a.test.mjs:10:1",
+    "✖ shared title (2ms)",
+  ].join("\n");
+  const headLog = [
+    "test at tests/a.test.mjs:10:1",
+    "✖ shared title (2ms)",
+    "test at tests/b.test.mjs:20:1",
+    "✖ shared title (3ms)",
+  ].join("\n");
+  const result = compareRepositoryRegressionDelta({ headLog, baseLog, headExit: 1, baseExit: 1 });
+  assert.equal(result.success, false);
+  assert.deepEqual(result.new_failures, ["shared title @ tests/b.test.mjs"]);
 });

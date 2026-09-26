@@ -23,14 +23,29 @@ function normalizeFailure(value) {
     .trim();
 }
 
+function nearbyTestPath(lines, index) {
+  for (let offset = 1; offset <= 3 && index - offset >= 0; offset += 1) {
+    const candidate = String(lines[index - offset] || "").trim();
+    const match = candidate.match(/^test at (?:file:\/\/)?(?:.*\/)?(tests\/[^:]+):\d+:\d+$/i);
+    if (match) return match[1];
+    if (candidate && !candidate.startsWith("#")) break;
+  }
+  return null;
+}
+
 export function extractRepositoryTestFailures(log) {
   const failures = new Set();
-  for (const rawLine of String(log || "").split(/\r?\n/)) {
-    const line = rawLine.trim();
+  const lines = String(log || "").split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = String(lines[index] || "").trim();
     let match = line.match(/^✖\s+(.+)$/u);
     if (match) {
       const signature = normalizeFailure(match[1]);
-      if (signature) failures.add(signature);
+      if (signature) {
+        failures.add(signature);
+        const testPath = nearbyTestPath(lines, index);
+        if (testPath) failures.add(`${signature} @ ${testPath}`);
+      }
       continue;
     }
     match = line.match(/^not ok\s+\d+\s+-\s+(.+)$/i);

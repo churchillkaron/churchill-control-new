@@ -58,7 +58,7 @@ test("deterministic export signs governed raster matte references, preserves sou
   assert.match(exporter,/buildImageStudioRasterMaskBuffer/);
   assert.match(exporter,/signCreativeStorageReference/);
   assert.match(exporter,/matte_storage_reference/);
-  assert.match(exporter,/source_geometry_locked: true/);
+  assert.match(exporter,/source_geometry_locked:\s*true/);
   assert.match(exporter,/IMAGE_STUDIO_EXPORT_SMART_MASK_REVIEW_REQUIRED/);
   assert.match(exporter,/IMAGE_STUDIO_EXPORT_SMART_MASK_STORAGE_REFERENCE_REQUIRED/);
 });

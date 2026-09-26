@@ -5,7 +5,7 @@ import ImageStudioCanvasSurface from "./ImageStudioCanvasSurface";
 import { imageStudioPreviewGeometry } from "@/lib/creative/stills/runtime/CreativeImageStudioImageGeometryRuntime.js";
 import { measureImageStudioText } from "@/lib/creative/stills/runtime/CreativeImageStudioTypographyRuntime.js";
 import { imageStudioPreviewEffectStyle } from "@/lib/creative/stills/runtime/CreativeImageStudioEffectsRuntime.js";
-import { imageStudioMaskPreviewStyle } from "@/lib/creative/stills/runtime/CreativeImageStudioReusableDesignRuntime.js";
+import { imageStudioMaskPreviewDescriptor } from "@/lib/creative/stills/runtime/CreativeImageStudioReusableDesignRuntime.js";
 import { imageStudioAdjustmentPreviewDescriptors } from "@/lib/creative/stills/runtime/CreativeImageStudioAdjustmentPreviewRuntime.js";
 import { imageStudioGroundShadowPreview } from "@/lib/creative/stills/runtime/CreativeImageStudioContactPreviewRuntime.js";
 import { useImageStudioFonts } from "./useImageStudioFonts";
@@ -25,13 +25,14 @@ function Snapshot({version,assets,workspace}) {
   const unsupportedPreview=layers.some((layer)=>{
     if(layer.layer_type!=="IMAGE"||layer.visible===false)return false;
     const mask=layer.metadata?.clip_mask_layer_id?layers.find((item)=>item.id===layer.metadata.clip_mask_layer_id):null;
-    const maskStyle=mask?imageStudioMaskPreviewStyle(layer,mask):{};
+    const maskPreview=imageStudioMaskPreviewDescriptor(layer,mask);
+    const maskStyle=maskPreview.preview_supported?maskPreview.style:{};
     const adjustment=imageStudioAdjustmentPreviewDescriptors(layers,layer);
     const asset=assetFor(layer.source_asset_id,assets);
     const url=assetUrl(asset);
     const preview=imageStudioPreviewGeometry(layer,sourceSize(asset,layer.bounds||{}),scale);
     const shadow=imageStudioGroundShadowPreview({style:layer.style||{},rotation:n(layer.transform?.rotation),scale,asset_url:url,preview,mask_style:maskStyle,has_mask:Boolean(mask)});
-    return adjustment.some((item)=>!item.preview_supported)||(shadow.shadow?.enabled&&!shadow.preview_supported);
+    return Boolean(mask)&&!maskPreview.preview_supported||adjustment.some((item)=>!item.preview_supported)||(shadow.shadow?.enabled&&!shadow.preview_supported);
   });
   return <div className="relative flex min-h-[420px] items-center justify-center overflow-auto rounded-2xl border border-[#DDD8D0] bg-[#EEEAE4] p-8">
     {unsupportedPreview?<div className="absolute right-2 top-2 z-[90] rounded border border-[#D6A66A]/40 bg-white/95 px-2 py-1 text-[7px] font-medium text-[#8A6A42]">Complex effects · deterministic export only</div>:null}

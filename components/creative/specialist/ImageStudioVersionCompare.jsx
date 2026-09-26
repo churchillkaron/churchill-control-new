@@ -42,8 +42,8 @@ function Snapshot({version,assets,workspace}) {
     const maskAssetUrl=assetUrl(maskAsset)||mask?.metadata?.semantic_matte_preview_url||"";
     const maskPreview=imageStudioMaskPreviewDescriptor(layer,mask,{mask_url:maskAssetUrl,source_url:url,preview_image:preview.image});
     const maskStyle=maskPreview.preview_supported?maskPreview.style:{};
-    const shadow=imageStudioGroundShadowPreview({style:layer.style||{},rotation:n(layer.transform?.rotation),scale,asset_url:url,preview,mask_style:maskStyle,has_mask:Boolean(mask)});
     const edge=imageStudioEdgePreview({style:layer.style||{},scale,has_mask:Boolean(mask),has_frame_mask:Number(layer.metadata?.mask_radius||0)>0});
+    const shadow=imageStudioGroundShadowPreview({style:layer.style||{},rotation:n(layer.transform?.rotation),scale,asset_url:url,preview,mask_style:maskStyle,has_mask:Boolean(mask),edge_preview:edge});
     const lightWrap=imageStudioLightWrapPreview({style:layer.style||{},scale,asset_url:url,preview,has_mask:Boolean(mask),mask_style:maskStyle,edge_preview:edge});
     const edgeExportOnly=edge.reason!=="EDGE_INTEGRATION_DISABLED"&&(!edge.preview_supported||edge.partial_preview);
     return Boolean(mask)&&!maskPreview.preview_supported||adjustment.some((item)=>!item.preview_supported)||(shadow.shadow?.enabled&&!shadow.preview_supported)||["MASKED_LIGHT_WRAP_EXPORT_ONLY","EDGE_FINISHED_LIGHT_WRAP_EXPORT_ONLY"].includes(lightWrap.reason)||edgeExportOnly;
@@ -70,15 +70,15 @@ function Snapshot({version,assets,workspace}) {
         const maskPreview=imageStudioMaskPreviewDescriptor(layer,mask,{mask_url:maskAssetUrl,source_url:url,preview_image:preview.image});
         const maskStyle=maskPreview.preview_supported?maskPreview.style:{};
         const adjustmentPreviews=imageStudioAdjustmentPreviewDescriptors(layers,layer,{mask_url_by_layer_id:maskUrlByLayerId,source_url:url,preview_image:preview.image});
-        const shadowPreview=imageStudioGroundShadowPreview({style:layer.style||{},rotation,scale,asset_url:url,preview,mask_style:maskStyle,has_mask:Boolean(mask)});
         const edgePreview=imageStudioEdgePreview({style:layer.style||{},scale,has_mask:Boolean(mask),has_frame_mask:Number(layer.metadata?.mask_radius||0)>0});
+        const shadowPreview=imageStudioGroundShadowPreview({style:layer.style||{},rotation,scale,asset_url:url,preview,mask_style:maskStyle,has_mask:Boolean(mask),edge_preview:edgePreview});
         const edgeFilterId=`compare-edge-${String(layer.id||"layer").replace(/[^a-zA-Z0-9_-]/g,"")}`;
         const perspective=imageStudioPerspectiveCssPreview(layer.style||{},n(b.width,240)*scale,n(b.height,180)*scale);
         const perspectiveStyle=perspective.enabled?{transform:perspective.transform,transformOrigin:perspective.transform_origin}:{transform:"none"};
         const contentStyle={opacity:effects.opacity,mixBlendMode:effects.mixBlendMode,...maskStyle,...perspectiveStyle};
         const baseEffectStyle={filter:effects.filter};
         return <div key={layer.id} className="absolute" style={style}>
-          {shadowPreview.preview_supported?<div data-compare-contact-shadow={layer.id} className="pointer-events-none absolute inset-0" style={shadowPreview.outer_style}><div className="absolute inset-0" style={shadowPreview.silhouette_style}/></div>:null}
+          {shadowPreview.preview_supported?<div data-compare-contact-shadow={layer.id} className="pointer-events-none absolute inset-0" style={shadowPreview.outer_style}><div className="absolute inset-0" style={{...shadowPreview.silhouette_style,filter:shadowPreview.edge_filter_required?`url(#${edgeFilterId})`:shadowPreview.silhouette_style?.filter}}/></div>:null}
           {url?<div className="relative h-full w-full overflow-hidden" style={{...contentStyle,borderRadius:preview.frame.borderRadius}}>
             <div data-compare-base-effect-preview={layer.id} className="absolute inset-0" style={baseEffectStyle}><ImageStudioEdgePreviewFilterDefs filterId={edgeFilterId} spec={edgePreview}/><div data-compare-edge-alpha-preview={edgePreview.preview_supported?layer.id:undefined} className="absolute inset-0" style={{filter:edgePreview.preview_supported?`url(#${edgeFilterId})`:undefined}}><Image src={url} alt="" width={Math.max(1,Math.round(preview.image.width))} height={Math.max(1,Math.round(preview.image.height))} sizes="400px" style={{position:"absolute",left:preview.image.left,top:preview.image.top,width:preview.image.width,height:preview.image.height,maxWidth:"none"}}/>
             {(layer.style?.retouch_operations||[]).map((operation,index)=><div key={operation.id||index} data-compare-retouch-preview={operation.id||index} className="pointer-events-none absolute" style={imageStudioRetouchPreviewStyle(operation,n(b.width,240)*scale,n(b.height,180)*scale)}/>)}</div>

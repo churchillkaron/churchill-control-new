@@ -74,6 +74,7 @@ const { gradeCodeAICompetitiveReferenceCase } = await import("../lib/code/runtim
 const { AvantiqoCodeLocalQueueProvider } = await import("../lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeLocalQueueProvider.js");
 const { resolveAvantiqoLearningOrganization } = await import("../lib/intelligence/runtime/AvantiqoLearningOrganizationRuntime.js");
 const { certifyCodeAIFrontierLatency } = await import("../lib/code/runtime/CodeAIFrontierLatencyCertificationRuntime.js");
+const { attestCodeAICompetitiveOwnedReport } = await import("../lib/code/runtime/CodeAICompetitiveOwnedAttestationRuntime.js");
 
 const prompts = selectedCases.map((benchmarkCase) => ({
   case: benchmarkCase,
@@ -247,6 +248,15 @@ const report = {
   },
   production_deploy_performed: false,
 };
-await writeFile(outputPath, JSON.stringify(report, null, 2) + "\n", "utf8");
-console.log(JSON.stringify({ success: report.summary.passed, contract: CONTRACT, output_path: outputPath, summary: report.summary }, null, 2));
+const deliverable = report.summary.complete_suite
+  ? attestCodeAICompetitiveOwnedReport(report, { env: process.env })
+  : { ...report, owned_attestation_status: "NOT_ELIGIBLE_PARTIAL_SUITE" };
+await writeFile(outputPath, JSON.stringify(deliverable, null, 2) + "\n", "utf8");
+console.log(JSON.stringify({
+  success: report.summary.passed,
+  contract: CONTRACT,
+  output_path: outputPath,
+  summary: report.summary,
+  owned_attestation_contract: deliverable?.owned_attestation?.contract || null,
+}, null, 2));
 if (!report.summary.passed) process.exitCode = 2;

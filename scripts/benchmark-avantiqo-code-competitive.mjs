@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { verifyCodeAICompetitiveReferenceReport } from "../lib/code/runtime/CodeAICompetitiveReferenceAttestationRuntime.js";
+import { verifyCodeAICompetitiveOwnedReport } from "../lib/code/runtime/CodeAICompetitiveOwnedAttestationRuntime.js";
 import { assessCodeAIRepositoryTaskBenchmark } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
 const CONTRACT = "AVANTIQO_CODE_COMPETITIVE_BENCHMARK_V1";
@@ -223,6 +224,13 @@ if (text(promptContract?.contract) !== PROMPT_CONTRACT) {
   throw new Error("AVANTIQO_CODE_COMPETITIVE_PROMPT_CONTRACT_INVALID");
 }
 const promptContractSha256 = sha256(promptContractSource);
+verifyCodeAICompetitiveOwnedReport(owned, {
+  suite_contract: SUITE_CONTRACT,
+  suite_sha256: suiteSha256,
+  prompt_contract: PROMPT_CONTRACT,
+  prompt_contract_sha256: promptContractSha256,
+  required_case_ids: requiredCaseIds,
+});
 if (
   text(owned?.prompt_contract) !== PROMPT_CONTRACT ||
   text(owned?.prompt_contract_sha256).toLowerCase() !== promptContractSha256.toLowerCase()

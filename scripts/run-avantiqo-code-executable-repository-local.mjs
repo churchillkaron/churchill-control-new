@@ -327,6 +327,7 @@ console.log(JSON.stringify({
   passed_case_count: passed,
   pass_rate: observations.length ? passed / observations.length : 0,
   worker_attestation: workerAttestation,
+  runner_source_commit: observations[0]?.base_commit || null,
   observations,
   local_compute_only: true,
   commit_performed: false,

@@ -15,11 +15,11 @@ const PROMPT_PATH = "benchmarks/avantiqo-code-frontier-prompt-contract.json";
 const env = { AVANTIQO_CODE_COMPETITIVE_REFERENCE_ATTESTATION_SECRET: SECRET };
 const sha256 = (value) => createHash("sha256").update(value, "utf8").digest("hex");
 
-function observations(caseIds, wallMs, { repositoryProof = true } = {}) {
+function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85 } = {}) {
   return caseIds.map((case_id, index) => ({
     case_id,
     passed: true,
-    quality_score: 0.85,
+    quality_score: qualityScore,
     evidence_grounding_score: 0.9,
     narrative_grounding_score: 0.9,
     wall_ms: wallMs + index,
@@ -51,7 +51,7 @@ function observations(caseIds, wallMs, { repositoryProof = true } = {}) {
   }));
 }
 
-function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs }) {
+function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs, qualityScore = 0.85 }) {
   return {
     contract: "AVANTIQO_CODE_COMPETITIVE_REFERENCE_REPORT_V1",
     generator_contract: "AVANTIQO_CODE_COMPETITIVE_REFERENCE_RUNNER_V1",
@@ -71,7 +71,7 @@ function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs
     raw_customer_content_included: false,
     raw_reasoning_persisted: false,
     economics: { estimated_supplier_cost_usd: 0.02 },
-    observations: observations(caseIds, wallMs),
+    observations: observations(caseIds, wallMs, { qualityScore }),
   };
 }
 
@@ -141,4 +141,32 @@ test("competitive certification requires valid attested live reference artifacts
   const rejected = runBenchmark(paths);
   assert.notEqual(rejected.status, 0);
   assert.match(rejected.stderr, /CODE_AI_COMPETITIVE_REFERENCE_ATTESTATION_INVALID/);
+});
+
+
+test("near-equal quality scores remain ties and cannot establish superiority", async () => {
+  const paths = await fixture();
+  const owned = JSON.parse(await readFile(paths.ownedPath, "utf8"));
+  owned.observations = owned.observations.map((item) => ({ ...item, quality_score: 0.81 }));
+  await writeFile(paths.ownedPath, JSON.stringify(owned));
+
+  for (const referencePath of [paths.refAPath, paths.refBPath]) {
+    const current = JSON.parse(await readFile(referencePath, "utf8"));
+    const unsigned = { ...current, observations: current.observations.map((item) => ({ ...item, quality_score: 0.80 })) };
+    delete unsigned.attestation;
+    const resigned = attestCodeAICompetitiveReferenceReport(unsigned, { env });
+    await writeFile(referencePath, JSON.stringify(resigned));
+  }
+
+  const run = runBenchmark(paths);
+  assert.equal(run.status, 0, run.stderr || run.stdout);
+  const report = JSON.parse(await readFile(paths.outputPath, "utf8"));
+  for (const reference of report.comparisons) {
+    assert.equal(reference.wins, 0);
+    assert.equal(reference.losses, 0);
+    assert.equal(reference.ties, reference.case_count);
+    assert.equal(reference.cases[0].quality_score_delta, 0.01);
+  }
+  assert.equal(report.quality_superiority_observed, false);
+  assert.equal(report.superiority_claim_allowed, false);
 });

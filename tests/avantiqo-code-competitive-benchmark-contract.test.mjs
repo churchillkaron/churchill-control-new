@@ -25,6 +25,8 @@ test("competitive benchmark requires substantial identical current reference evi
 test("competitive benchmark measures quality latency and cost", () => {
   assert.match(source, /owned_pass_rate_not_worse/);
   assert.match(source, /owned_quality_non_loss_rate/);
+  assert.match(source, /MIN_QUALITY_WIN_MARGIN/);
+  assert.match(source, /quality_score_delta/);
   assert.match(source, /deterministic_quality_scores_complete/);
   assert.match(source, /case_specific_evidence_grounding_complete/);
   assert.match(source, /case_specific_narrative_grounding_complete/);

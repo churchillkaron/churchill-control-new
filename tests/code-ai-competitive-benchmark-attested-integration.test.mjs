@@ -25,6 +25,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
     case_id,
     category: categoryByCase[case_id] || null,
     passed: true,
+    failures: [],
     quality_score: qualityScore,
     evidence_grounding_score: 0.9,
     narrative_grounding_score: 0.9,

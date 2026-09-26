@@ -47,6 +47,7 @@ function report(overrides = {}) {
     observations: CASES.map((case_id, index) => ({
       case_id,
       passed: true,
+      failures: [],
       quality_score: 0.85,
       evidence_grounding_score: 0.9,
       narrative_grounding_score: 0.9,
@@ -171,8 +172,32 @@ test("reference attestation rejects summary counters that disagree with observat
 test("failed reference case cannot retain positive quality evidence", () => {
   const invalid = report();
   invalid.observations[0].passed = false;
+  invalid.observations[0].failures = ["GRADE_FAILED"];
   assert.throws(
     () => attestCodeAICompetitiveReferenceReport(invalid, { env }),
     /CODE_AI_COMPETITIVE_REFERENCE_FAILED_CASE_QUALITY_EVIDENCE_FORBIDDEN/,
+  );
+});
+
+
+test("reference attestation binds pass status to failure evidence", () => {
+  const passedWithFailure = report();
+  passedWithFailure.observations[0].failures = ["UNEXPECTED_FAILURE"];
+  assert.throws(
+    () => attestCodeAICompetitiveReferenceReport(passedWithFailure, { env }),
+    /CODE_AI_COMPETITIVE_REFERENCE_CASE_PASS_FAILURE_MISMATCH/,
+  );
+
+  const failedWithoutFailure = report();
+  failedWithoutFailure.observations[0].passed = false;
+  failedWithoutFailure.observations[0].quality_score = 0;
+  failedWithoutFailure.observations[0].evidence_grounding_score = 0;
+  failedWithoutFailure.observations[0].narrative_grounding_score = 0;
+  failedWithoutFailure.observations[0].evidence_distinctness_score = 0;
+  failedWithoutFailure.observations[0].response_template_fingerprint_sha256 = null;
+  failedWithoutFailure.observations[0].response_template_simhash64 = null;
+  assert.throws(
+    () => attestCodeAICompetitiveReferenceReport(failedWithoutFailure, { env }),
+    /CODE_AI_COMPETITIVE_REFERENCE_CASE_PASS_FAILURE_MISMATCH/,
   );
 });

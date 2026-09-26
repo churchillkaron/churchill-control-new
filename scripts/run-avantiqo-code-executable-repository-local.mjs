@@ -18,6 +18,7 @@ const limitArg = process.argv.find((arg) => arg.startsWith("--limit="));
 const requestedLimit = Math.max(0, Number(limitArg?.split("=")[1] || 0));
 const suiteArg = process.argv.slice(2).find((arg) => !arg.startsWith("--"));
 const suitePath = resolve(suiteArg || "benchmarks/avantiqo-code-executable-repository-suite.json");
+const benchmarkRunId = randomUUID();
 
 const text = (value, maximum = 4000) => String(value ?? "").trim().slice(0, maximum);
 const list = (value) => Array.isArray(value) ? value : [];
@@ -303,6 +304,7 @@ for (const benchmarkCase of cases) {
       artifact_bytes: Buffer.byteLength(artifact, "utf8"),
       repository_verification: {
         case_id: benchmarkCase.case_id,
+        benchmark_run_id: benchmarkRunId,
         independent: true,
         verifier: "avantiqo-hidden-node-assert",
         evidence_source: "INDEPENDENT_RUNNER",
@@ -346,6 +348,7 @@ console.log(JSON.stringify({
   passed_case_count: passed,
   pass_rate: observations.length ? passed / observations.length : 0,
   worker_attestation: workerAttestation,
+  benchmark_run_id: benchmarkRunId,
   runner_source_commit: observations[0]?.base_commit || null,
   observations,
   local_compute_only: true,

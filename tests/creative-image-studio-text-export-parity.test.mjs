@@ -48,3 +48,13 @@ test("text inspector exposes the same non-destructive effect controls as images"
   assert.match(inspector,/Grayscale %/);
   assert.match(inspector,/Blur px/);
 });
+
+test("text inspector exposes tonal adjustments already honored by deterministic export",()=>{
+  const inspector=fs.readFileSync("components/creative/specialist/ImageStudioLayerInspector.jsx","utf8");
+  assert.match(inspector,/\["IMAGE","TEXT","ADJUSTMENT"\]\.includes\(layer\.layer_type\).*Professional tonal adjustments/s);
+  assert.match(inspector,/Exposure EV/);
+  assert.match(inspector,/Temperature/);
+  assert.match(inspector,/Levels/);
+  assert.match(inspector,/ImageStudioCurvesEditor/);
+  assert.match(inspector,/ImageStudioColorGradeEditor/);
+});

@@ -21,6 +21,7 @@ import {
   Ungroup,
   Scissors,
   SlidersHorizontal,
+  Paintbrush,
 } from "lucide-react";
 
 const TOOLS = [
@@ -29,6 +30,7 @@ const TOOLS = [
   ["text", Type],
   ["comment", MessageSquare],
   ["region", Scan],
+  ["mask_brush", Paintbrush],
 ];
 
 export default function ImageStudioCanvasToolbar({ workspace, persistence }) {

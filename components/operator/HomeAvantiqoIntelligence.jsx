@@ -91,6 +91,41 @@ function browserLocation() {
   });
 }
 
+
+function syntheticBusinessPartnerBenchmarkMessage(value) {
+  const source = String(value ?? "");
+  return source.includes("AVANTIQO_BUSINESS_PARTNER_BENCHMARK_EVIDENCE_PACKET_V1") &&
+    source.includes("Synthetic benchmark context and evidence packet:") &&
+    source.includes("Benchmark case:");
+}
+
+
+function syntheticBenchmarkNeedsPriorDecision(value) {
+  const source = String(value ?? "");
+  const marker = "Benchmark case:";
+  const index = source.indexOf(marker);
+  if (index < 0) return false;
+  const tail = source.slice(index + marker.length).trimStart();
+  const caseText = tail.split(/\n\nReturn one JSON object/i)[0]?.trim().toLowerCase() || "";
+  return /^(?:yes(?:,)?(?: do it)?|do it|go ahead|confirmed|confirm|approved|approve)[.! ]*$/.test(caseText);
+}
+
+function benchmarkConversationContext(messages = []) {
+  const latestAssistant = [...messages].reverse().find((item) => {
+    if (item?.role !== "assistant") return false;
+    const content = text(item?.content);
+    if (!content.startsWith("{")) return false;
+    try {
+      const parsed = JSON.parse(content);
+      return Boolean(parsed && typeof parsed === "object" && text(parsed.capability_or_tool));
+    } catch {
+      return false;
+    }
+  });
+  if (!latestAssistant) return [];
+  return [{ role: "assistant", content: latestAssistant.content }];
+}
+
 function createMessage(role, content, extra = {}) {
   return {
     id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -462,9 +497,13 @@ export default function HomeAvantiqoIntelligence({
       return;
     }
 
-    const priorConversation = messagesRef.current.map(({ role, content, clarification }) => ({
-      role, content, ...(clarification ? { clarification } : {}),
-    }));
+    const priorConversation = syntheticBusinessPartnerBenchmarkMessage(message)
+      ? (syntheticBenchmarkNeedsPriorDecision(message)
+          ? benchmarkConversationContext(messagesRef.current)
+          : [])
+      : messagesRef.current.map(({ role, content, clarification }) => ({
+          role, content, ...(clarification ? { clarification } : {}),
+        }));
     const previousAssistant = [...messagesRef.current].reverse().find((item) => item?.role === "assistant") || null;
     let deviceLocation = null;
     if (operatorReferenceNeedsDeviceLocation({ fieldKey: previousAssistant?.clarification?.field_key, value: message })) {

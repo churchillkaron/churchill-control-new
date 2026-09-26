@@ -331,6 +331,8 @@ for (const benchmarkCase of cases) {
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: sha256(patch),
         candidate_artifact_sha256: sha256(artifact),
+        candidate_diff_bytes: diffBytes,
+        candidate_artifact_bytes: Buffer.byteLength(artifact, "utf8"),
         changed_paths: verifierChangedPaths,
         allowed_edit_paths: list(benchmarkCase.allowed_edit_paths).map((value) => text(value, 500)),
         passed: hiddenPassed,

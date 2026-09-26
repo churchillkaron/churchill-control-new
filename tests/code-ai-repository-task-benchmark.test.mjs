@@ -45,6 +45,8 @@ function proof(overrides = {}) {
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: overrides.diff_sha256 || "2".repeat(64),
       candidate_artifact_sha256: overrides.artifact_sha256 || "3".repeat(64),
+      candidate_diff_bytes: overrides.diff_bytes || 512,
+      candidate_artifact_bytes: overrides.artifact_bytes || 1024,
       changed_paths: ["invoice-total.mjs"],
       allowed_edit_paths: ["invoice-total.mjs"],
       passed: true,
@@ -101,6 +103,8 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: "2".repeat(64),
       candidate_artifact_sha256: "3".repeat(64),
+      candidate_diff_bytes: 512,
+      candidate_artifact_bytes: 1024,
       changed_paths: ["invoice-total.mjs"],
       allowed_edit_paths: ["invoice-total.mjs"],
       passed: true,
@@ -421,5 +425,20 @@ test("repository proof must match canonical case origin", () => {
     }],
   });
   assert.equal(result.cases[0].gates.repository_origin_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("candidate byte lengths must match the verified diff and artifact evidence", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: { ...base.repository_verification, candidate_diff_bytes: base.diff_bytes + 1 },
+    }],
+  });
+  assert.equal(result.cases[0].gates.verifier_candidate_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

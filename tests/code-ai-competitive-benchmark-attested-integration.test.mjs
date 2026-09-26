@@ -64,6 +64,8 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: ((index + 2).toString(16).padStart(2, "0")).repeat(32),
         candidate_artifact_sha256: ((index + 40).toString(16).padStart(2, "0")).repeat(32),
+        candidate_diff_bytes: 512,
+        candidate_artifact_bytes: 1024,
         changed_paths: [`benchmark-case-${index}.mjs`],
         allowed_edit_paths: [`benchmark-case-${index}.mjs`],
         passed: true,

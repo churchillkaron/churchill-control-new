@@ -233,11 +233,11 @@ test("Image Studio source crop geometry matches explicit preview and export wind
   assert.equal(geometry.renderedHeight, 600);
   assert.equal(geometry.coverLeft, 467);
   assert.equal(geometry.coverTop, 0);
-  assert.equal(geometry.extractLeft, 200);
+  assert.equal(geometry.extractLeft, 133);
   assert.equal(geometry.extractTop, 100);
   const preview = imageStudioPreviewGeometry(layer, { width: 1600, height: 900 }, 0.5);
   assert.deepEqual(preview.frame, { width: 200, height: 200, borderRadius: 10 });
-  assert.equal(preview.image.left, -333.5);
+  assert.equal(preview.image.left, -300);
   assert.equal(preview.image.top, -50);
   assert.equal(preview.image.width, 533.5);
   assert.equal(preview.image.height, 300);

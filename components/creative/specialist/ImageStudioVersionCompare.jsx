@@ -33,7 +33,7 @@ function Snapshot({version,assets,workspace}) {
   const scale=Math.min(.55,720/Math.max(n(board.width,1080),n(board.height,1350)));
   const unsupportedPreview=layers.some((layer)=>{
     if(layer.layer_type!=="IMAGE"||layer.visible===false)return false;
-    const mask=layer.metadata?.clip_mask_layer_id?layers.find((item)=>item.id===layer.metadata.clip_mask_layer_id):null;
+    const mask=layer.metadata?.clip_mask_layer_id?layers.find((item)=>item.id===layer.metadata.clip_mask_layer_id&&item.visible!==false):null;
     const asset=assetFor(layer.source_asset_id,assets);
     const url=assetUrl(asset);
     const preview=imageStudioPreviewGeometry(layer,sourceSize(asset,layer.bounds||{}),scale);
@@ -64,7 +64,7 @@ function Snapshot({version,assets,workspace}) {
         const asset=assetFor(layer.source_asset_id,assets);
         const url=assetUrl(asset);
         const preview=imageStudioPreviewGeometry(layer,sourceSize(asset,b),scale);
-        const mask=layer.metadata?.clip_mask_layer_id?layers.find((item)=>item.id===layer.metadata.clip_mask_layer_id):null;
+        const mask=layer.metadata?.clip_mask_layer_id?layers.find((item)=>item.id===layer.metadata.clip_mask_layer_id&&item.visible!==false):null;
         const maskAsset=mask?.source_asset_id?assetFor(mask.source_asset_id,assets):null;
         const maskAssetUrl=assetUrl(maskAsset)||mask?.metadata?.semantic_matte_preview_url||"";
         const maskPreview=imageStudioMaskPreviewDescriptor(layer,mask,{mask_url:maskAssetUrl,source_url:url,preview_image:preview.image});

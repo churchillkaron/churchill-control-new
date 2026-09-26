@@ -11,6 +11,7 @@ import {
 } from "../lib/code/runtime/CodeAICompetitiveReferenceAttestationRuntime.js";
 import { attestCodeAICompetitiveOwnedReport } from "../lib/code/runtime/CodeAICompetitiveOwnedAttestationRuntime.js";
 import { attestCodeAIRepositoryReferenceReport } from "../lib/code/runtime/CodeAIRepositoryReferenceAttestationRuntime.js";
+import { attestCodeAIRepositoryOwnedReport } from "../lib/code/runtime/CodeAIRepositoryOwnedAttestationRuntime.js";
 
 const SECRET = "competitive-reference-integration-secret-0123456789abcdef";
 const SUITE_PATH = "benchmarks/avantiqo-code-frontier-engineering-suite.json";
@@ -20,6 +21,7 @@ const env = {
   AVANTIQO_CODE_COMPETITIVE_REFERENCE_ATTESTATION_SECRET: SECRET,
   AVANTIQO_CODE_COMPETITIVE_OWNED_ATTESTATION_SECRET: "owned-competitive-secret-0123456789abcdef",
   AVANTIQO_CODE_REPOSITORY_REFERENCE_ATTESTATION_SECRET: "repository-reference-secret-0123456789abcdef",
+  AVANTIQO_CODE_REPOSITORY_OWNED_ATTESTATION_SECRET: "repository-owned-secret-0123456789abcdef",
 };
 const sha256 = (value) => createHash("sha256").update(value, "utf8").digest("hex");
 const REPOSITORY_VERIFIER_RUNTIME_IDENTITY = Object.freeze({ engine: "node", version: "v24.14.1", platform: "linux", arch: "x64" });
@@ -153,7 +155,12 @@ function repositoryEvidenceReport({ benchmarkCases, suiteSha, benchmarkRunId, pr
       runtime_provider_effect: "NONE",
       raw_provider_output_persisted: false,
       production_deploy_performed: false,
-    } : {}),
+    } : {
+      provider_execution_performed: false,
+      local_compute_only: true,
+      commit_performed: false,
+      production_deploy_performed: false,
+    }),
     observations,
   };
 }
@@ -366,9 +373,9 @@ async function fixture() {
   }), { env });
   await writeFile(refAPath, JSON.stringify(refA));
   await writeFile(refBPath, JSON.stringify(refB));
-  await writeFile(ownedRepositoryPath, JSON.stringify(repositoryEvidenceReport({
+  await writeFile(ownedRepositoryPath, JSON.stringify(attestCodeAIRepositoryOwnedReport(repositoryEvidenceReport({
     benchmarkCases: repositorySuite.cases, suiteSha: repositorySuiteSha, benchmarkRunId: "66666666-6666-4666-8666-666666666666",
-  })));
+  }), { env })));
   await writeFile(refARepositoryPath, JSON.stringify(attestCodeAIRepositoryReferenceReport(repositoryEvidenceReport({
     benchmarkCases: repositorySuite.cases, suiteSha: repositorySuiteSha, benchmarkRunId: "77777777-7777-4777-8777-777777777777", provider: "openai", model: "model-a", providerExecutionPerformed: true,
   }), { env })));
@@ -658,7 +665,7 @@ test("separate repository evidence must match the canonical executable case defi
   const ownedRepository = JSON.parse(await readFile(paths.ownedRepositoryPath, "utf8"));
   ownedRepository.observations[0].case_definition_sha256 = "f".repeat(64);
   ownedRepository.observations[0].repository_verification.case_definition_sha256 = "f".repeat(64);
-  await writeFile(paths.ownedRepositoryPath, JSON.stringify(ownedRepository));
+  await writeFile(paths.ownedRepositoryPath, JSON.stringify(attestCodeAIRepositoryOwnedReport(ownedRepository, { env })));
   const run = runBenchmark(paths);
   assert.notEqual(run.status, 0);
   assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_REPOSITORY_CASE_DEFINITION_MISMATCH/);
@@ -673,4 +680,15 @@ test("tampered signed repository reference evidence is rejected", async () => {
   const run = runBenchmark(paths);
   assert.notEqual(run.status, 0);
   assert.match(`${run.stderr}\n${run.stdout}`, /AVANTIQO_CODE_COMPETITIVE_REPOSITORY_REFERENCE_ATTESTATION_INVALID/);
+});
+
+
+test("tampered signed owned repository evidence is rejected", async () => {
+  const paths = await fixture();
+  const report = JSON.parse(await readFile(paths.ownedRepositoryPath, "utf8"));
+  report.observations[0].diff_bytes += 1;
+  await writeFile(paths.ownedRepositoryPath, JSON.stringify(report));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(`${run.stderr}\n${run.stdout}`, /AVANTIQO_CODE_COMPETITIVE_REPOSITORY_OWNED_ATTESTATION_INVALID/);
 });

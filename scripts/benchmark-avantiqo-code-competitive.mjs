@@ -5,6 +5,7 @@ import { verifyCodeAICompetitiveReferenceReport } from "../lib/code/runtime/Code
 import { verifyCodeAICompetitiveOwnedReport } from "../lib/code/runtime/CodeAICompetitiveOwnedAttestationRuntime.js";
 import { assessCodeAIRepositoryTaskBenchmark } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 import { verifyCodeAIRepositoryReferenceReport } from "../lib/code/runtime/CodeAIRepositoryReferenceAttestationRuntime.js";
+import { verifyCodeAIRepositoryOwnedReport } from "../lib/code/runtime/CodeAIRepositoryOwnedAttestationRuntime.js";
 
 const CONTRACT = "AVANTIQO_CODE_COMPETITIVE_BENCHMARK_V1";
 const DEFAULT_OWNED = "/tmp/avantiqo-code-certification-benchmark.json";
@@ -495,6 +496,13 @@ if (separateRepositoryEvidenceRequested) {
     JSON.parse(await readFile(resolve(path), "utf8")),
   ));
   const validateRepositoryReport = (report, { expectedProvider = null, expectedModel = null, ownedEvidence = false } = {}) => {
+    if (ownedEvidence) {
+      try {
+        verifyCodeAIRepositoryOwnedReport(report, { env: process.env });
+      } catch {
+        throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_OWNED_ATTESTATION_INVALID");
+      }
+    }
     if (text(report?.suite_contract) !== REPOSITORY_SUITE_CONTRACT || text(report?.suite_sha256).toLowerCase() !== repositorySuiteSha256.toLowerCase()) {
       throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_SUITE_MISMATCH");
     }
@@ -607,6 +615,7 @@ const report = {
     separate_executable_repository_evidence_supported: true,
     canonical_executable_repository_suite_required: true,
     cryptographic_repository_reference_attestation_required: true,
+    cryptographic_repository_owned_attestation_required: true,
     speed_alone_cannot_establish_quality_superiority: true,
     quality_superiority_requires_reference_quality_win: true,
     minimum_superiority_quality_win_rate_per_reference: MIN_SUPERIORITY_WIN_RATE,

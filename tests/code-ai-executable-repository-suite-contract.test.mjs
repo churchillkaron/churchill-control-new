@@ -67,3 +67,10 @@ test("live executable verifier includes untracked candidate files in edit scope 
   assert.match(liveRunner, /value !== "hidden-acceptance\.mjs"/);
   assert.match(liveRunner, /verifierChangedPaths = \[\.\.\.new Set/);
 });
+
+
+test("hidden acceptance assertion count is derived from generated source", () => {
+  assert.match(liveRunner, /function hiddenAssertionCount/);
+  assert.match(liveRunner, /hiddenAcceptanceTestCount = hiddenAssertionCount\(hiddenAcceptanceSource\)/);
+  assert.doesNotMatch(liveRunner, /case_id\.includes\("multifile"\) \? 5 : 4/);
+});

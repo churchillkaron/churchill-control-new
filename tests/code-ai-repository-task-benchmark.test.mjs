@@ -281,37 +281,41 @@ test("arbitrary protected baseline digest cannot certify", () => {
 
 
 
-<<<<<<< HEAD
 test("protected baseline and post-fix verification must execute the same hidden test count", () => {
   const base = proof();
   const result = assessCodeAIRepositoryTaskBenchmark({
     benchmark_run_id: BENCHMARK_RUN_ID,
-=======
-test("out-of-scope changed path cannot certify repository proof", () => {
-  const base = proof();
-  const result = assessCodeAIRepositoryTaskBenchmark({
->>>>>>> 3e789f315 (harden(code): prove repository edits stay in scope)
     runner_source_commit: "1".repeat(40),
     observations: [{
       ...base,
       repository_verification: {
         ...base.repository_verification,
-<<<<<<< HEAD
         protected_baseline_test_count: base.repository_verification.hidden_acceptance_test_count + 1,
       },
     }],
   });
   assert.equal(result.cases[0].gates.protected_baseline_bound, false);
-=======
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+test("out-of-scope changed path cannot certify repository proof", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
         changed_paths: ["invoice-total.mjs", "hidden-acceptance.mjs"],
         allowed_edit_paths: ["invoice-total.mjs"],
       },
     }],
   });
   assert.equal(result.cases[0].gates.verifier_edit_scope_bound, false);
->>>>>>> 3e789f315 (harden(code): prove repository edits stay in scope)
   assert.equal(result.repository_task_artifact_certified, false);
 });
+
 
 
 test("widened allowed scope cannot hide missing verifier mutations", () => {
@@ -330,4 +334,28 @@ test("widened allowed scope cannot hide missing verifier mutations", () => {
   });
   assert.equal(result.cases[0].gates.verifier_edit_scope_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("fractional verification test counts cannot certify", () => {
+  const base = proof();
+  const hiddenFraction = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: { ...base.repository_verification, hidden_acceptance_test_count: 0.5 },
+    }],
+  });
+  assert.equal(hiddenFraction.cases[0].gates.hidden_acceptance_bound, false);
+
+  const baselineFraction = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: { ...base.repository_verification, protected_baseline_test_count: 0.5 },
+    }],
+  });
+  assert.equal(baselineFraction.cases[0].gates.protected_baseline_bound, false);
 });

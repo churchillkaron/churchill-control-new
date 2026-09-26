@@ -9,6 +9,7 @@ import { buildImageStudioRetouchOperation } from "@/lib/creative/stills/runtime/
 import { buildImageStudioAdjustmentLayer } from "@/lib/creative/stills/runtime/CreativeImageStudioAdjustmentLayerRuntime.js";
 import { buildImageStudioMaskLayer } from "@/lib/creative/stills/runtime/CreativeImageStudioMaskLayerRuntime.js";
 import { attachImageStudioSemanticMatte, buildImageStudioSemanticMaskPatch } from "@/lib/creative/stills/runtime/CreativeImageStudioSemanticMaskRuntime.js";
+import { buildImageStudioBrushStroke } from "@/lib/creative/stills/runtime/CreativeImageStudioBrushMaskRuntime.js";
 
 export const useImageStudioWorkspaceStore = create((set) => ({
   ...buildImageStudioWorkspaceState(),
@@ -132,6 +133,22 @@ export const useImageStudioWorkspaceStore = create((set) => ({
     const maskId=selected?.layer_type==="MASK" ? selected.id : selected?.metadata?.clip_mask_layer_id;
     if(!maskId)return state;
     return {layers:state.layers.map((layer)=>layer.id===maskId?{...layer,metadata:{...(layer.metadata||{}),...patch}}:layer),dirty:true,historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[]};
+  }),
+  setMaskBrushSettings: (patch = {}) => set((state) => ({ ui: { ...state.ui, mask_brush_mode:patch.mode??state.ui.mask_brush_mode??"ADD", mask_brush_size:patch.size_px??state.ui.mask_brush_size??40, mask_brush_hardness:patch.hardness??state.ui.mask_brush_hardness??.8, mask_brush_opacity:patch.opacity??state.ui.mask_brush_opacity??1 } })),
+  addMaskBrushStroke: (points = []) => set((state) => {
+    if(state.selection.layer_ids.length!==1)return state;
+    const mask=state.layers.find((layer)=>layer.id===state.selection.layer_ids[0]&&layer.layer_type==="MASK"&&!layer.locked);
+    if(!mask)return state;
+    let stroke;
+    try{stroke=buildImageStudioBrushStroke({mode:state.ui.mask_brush_mode||"ADD",points,size_px:state.ui.mask_brush_size??40,hardness:state.ui.mask_brush_hardness??.8,opacity:state.ui.mask_brush_opacity??1});}catch{return state;}
+    return {layers:state.layers.map((layer)=>layer.id===mask.id?{...layer,metadata:{...(layer.metadata||{}),mask_brush_strokes:[...((layer.metadata?.mask_brush_strokes)||[]),stroke]}}:layer),dirty:true,historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[]};
+  }),
+  clearMaskBrushStrokes: () => set((state) => {
+    if(state.selection.layer_ids.length!==1)return state;
+    const id=state.selection.layer_ids[0];
+    const mask=state.layers.find((layer)=>layer.id===id&&layer.layer_type==="MASK");
+    if(!mask||(mask.metadata?.mask_brush_strokes||[]).length===0)return state;
+    return {layers:state.layers.map((layer)=>layer.id===id?{...layer,metadata:{...(layer.metadata||{}),mask_brush_strokes:[]}}:layer),dirty:true,historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[]};
   }),
   releaseClippingMask: () => set((state) => {
     const selected=state.layers.find((layer)=>state.selection.layer_ids.includes(layer.id));

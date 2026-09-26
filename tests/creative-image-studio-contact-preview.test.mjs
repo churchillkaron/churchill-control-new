@@ -45,3 +45,30 @@ test("canvas renders governed contact shadow preview and explicit fallback",()=>
   assert.match(source,/shadowPreview\.outer_style/);
   assert.match(source,/shadowPreview\.silhouette_style/);
 });
+
+test("ground shadow accepts exact geometric alpha mask without replacing source silhouette",()=>{
+  const maskImage='url("data:image/svg+xml,%3Csvg%2F%3E")';
+  const preview=imageStudioGroundShadowPreview({
+    style:{contact_realism:{shadow_enabled:true,shadow_opacity:.5}},
+    asset_url:"https://example.com/a.png",
+    preview:{image:{left:0,top:0,width:200,height:100},frame:{}},
+    has_mask:true,
+    mask_style:{maskImage,WebkitMaskImage:maskImage,maskSize:"100% 100%",WebkitMaskSize:"100% 100%",maskRepeat:"no-repeat",WebkitMaskRepeat:"no-repeat"},
+  });
+  assert.equal(preview.preview_supported,true);
+  assert.equal(preview.outer_style.maskImage,maskImage);
+  assert.equal(preview.outer_style.WebkitMaskImage,maskImage);
+  assert.equal(preview.silhouette_style.maskImage,'url("https://example.com/a.png")');
+  assert.notEqual(preview.silhouette_style.maskImage,maskImage);
+});
+
+test("ground shadow accepts exact clip-path mask on outer wrapper",()=>{
+  const preview=imageStudioGroundShadowPreview({
+    style:{contact_realism:{shadow_enabled:true,shadow_opacity:.5}},
+    asset_url:"https://example.com/a.png",has_mask:true,
+    mask_style:{clipPath:"ellipse(40% 30% at 50% 50%)"},
+  });
+  assert.equal(preview.preview_supported,true);
+  assert.equal(preview.outer_style.clipPath,"ellipse(40% 30% at 50% 50%)");
+  assert.equal(preview.silhouette_style.clipPath,undefined);
+});

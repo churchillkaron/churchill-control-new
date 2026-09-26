@@ -200,3 +200,42 @@ test("single material quality win cannot establish superiority", async () => {
   assert.equal(report.quality_superiority_observed, false);
   assert.equal(report.superiority_claim_allowed, false);
 });
+
+
+test("three wins in one category cannot establish broad superiority", async () => {
+  const paths = await fixture();
+  const owned = JSON.parse(await readFile(paths.ownedPath, "utf8"));
+  owned.observations = owned.observations.map((item, index) => ({
+    ...item,
+    category: index < 3 ? "security" : `category_${index}`,
+    quality_score: index < 3 ? 0.90 : 0.85,
+  }));
+  await writeFile(paths.ownedPath, JSON.stringify(owned));
+
+  for (const referencePath of [paths.refAPath, paths.refBPath]) {
+    const current = JSON.parse(await readFile(referencePath, "utf8"));
+    const unsigned = {
+      ...current,
+      observations: current.observations.map((item, index) => ({
+        ...item,
+        category: index < 3 ? "security" : `category_${index}`,
+        quality_score: 0.85,
+      })),
+    };
+    delete unsigned.attestation;
+    const resigned = attestCodeAICompetitiveReferenceReport(unsigned, { env });
+    await writeFile(referencePath, JSON.stringify(resigned));
+  }
+
+  const run = runBenchmark(paths);
+  assert.equal(run.status, 0, run.stderr || run.stdout);
+  const report = JSON.parse(await readFile(paths.outputPath, "utf8"));
+  for (const reference of report.comparisons) {
+    assert.equal(reference.wins, 3);
+    assert.equal(reference.quality_win_rate, 0.1);
+    assert.deepEqual(reference.quality_win_categories, ["security"]);
+    assert.equal(reference.quality_win_category_count, 1);
+  }
+  assert.equal(report.quality_superiority_observed, false);
+  assert.equal(report.superiority_claim_allowed, false);
+});

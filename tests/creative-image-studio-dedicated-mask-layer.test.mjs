@@ -53,3 +53,12 @@ test("deterministic export renders dedicated mask shapes instead of rectangle-on
   assert.match(exporter,/rx=/);
   assert.match(exporter,/dedicated_mask_layer/);
 });
+
+
+test("dedicated mask lifecycle clears target links on release and delete",()=>{
+  const store=fs.readFileSync("components/creative/specialist/useImageStudioWorkspaceStore.js","utf8");
+  assert.match(store,/selected\?\.layer_type==="MASK"/);
+  assert.match(store,/dedicated_mask_layer===true/);
+  assert.match(store,/delete metadata\.clip_mask_layer_id/);
+  assert.match(store,/deleteIds\.add\(mask\.id\)/);
+});

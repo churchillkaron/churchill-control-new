@@ -280,10 +280,15 @@ for (const benchmarkCase of cases) {
       const applied = run("git", ["apply", "--check", patchPath], fixture.verifier);
       if (applied.status === 0) {
         must("git", ["apply", patchPath], fixture.verifier);
-        verifierChangedPaths = text(run("git", ["diff", "--name-only", "HEAD"], fixture.verifier).stdout, 12000)
+        const trackedChangedPaths = text(run("git", ["diff", "--name-only", "HEAD"], fixture.verifier).stdout, 12000)
           .split(/\r?\n/)
           .map((value) => value.trim())
           .filter(Boolean);
+        const untrackedChangedPaths = text(run("git", ["ls-files", "--others", "--exclude-standard"], fixture.verifier).stdout, 12000)
+          .split(/\r?\n/)
+          .map((value) => value.trim())
+          .filter((value) => Boolean(value) && value !== "hidden-acceptance.mjs");
+        verifierChangedPaths = [...new Set([...trackedChangedPaths, ...untrackedChangedPaths])].sort();
         const hidden = run(process.execPath, [fixture.hiddenPath], fixture.verifier);
         hiddenExitCode = hidden.status;
         hiddenStdout = text(hidden.stdout, 1200);

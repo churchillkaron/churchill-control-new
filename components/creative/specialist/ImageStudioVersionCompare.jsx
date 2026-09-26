@@ -82,10 +82,10 @@ function Snapshot({version,assets,workspace}) {
           {url?<div className="relative h-full w-full overflow-hidden" style={{...contentStyle,borderRadius:preview.frame.borderRadius}}>
             <div data-compare-base-effect-preview={layer.id} className="absolute inset-0" style={baseEffectStyle}><ImageStudioEdgePreviewFilterDefs filterId={edgeFilterId} spec={edgePreview}/><div data-compare-edge-alpha-preview={edgePreview.preview_supported?layer.id:undefined} className="absolute inset-0" style={{filter:edgePreview.preview_supported?`url(#${edgeFilterId})`:undefined}}><Image src={url} alt="" width={Math.max(1,Math.round(preview.image.width))} height={Math.max(1,Math.round(preview.image.height))} sizes="400px" style={{position:"absolute",left:preview.image.left,top:preview.image.top,width:preview.image.width,height:preview.image.height,maxWidth:"none"}}/>
             {(layer.style?.retouch_operations||[]).map((operation,index)=><div key={operation.id||index} data-compare-retouch-preview={operation.id||index} className="pointer-events-none absolute" style={imageStudioRetouchPreviewStyle(operation,n(b.width,240)*scale,n(b.height,180)*scale)}/>)}</div>
-            <ImageStudioLightWrapPreviewOverlay style={layer.style||{}} scale={scale} assetUrl={url} preview={preview} hasMask={Boolean(mask)} maskStyle={maskStyle} edgePreview={edgePreview}/>
+            <ImageStudioLightWrapPreviewOverlay style={layer.style||{}} scale={scale} assetUrl={url} preview={preview} hasMask={Boolean(mask)} maskStyle={maskStyle} edgePreview={edgePreview}/></div>
             {adjustmentPreviews.filter((item)=>item.preview_supported&&item.opacity>0).map((item)=><div key={`compare-adjustment-${item.id}`} data-compare-adjustment-preview={item.id} className="pointer-events-none absolute inset-0" style={{...item.mask_style,opacity:item.opacity,backdropFilter:item.filter,WebkitBackdropFilter:item.filter}}/>)}
             <ImageStudioTexturePreviewOverlay style={layer.style||{}} scale={scale} selected={false}/>
-          </div></div>:null}
+          </div>:null}
         </div>;
       })}
     </div>

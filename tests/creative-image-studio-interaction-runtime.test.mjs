@@ -116,7 +116,8 @@ test("Image Studio clipping mask geometry is shared by preview and deterministic
   assert.match(canvas,/is_clip_mask/);
   assert.match(exporter,/imageStudioMaskGeometry/);
   assert.match(exporter,/IMAGE_STUDIO_EXPORT_CLIP_MASK_MISSING/);
-  assert.match(exporter,/blend: "dest-in"/);\n  assert.match(exporter,/CREATIVE_IMAGE_STUDIO_REUSABLE_DESIGN_V3/);
+  assert.match(exporter,/blend: "dest-in"/);
+  assert.match(exporter,/CREATIVE_IMAGE_STUDIO_REUSABLE_DESIGN_V3/);
 });
 
 test("Image Studio artboard metadata keeps reusable design libraries durable", async () => {

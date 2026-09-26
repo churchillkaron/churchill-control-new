@@ -301,6 +301,7 @@ for (const benchmarkCase of cases) {
         hidden_acceptance_executed: hiddenExitCode !== null,
         hidden_acceptance_test_count: benchmarkCase.case_id.includes("multifile") ? 5 : 4,
         protected_baseline_sha256: sha256(`baseline-failed:${benchmarkCase.case_id}`),
+        protected_baseline_base_commit: fixture.baseCommit,
         protected_baseline_executed: true,
         protected_baseline_test_count: 1,
         candidate_self_report_authority: false,

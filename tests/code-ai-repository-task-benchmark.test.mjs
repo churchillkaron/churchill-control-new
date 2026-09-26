@@ -27,6 +27,7 @@ function proof(overrides = {}) {
       hidden_acceptance_executed: true,
       hidden_acceptance_test_count: 4,
       protected_baseline_sha256: "5".repeat(64),
+      protected_baseline_base_commit: overrides.base_commit || "1".repeat(40),
       protected_baseline_executed: true,
       protected_baseline_test_count: 12,
       candidate_self_report_authority: false,
@@ -65,6 +66,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       exit_code: 0,
       hidden_acceptance_sha256: "4".repeat(64),
       protected_baseline_sha256: "5".repeat(64),
+      protected_baseline_base_commit: "1".repeat(40),
       candidate_self_report_authority: false,
     },
   };
@@ -153,5 +155,22 @@ test("verification proof must bind the exact candidate diff and artifact", () =>
     }],
   });
   assert.equal(result.cases[0].gates.verifier_candidate_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("protected baseline proof must bind the exact base commit", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        protected_baseline_base_commit: "9".repeat(40),
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.protected_baseline_commit_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

@@ -20,7 +20,7 @@ const env = {
 };
 const sha256 = (value) => createHash("sha256").update(value, "utf8").digest("hex");
 
-function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85, categoryByCase = {} } = {}) {
+function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85, categoryByCase = {}, evidenceCountByCase = {} } = {}) {
   return caseIds.map((case_id, index) => ({
     case_id,
     category: categoryByCase[case_id] || null,
@@ -31,7 +31,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
     evidence_distinctness_score: 0.9,
     response_template_fingerprint_sha256: sha256(`template:${case_id}`),
     response_template_simhash64: sha256(`simhash:${case_id}`).slice(0, 16),
-    evidence_key_count: 2,
+    evidence_key_count: evidenceCountByCase[case_id] ?? 1,
     latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
     wall_ms: wallMs + index,
     input_tokens: 100,
@@ -70,7 +70,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
   }));
 }
 
-function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs, qualityScore = 0.85, categoryByCase = {} }) {
+function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs, qualityScore = 0.85, categoryByCase = {}, evidenceCountByCase = {} }) {
   return {
     contract: "AVANTIQO_CODE_COMPETITIVE_REFERENCE_REPORT_V1",
     generator_contract: "AVANTIQO_CODE_COMPETITIVE_REFERENCE_RUNNER_V1",
@@ -105,7 +105,7 @@ function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs
       estimated_supplier_cost_usd: Number((caseIds.length * 0.0005).toFixed(8)),
       cost_measurement_source: "RUNNER_SUM_OF_RECOMPUTED_CASE_COSTS_V1",
     },
-    observations: observations(caseIds, wallMs, { qualityScore, categoryByCase }),
+    observations: observations(caseIds, wallMs, { qualityScore, categoryByCase, evidenceCountByCase }),
   };
 }
 
@@ -116,13 +116,14 @@ async function fixture() {
   const promptSource = await readFile(PROMPT_PATH, "utf8");
   const caseIds = suite.cases.map((item) => item.case_id).sort();
   const categoryByCase = Object.fromEntries(suite.cases.map((item) => [item.case_id, item.category]));
+  const evidenceCountByCase = Object.fromEntries(suite.cases.map((item) => [item.case_id, item.required_evidence.length]));
   const suiteSha = sha256(suiteSource);
   const promptSha = sha256(promptSource);
   const ownedPath = join(dir, "owned.json");
   const refAPath = join(dir, "ref-a.json");
   const refBPath = join(dir, "ref-b.json");
   const outputPath = join(dir, "competitive.json");
-  const ownedObservations = observations(caseIds, 50, { categoryByCase }).map((item, index) => ({
+  const ownedObservations = observations(caseIds, 50, { categoryByCase, evidenceCountByCase }).map((item, index) => ({
     ...item,
     code_cpu_fallback: false,
     code_runtime_model_already_gpu_resident: index > 0,
@@ -172,10 +173,10 @@ async function fixture() {
   }, { env });
   await writeFile(ownedPath, JSON.stringify(owned));
   const refA = attestCodeAICompetitiveReferenceReport(referenceReport({
-    provider: "openai", model: "model-a", caseIds, suiteSha, promptSha, wallMs: 100, categoryByCase,
+    provider: "openai", model: "model-a", caseIds, suiteSha, promptSha, wallMs: 100, categoryByCase, evidenceCountByCase,
   }), { env });
   const refB = attestCodeAICompetitiveReferenceReport(referenceReport({
-    provider: "google", model: "model-b", caseIds, suiteSha, promptSha, wallMs: 110, categoryByCase,
+    provider: "google", model: "model-b", caseIds, suiteSha, promptSha, wallMs: 110, categoryByCase, evidenceCountByCase,
   }), { env });
   await writeFile(refAPath, JSON.stringify(refA));
   await writeFile(refBPath, JSON.stringify(refB));
@@ -428,4 +429,16 @@ test("near-duplicate cross-case template simhashes are rejected", async () => {
   const report = JSON.parse(await readFile(paths.outputPath, "utf8"));
   assert.equal(report.comparisons[0].gates.owned_cross_case_templates_unique, false);
   assert.ok(report.comparisons[0].owned_template_fingerprints.minimum_simhash_hamming_distance < 8);
+});
+
+
+test("canonical evidence obligation count cannot be understated", async () => {
+  const paths = await fixture();
+  const owned = JSON.parse(await readFile(paths.ownedPath, "utf8"));
+  owned.observations[0].evidence_key_count -= 1;
+  delete owned.owned_attestation;
+  await writeFile(paths.ownedPath, JSON.stringify(attestCodeAICompetitiveOwnedReport(owned, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(`${run.stderr}\n${run.stdout}`, /AVANTIQO_CODE_COMPETITIVE_CANONICAL_EVIDENCE_COUNT_MISMATCH/);
 });

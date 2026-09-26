@@ -60,7 +60,7 @@ test("version compare snapshot includes texture and localized retouch previews",
 
 test("version compare gates complex mask styling through the shared preview descriptor",()=>{
   const source=fs.readFileSync("components/creative/specialist/ImageStudioVersionCompare.jsx","utf8");
-  assert.match(source,/const maskPreview=imageStudioMaskPreviewDescriptor\(layer,mask\)/);
+  assert.match(source,/const maskPreview=imageStudioMaskPreviewDescriptor\(layer,mask,\{mask_url:maskAssetUrl,preview_image:preview\.image\}\)/);
   assert.match(source,/maskPreview\.preview_supported\?maskPreview\.style:\{\}/);
   assert.doesNotMatch(source,/const maskStyle=mask\?imageStudioMaskPreviewStyle/);
 });

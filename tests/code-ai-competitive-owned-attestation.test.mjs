@@ -29,7 +29,13 @@ function report() {
     external_provider_execution_performed: false,
     raw_model_output_persisted: false,
     raw_reasoning_persisted: false,
-    observations: CASES.map((case_id) => ({ case_id, passed: true, quality_score: 0.85 })),
+    observations: CASES.map((case_id, index) => ({
+      case_id,
+      passed: true,
+      quality_score: 0.85,
+      wall_ms: 100 + index,
+      latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
+    })),
     summary: { passed: true, complete_suite: true },
   };
 }
@@ -62,5 +68,15 @@ test("owned attestation fails closed without separate signing secret", () => {
   assert.throws(
     () => attestCodeAICompetitiveOwnedReport(report(), { env: {} }),
     /CODE_AI_COMPETITIVE_OWNED_ATTESTATION_SECRET_REQUIRED/,
+  );
+});
+
+
+test("owned attestation rejects unproven latency source", () => {
+  const invalid = report();
+  invalid.observations[0].latency_measurement_source = "SELF_REPORTED";
+  assert.throws(
+    () => attestCodeAICompetitiveOwnedReport(invalid, { env }),
+    /CODE_AI_COMPETITIVE_OWNED_RUNNER_LATENCY_MEASUREMENT_REQUIRED/,
   );
 });

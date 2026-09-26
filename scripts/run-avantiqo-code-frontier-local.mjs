@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { performance } from "node:perf_hooks";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
 loadAvantiqoEnv();
@@ -125,7 +126,7 @@ const observations = [];
 for (const entry of prompts) {
   const caseId = text(entry.case.case_id, 240);
   const usageId = `frontier-local:${caseId}:${Date.now()}:${sha256(entry.prompt).slice(0, 12)}`;
-  const startedAt = Date.now();
+  const startedAt = performance.now();
   const submitted = await AvantiqoCodeLocalQueueProvider.execute({
     capability: "ai.code.review",
     instruction: entry.prompt,
@@ -154,7 +155,7 @@ for (const entry of prompts) {
     if (["completed", "failed"].includes(text(settled?.status).toLowerCase())) break;
     await sleep(100);
   }
-  const wallMs = Date.now() - startedAt;
+  const wallMs = Number(Math.max(0, performance.now() - startedAt).toFixed(3));
   if (text(settled?.status).toLowerCase() !== "completed") {
     observations.push({
       case_id: caseId,
@@ -162,6 +163,7 @@ for (const entry of prompts) {
       passed: false,
       failures: [text(settled?.error, 500) || "LOCAL_PROVIDER_TIMEOUT"],
       wall_ms: wallMs,
+      latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
       provider_job_id: providerJobId,
       raw_reasoning_persisted: false,
     });
@@ -181,6 +183,7 @@ for (const entry of prompts) {
     narrative_grounding_score: Number(grade.narrative_grounding_score || 0),
     evidence_key_count: Number(grade.evidence_key_count || 0),
     wall_ms: wallMs,
+    latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
     input_tokens: tokenMetric(metrics, ["input_tokens", "prompt_tokens", "prompt_eval_count"]),
     output_tokens: tokenMetric(metrics, ["output_tokens", "completion_tokens", "eval_count"]),
     inference_elapsed_ms: tokenMetric(metrics, ["elapsed_ms"]),

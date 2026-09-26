@@ -55,7 +55,8 @@ test("live executable benchmark requires exact fresh Node01 Code worker attestat
   assert.match(liveRunner, /heartbeat_source_lane/);
   assert.match(liveRunner, /worker_source_sha256/);
   assert.match(liveRunner, /WORKER_ATTESTATION_REQUIRED/);
-  assert.match(liveRunner, /const workerAttestation = await assertCodeWorkerAttested\(\)/);
+  assert.match(liveRunner, /if \(!referenceMode\) \{/);
+  assert.match(liveRunner, /workerAttestation = await assertCodeWorkerAttested\(\)/);
   assert.match(liveRunner, /worker_attestation: workerAttestation/);
 });
 

@@ -74,7 +74,9 @@
     "build:business-partner:benchmark-evidence": "node scripts/build-business-partner-benchmark-evidence.mjs",
     "benchmark:business-partner:candidate:local": "node scripts/run-business-partner-candidate-benchmark.mjs",
     "certify:business-partner:quality-core:local": "node scripts/certify-business-partner-quality-core-local.mjs",
-    "test:code-worldclass": "node --test tests/avantiqo-code-*.test.mjs tests/avantiqo-intelligence-code-*.test.mjs tests/business-partner-code-*.test.mjs tests/code-*.test.mjs tests/operator-semantic-code-*.test.mjs tests/platform-self-healing-code-*.test.mjs"
+    "test:code-worldclass": "node --test tests/avantiqo-code-*.test.mjs tests/avantiqo-intelligence-code-*.test.mjs tests/business-partner-code-*.test.mjs tests/code-*.test.mjs tests/operator-semantic-code-*.test.mjs tests/platform-self-healing-code-*.test.mjs",
+    "benchmark:code:executable-reference:dry": "node scripts/run-avantiqo-code-executable-repository-local.mjs --dry-run",
+    "benchmark:code:executable-reference:live": "node scripts/run-avantiqo-code-executable-repository-local.mjs"
   },
   "dependencies": {
     "@babel/parser": "^7.29.7",

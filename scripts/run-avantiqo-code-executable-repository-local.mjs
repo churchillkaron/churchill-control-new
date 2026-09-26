@@ -3,6 +3,7 @@ import { copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promi
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import OpenAI from "openai";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 import {
   CODE_AI_REPOSITORY_VERIFIER_CONTRACT,
@@ -17,9 +18,17 @@ import {
 
 loadAvantiqoEnv();
 
-const CONTRACT = "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_LOCAL_RUNNER_V1";
+const referenceProviderInput = String(process.env.AVANTIQO_CODE_EXECUTABLE_REPOSITORY_REFERENCE_PROVIDER || "").trim().toLowerCase();
+const referenceProvider = referenceProviderInput === "gemini" ? "google" : referenceProviderInput;
+const referenceMode = Boolean(referenceProvider);
+const referenceModel = String(process.env.AVANTIQO_CODE_EXECUTABLE_REPOSITORY_REFERENCE_MODEL || "").trim();
+const CONTRACT = referenceMode
+  ? "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_REFERENCE_RUNNER_V1"
+  : "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_LOCAL_RUNNER_V1";
 const SUITE_CONTRACT = "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_SUITE_V1";
-const APPROVAL = "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_LOCAL_APPROVED";
+const APPROVAL = referenceMode
+  ? "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_REFERENCE_APPROVED"
+  : "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_LOCAL_APPROVED";
 const REQUIRED_WORKER_CONTRACT = "AVANTIQO_NODE01_WORKER_V6_MODEL_AWARE_CODE";
 const WORKER_SOURCE_PATH = resolve("scripts/local-node/avantiqo-node01-worker.ps1");
 const WORKER_ATTESTATION_WAIT_MS = Math.max(5000, Number(process.env.AVANTIQO_CODE_BENCHMARK_WORKER_ATTESTATION_WAIT_MS || 45000));
@@ -29,6 +38,9 @@ const requestedLimit = Math.max(0, Number(limitArg?.split("=")[1] || 0));
 const suiteArg = process.argv.slice(2).find((arg) => !arg.startsWith("--"));
 const suitePath = resolve(suiteArg || "benchmarks/avantiqo-code-executable-repository-suite.json");
 const benchmarkRunId = randomUUID();
+const outputPath = String(process.env.AVANTIQO_CODE_EXECUTABLE_REPOSITORY_OUTPUT || (referenceMode ? "/tmp/avantiqo-code-executable-repository-reference.json" : "")).trim();
+const referenceInputUsdPer1m = Number(process.env.AVANTIQO_CODE_EXECUTABLE_REPOSITORY_REFERENCE_INPUT_USD_PER_1M);
+const referenceOutputUsdPer1m = Number(process.env.AVANTIQO_CODE_EXECUTABLE_REPOSITORY_REFERENCE_OUTPUT_USD_PER_1M);
 
 const text = (value, maximum = 4000) => String(value ?? "").trim().slice(0, maximum);
 const list = (value) => Array.isArray(value) ? value : [];
@@ -83,7 +95,7 @@ const gitToolchainSha256 = sha256(JSON.stringify(gitToolchainIdentity));
 const runnerSourceCommit = text(must("git", ["rev-parse", "HEAD"], process.cwd()).stdout, 80).toLowerCase();
 if (!/^[a-f0-9]{40}$/i.test(runnerSourceCommit)) throw new Error(`${CONTRACT}_RUNNER_SOURCE_COMMIT_INVALID`);
 const runnerSourceStatus = text(must("git", ["status", "--porcelain", "--untracked-files=no"], process.cwd()).stdout, 12000);
-if (runnerSourceStatus) throw new Error(`${CONTRACT}_RUNNER_SOURCE_DIRTY`);
+if (!dryRun && runnerSourceStatus) throw new Error(`${CONTRACT}_RUNNER_SOURCE_DIRTY`);
 
 function caseDefinitionSha256(benchmarkCase) {
   const canonical = {
@@ -228,6 +240,84 @@ async function seedRepository(benchmarkCase) {
   };
 }
 
+function extractUnifiedDiff(raw) {
+  let value = String(raw ?? "").trim();
+  const fenced = value.match(/```(?:diff|patch)?\s*([\s\S]*?)```/i);
+  if (fenced) value = fenced[1].trim();
+  const diffIndex = value.indexOf("diff --git ");
+  if (diffIndex >= 0) value = value.slice(diffIndex);
+  if (!value.startsWith("diff --git ") && !/^---\s+/m.test(value)) return "";
+  return value.trim() + "\n";
+}
+
+function referenceCost(inputTokens, outputTokens) {
+  if (![inputTokens, outputTokens, referenceInputUsdPer1m, referenceOutputUsdPer1m].every((value) => Number.isFinite(Number(value)))) return null;
+  return Number((((Number(inputTokens) * referenceInputUsdPer1m) + (Number(outputTokens) * referenceOutputUsdPer1m)) / 1_000_000).toFixed(8));
+}
+
+async function renderReferenceRepairPrompt(benchmarkCase, repo) {
+  const sourceBlocks = [];
+  for (const candidatePath of list(benchmarkCase.candidate_paths)) {
+    sourceBlocks.push(`--- ${candidatePath} ---\n${await readFile(join(repo, candidatePath), "utf8")}`);
+  }
+  return [
+    "You are repairing an isolated synthetic benchmark repository.",
+    "Return ONLY a unified git diff. Do not use markdown fences and do not explain the patch.",
+    "Edit only the explicitly allowed paths. Do not add tests or new files.",
+    "Hidden acceptance tests are intentionally unavailable; infer the correct implementation from the objective and source only.",
+    `Objective: ${text(benchmarkCase.objective, 4000)}`,
+    `Allowed edit paths: ${list(benchmarkCase.allowed_edit_paths).join(", ")}`,
+    ...sourceBlocks,
+  ].join("\n\n");
+}
+
+async function executeReferenceProvider(prompt) {
+  if (referenceProvider === "openai") {
+    const apiKey = text(process.env.OPENAI_API_KEY, 500);
+    if (!apiKey) throw new Error("OPENAI_API_KEY_REQUIRED_FOR_EXECUTABLE_REPOSITORY_REFERENCE");
+    const started = Date.now();
+    const client = new OpenAI({ apiKey });
+    const response = await client.responses.create({ model: referenceModel, input: prompt, reasoning: { effort: "high" } });
+    const inputTokens = Number(response?.usage?.input_tokens || 0);
+    const outputTokens = Number(response?.usage?.output_tokens || 0);
+    return { raw: text(response?.output_text, 60000), wall_ms: Date.now() - started, input_tokens: inputTokens, output_tokens: outputTokens, cost_usd: referenceCost(inputTokens, outputTokens) };
+  }
+  if (referenceProvider === "anthropic") {
+    const apiKey = text(process.env.ANTHROPIC_API_KEY, 500);
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY_REQUIRED_FOR_EXECUTABLE_REPOSITORY_REFERENCE");
+    const started = Date.now();
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: referenceModel, max_tokens: 4096, messages: [{ role: "user", content: prompt }] }),
+    });
+    if (!response.ok) throw new Error(`ANTHROPIC_EXECUTABLE_REPOSITORY_REFERENCE_FAILED:${response.status}`);
+    const body = await response.json();
+    const raw = Array.isArray(body?.content) ? body.content.filter((item) => item?.type === "text").map((item) => text(item?.text, 30000)).join("\n") : "";
+    const inputTokens = Number(body?.usage?.input_tokens || 0);
+    const outputTokens = Number(body?.usage?.output_tokens || 0);
+    return { raw, wall_ms: Date.now() - started, input_tokens: inputTokens, output_tokens: outputTokens, cost_usd: referenceCost(inputTokens, outputTokens) };
+  }
+  const apiKey = text(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY, 500);
+  if (!apiKey) throw new Error("GEMINI_API_KEY_REQUIRED_FOR_EXECUTABLE_REPOSITORY_REFERENCE");
+  const started = Date.now();
+  const modelId = referenceModel.replace(/^models\//i, "");
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }] }),
+  });
+  if (!response.ok) throw new Error(`GEMINI_EXECUTABLE_REPOSITORY_REFERENCE_FAILED:${response.status}`);
+  const body = await response.json();
+  const raw = Array.isArray(body?.candidates)
+    ? body.candidates.flatMap((candidate) => Array.isArray(candidate?.content?.parts) ? candidate.content.parts.map((part) => text(part?.text, 30000)).filter(Boolean) : []).join("\n")
+    : "";
+  const usage = object(body?.usageMetadata);
+  const inputTokens = Number(usage.promptTokenCount || 0);
+  const outputTokens = Number(usage.candidatesTokenCount || 0) + Number(usage.thoughtsTokenCount || 0);
+  return { raw, wall_ms: Date.now() - started, input_tokens: inputTokens, output_tokens: outputTokens, cost_usd: referenceCost(inputTokens, outputTokens) };
+}
+
 const suiteSource = await readFile(suitePath, "utf8");
 const suiteSha256 = sha256(suiteSource);
 const suite = JSON.parse(suiteSource);
@@ -235,6 +325,11 @@ if (text(suite.contract, 180) !== SUITE_CONTRACT) throw new Error(`${CONTRACT}_S
 const allCases = list(suite.cases);
 const cases = requestedLimit > 0 ? allCases.slice(0, Math.min(requestedLimit, allCases.length)) : allCases;
 if (!cases.length) throw new Error(`${CONTRACT}_CASES_REQUIRED`);
+if (referenceMode) {
+  if (!new Set(["openai", "anthropic", "google"]).has(referenceProvider)) throw new Error(`${CONTRACT}_REFERENCE_PROVIDER_INVALID`);
+  if (!referenceModel) throw new Error(`${CONTRACT}_REFERENCE_MODEL_REQUIRED`);
+  if (!dryRun && (!(referenceInputUsdPer1m > 0) || !(referenceOutputUsdPer1m > 0))) throw new Error(`${CONTRACT}_REFERENCE_PRICING_REQUIRED`);
+}
 
 if (dryRun) {
   console.log(JSON.stringify({
@@ -244,10 +339,16 @@ if (dryRun) {
     suite_contract: SUITE_CONTRACT,
     suite_sha256: suiteSha256,
     case_count: cases.length,
+    execution_mode: referenceMode ? "REFERENCE_PROVIDER_PATCH" : "AVANTIQO_LOCAL_CODE",
+    provider: referenceMode ? referenceProvider : "avantiqo-code",
+    model: referenceMode ? referenceModel : "avantiqo-code-v1",
+    provider_execution_performed: false,
     isolated_candidate_trial: true,
     hidden_acceptance_after_candidate_only: true,
     hidden_answers_exposed_to_candidate: false,
-    local_compute_only: true,
+    local_compute_only: !referenceMode,
+    normal_avantiqo_code_execution_uses_reference_provider: false,
+    runtime_provider_effect: "NONE",
     production_deploy_performed: false
   }, null, 2));
   process.exit();
@@ -256,88 +357,120 @@ if (text(process.env[APPROVAL]).toUpperCase() !== "YES") {
   throw new Error(`${APPROVAL}=YES_REQUIRED`);
 }
 
-const { executeCodeAIEmployeeMission } = await import("../lib/code/runtime/CodeAIEmployeeRuntime.js");
-const { AvantiqoCodeLocalQueueProvider } = await import("../lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeLocalQueueProvider.js");
-const { resolveAvantiqoLearningOrganization } = await import("../lib/intelligence/runtime/AvantiqoLearningOrganizationRuntime.js");
-const organization = await resolveAvantiqoLearningOrganization({ allowDatabaseFallback: true });
-const organizationId = text(organization?.organization_id, 200);
-if (!organizationId) throw new Error(`${CONTRACT}_ORGANIZATION_REQUIRED`);
-const workerAttestation = await assertCodeWorkerAttested();
+let executeCodeAIEmployeeMission = null;
+let AvantiqoCodeLocalQueueProvider = null;
+let organizationId = null;
+let workerAttestation = null;
+if (!referenceMode) {
+  ({ executeCodeAIEmployeeMission } = await import("../lib/code/runtime/CodeAIEmployeeRuntime.js"));
+  ({ AvantiqoCodeLocalQueueProvider } = await import("../lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeLocalQueueProvider.js"));
+  const { resolveAvantiqoLearningOrganization } = await import("../lib/intelligence/runtime/AvantiqoLearningOrganizationRuntime.js");
+  const organization = await resolveAvantiqoLearningOrganization({ allowDatabaseFallback: true });
+  organizationId = text(organization?.organization_id, 200);
+  if (!organizationId) throw new Error(`${CONTRACT}_ORGANIZATION_REQUIRED`);
+  workerAttestation = await assertCodeWorkerAttested();
+}
 
 const observations = [];
 for (const benchmarkCase of cases) {
   const fixture = await seedRepository(benchmarkCase);
   const originalRoot = process.env.AVANTIQO_CODE_LOCAL_REPOSITORY_ROOT;
   try {
-    process.env.AVANTIQO_CODE_LOCAL_REPOSITORY_ROOT = fixture.repo;
-    const started = Date.now();
-    const caseDeadline = started + 180000;
     let result = null;
-    let resumeState = null;
+    let state = {};
+    let patch = "";
+    let wallMs = 0;
     let continuationSlices = 0;
-    do {
-      result = await executeCodeAIEmployeeMission({
-        context: {
-          organizationId,
-          actor: { id: "avantiqo-code-benchmark-runner" },
-          metadata: {
-            codeAIIsolatedCandidateTrial: true,
-            benchmark_only: true,
-            benchmark_contract: CONTRACT,
-            benchmark_case_id: benchmarkCase.case_id,
-            commit_authority: false,
-            production_deploy_authority: false,
-          },
-        },
-        objective: benchmarkCase.objective,
-        owner_intent: benchmarkCase.objective,
-        objective_context: {
-          organization_id: organizationId,
-          workspace_target: "LOCAL_COMPUTER",
-          owner_objective: benchmarkCase.objective,
-          allowed_edit_paths: benchmarkCase.allowed_edit_paths,
-          implementation_required: true,
-          authoritative_verification_command: "node",
-          authoritative_verification_args: ["--check", benchmarkCase.candidate_paths.at(-1)],
-          completion_criterion_1: "Implement the requested behavior in the allowed source paths.",
-          completion_criterion_2: "Keep the patch minimal and preserve unrelated behavior.",
-        },
-        repository_url: fixture.origin,
-        ref: fixture.baseCommit,
-        resume_state: resumeState,
-        reasoning_call_budget: 4,
-        max_employee_passes: 6,
-        local_compute_required: true,
-        infrastructure_policy: "local_only",
-        timeout_ms: 120000,
-      });
-      continuationSlices += 1;
-      resumeState = object(result?.state);
-      console.log("AVANTIQO_CODE_EXEC_REPO_SLICE=" + JSON.stringify({
-        case_id: benchmarkCase.case_id,
-        slice: continuationSlices,
-        status: text(result?.status, 120),
-        pending_provider_job_id: text(resumeState?.planner_pending?.provider_job_id, 300) || null,
-        reasoning_calls: Number(resumeState?.work_package_control?.reasoning_calls_used || result?.reasoning_calls || 0),
-        elapsed_ms: Date.now() - started,
-        patch_present: Boolean(String(resumeState?.patch || "").trim()),
-        raw_reasoning_persisted: false,
-      }));
-      if (text(result?.status, 120) !== "planner_pending") break;
-      if (Date.now() >= caseDeadline) break;
-      await sleep(250);
-    } while (continuationSlices < 24);
-    const wallMs = Date.now() - started;
-    const state = object(result?.state);
     let benchmarkPendingJobCancelled = false;
-    if (text(result?.status, 120) === "planner_pending") {
-      const pendingJobId = text(state?.planner_pending?.provider_job_id, 300);
-      if (pendingJobId) {
-        const cancelled = await AvantiqoCodeLocalQueueProvider.cancel({ provider_job_id: pendingJobId }).catch(() => null);
-        benchmarkPendingJobCancelled = cancelled?.cancelled === true;
+    let referenceResult = null;
+    if (referenceMode) {
+      const prompt = await renderReferenceRepairPrompt(benchmarkCase, fixture.repo);
+      referenceResult = await executeReferenceProvider(prompt);
+      patch = extractUnifiedDiff(referenceResult.raw);
+      wallMs = Number(referenceResult.wall_ms || 0);
+      continuationSlices = 1;
+      state = { patch };
+      result = {
+        status: patch ? "completed" : "failed",
+        reason: patch ? null : "REFERENCE_PROVIDER_UNIFIED_DIFF_REQUIRED",
+      };
+      console.log("AVANTIQO_CODE_EXEC_REPO_REFERENCE_SLICE=" + JSON.stringify({
+        case_id: benchmarkCase.case_id,
+        provider: referenceProvider,
+        model: referenceModel,
+        status: result.status,
+        wall_ms: wallMs,
+        patch_present: Boolean(patch),
+        raw_provider_output_persisted: false,
+      }));
+    } else {
+      process.env.AVANTIQO_CODE_LOCAL_REPOSITORY_ROOT = fixture.repo;
+      const started = Date.now();
+      const caseDeadline = started + 180000;
+      let resumeState = null;
+      do {
+        result = await executeCodeAIEmployeeMission({
+          context: {
+            organizationId,
+            actor: { id: "avantiqo-code-benchmark-runner" },
+            metadata: {
+              codeAIIsolatedCandidateTrial: true,
+              benchmark_only: true,
+              benchmark_contract: CONTRACT,
+              benchmark_case_id: benchmarkCase.case_id,
+              commit_authority: false,
+              production_deploy_authority: false,
+            },
+          },
+          objective: benchmarkCase.objective,
+          owner_intent: benchmarkCase.objective,
+          objective_context: {
+            organization_id: organizationId,
+            workspace_target: "LOCAL_COMPUTER",
+            owner_objective: benchmarkCase.objective,
+            allowed_edit_paths: benchmarkCase.allowed_edit_paths,
+            implementation_required: true,
+            authoritative_verification_command: "node",
+            authoritative_verification_args: ["--check", benchmarkCase.candidate_paths.at(-1)],
+            completion_criterion_1: "Implement the requested behavior in the allowed source paths.",
+            completion_criterion_2: "Keep the patch minimal and preserve unrelated behavior.",
+          },
+          repository_url: fixture.origin,
+          ref: fixture.baseCommit,
+          resume_state: resumeState,
+          reasoning_call_budget: 4,
+          max_employee_passes: 6,
+          local_compute_required: true,
+          infrastructure_policy: "local_only",
+          timeout_ms: 120000,
+        });
+        continuationSlices += 1;
+        resumeState = object(result?.state);
+        console.log("AVANTIQO_CODE_EXEC_REPO_SLICE=" + JSON.stringify({
+          case_id: benchmarkCase.case_id,
+          slice: continuationSlices,
+          status: text(result?.status, 120),
+          pending_provider_job_id: text(resumeState?.planner_pending?.provider_job_id, 300) || null,
+          reasoning_calls: Number(resumeState?.work_package_control?.reasoning_calls_used || result?.reasoning_calls || 0),
+          elapsed_ms: Date.now() - started,
+          patch_present: Boolean(String(resumeState?.patch || "").trim()),
+          raw_reasoning_persisted: false,
+        }));
+        if (text(result?.status, 120) !== "planner_pending") break;
+        if (Date.now() >= caseDeadline) break;
+        await sleep(250);
+      } while (continuationSlices < 24);
+      wallMs = Date.now() - started;
+      state = object(result?.state);
+      if (text(result?.status, 120) === "planner_pending") {
+        const pendingJobId = text(state?.planner_pending?.provider_job_id, 300);
+        if (pendingJobId) {
+          const cancelled = await AvantiqoCodeLocalQueueProvider.cancel({ provider_job_id: pendingJobId }).catch(() => null);
+          benchmarkPendingJobCancelled = cancelled?.cancelled === true;
+        }
       }
+      patch = String(state.patch || "");
     }
-    const patch = String(state.patch || "");
     const diffBytes = Buffer.byteLength(patch, "utf8");
     let hiddenPassed = false;
     let hiddenExitCode = null;
@@ -384,6 +517,21 @@ for (const benchmarkCase of cases) {
       status: text(result?.status, 120),
       reason: text(result?.reason, 500) || null,
       wall_ms: wallMs,
+      ...(referenceMode ? {
+        provider: referenceProvider,
+        model: referenceModel,
+        input_tokens: Number(referenceResult?.input_tokens || 0),
+        output_tokens: Number(referenceResult?.output_tokens || 0),
+        token_usage_source: "PROVIDER_API_USAGE_V1",
+        pricing_input_usd_per_1m: referenceInputUsdPer1m,
+        pricing_output_usd_per_1m: referenceOutputUsdPer1m,
+        pricing_source: "OPERATOR_APPROVED_REFERENCE_PRICING_V1",
+        cost_measurement_source: "RUNNER_RECOMPUTED_FROM_USAGE_AND_PRICING_V1",
+        supplier_cost_usd: referenceResult?.cost_usd ?? null,
+        provider_output_sha256: sha256(referenceResult?.raw || ""),
+        provider_output_bytes: Buffer.byteLength(String(referenceResult?.raw || ""), "utf8"),
+        raw_provider_output_persisted: false,
+      } : {}),
       continuation_slices: continuationSlices,
       benchmark_pending_job_cancelled: benchmarkPendingJobCancelled,
       reasoning_calls: Number(state?.work_package_control?.reasoning_calls_used || result?.reasoning_calls || 0),
@@ -467,9 +615,13 @@ for (const benchmarkCase of cases) {
 }
 
 const passed = observations.filter((item) => item.passed).length;
-console.log(JSON.stringify({
+const referenceSupplierCost = referenceMode
+  ? observations.map((item) => Number(item?.supplier_cost_usd)).filter(Number.isFinite).reduce((sum, value) => sum + value, 0)
+  : null;
+const report = {
   success: passed === observations.length,
   contract: CONTRACT,
+  generated_at: new Date().toISOString(),
   suite_contract: SUITE_CONTRACT,
   suite_sha256: suiteSha256,
   case_count: observations.length,
@@ -479,9 +631,24 @@ console.log(JSON.stringify({
   benchmark_run_id: benchmarkRunId,
   runner_source_commit: runnerSourceCommit,
   runner_source_clean: true,
+  ...(referenceMode ? {
+    provider: referenceProvider,
+    model: { provider: referenceProvider, product_model: referenceModel },
+    provider_execution_performed: true,
+    benchmark_only: true,
+    normal_avantiqo_code_execution_uses_reference_provider: false,
+    runtime_provider_effect: "NONE",
+    raw_provider_output_persisted: false,
+    economics: {
+      estimated_supplier_cost_usd: Number(referenceSupplierCost.toFixed(8)),
+      cost_measurement_source: "RUNNER_SUM_OF_RECOMPUTED_CASE_COSTS_V1",
+    },
+  } : { provider_execution_performed: false }),
   observations,
-  local_compute_only: true,
+  local_compute_only: !referenceMode,
   commit_performed: false,
   production_deploy_performed: false,
-}, null, 2));
+};
+if (outputPath) await writeFile(resolve(outputPath), JSON.stringify(report, null, 2) + "\n", "utf8");
+console.log(JSON.stringify(report, null, 2));
 if (passed !== observations.length) process.exitCode = 2;

@@ -4,6 +4,11 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
+import {
+  CODE_AI_REPOSITORY_VERIFIER_CONTRACT,
+  CODE_AI_REPOSITORY_VERIFIER_RUNTIME_CONTRACT,
+  codeAIRepositoryVerifierProtocolSha256,
+} from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
 loadAvantiqoEnv();
 
@@ -24,6 +29,13 @@ const text = (value, maximum = 4000) => String(value ?? "").trim().slice(0, maxi
 const list = (value) => Array.isArray(value) ? value : [];
 const object = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
 const sha256 = (value) => createHash("sha256").update(String(value ?? ""), "utf8").digest("hex");
+const verifierRuntimeIdentity = Object.freeze({
+  engine: process.release?.name || "node",
+  version: process.version,
+  platform: process.platform,
+  arch: process.arch,
+});
+const verifierRuntimeSha256 = sha256(JSON.stringify(verifierRuntimeIdentity));
 const sleep = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
 
 function run(command, args, cwd, env = process.env) {
@@ -271,6 +283,7 @@ for (const benchmarkCase of cases) {
     const diffBytes = Buffer.byteLength(patch, "utf8");
     let hiddenPassed = false;
     let hiddenExitCode = null;
+    let candidateTreeSha = null;
     let hiddenStdout = "";
     let hiddenStderr = "";
     let verifierChangedPaths = [];
@@ -289,6 +302,9 @@ for (const benchmarkCase of cases) {
           .map((value) => value.trim())
           .filter((value) => Boolean(value) && value !== "hidden-acceptance.mjs");
         verifierChangedPaths = [...new Set([...trackedChangedPaths, ...untrackedChangedPaths])].sort();
+        must("git", ["add", "-A"], fixture.verifier);
+        run("git", ["reset", "--", "hidden-acceptance.mjs"], fixture.verifier);
+        candidateTreeSha = text(must("git", ["write-tree"], fixture.verifier).stdout, 80);
         const hidden = run(process.execPath, [fixture.hiddenPath], fixture.verifier);
         hiddenExitCode = hidden.status;
         hiddenStdout = text(hidden.stdout, 1200);
@@ -315,6 +331,7 @@ for (const benchmarkCase of cases) {
       base_commit: fixture.baseCommit,
       diff_sha256: sha256(patch),
       artifact_sha256: sha256(artifact),
+      candidate_tree_sha: candidateTreeSha,
       repository_mutation_observed: patch.trim().length > 0,
       diff_nonempty: patch.trim().length > 0,
       diff_bytes: diffBytes,
@@ -325,10 +342,15 @@ for (const benchmarkCase of cases) {
         benchmark_run_id: benchmarkRunId,
         independent: true,
         verifier: "avantiqo-hidden-node-assert",
-        verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
+        verifier_contract: CODE_AI_REPOSITORY_VERIFIER_CONTRACT,
+        verifier_protocol_sha256: codeAIRepositoryVerifierProtocolSha256(),
+        verifier_runtime_contract: CODE_AI_REPOSITORY_VERIFIER_RUNTIME_CONTRACT,
+        verifier_runtime_identity: verifierRuntimeIdentity,
+        verifier_runtime_sha256: verifierRuntimeSha256,
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: sha256(patch),
         candidate_artifact_sha256: sha256(artifact),
+        candidate_tree_sha: candidateTreeSha,
         changed_paths: verifierChangedPaths,
         allowed_edit_paths: list(benchmarkCase.allowed_edit_paths).map((value) => text(value, 500)),
         passed: hiddenPassed,
@@ -341,6 +363,7 @@ for (const benchmarkCase of cases) {
         protected_baseline_test_count: fixture.hiddenAcceptanceTestCount,
         protected_baseline_base_commit: fixture.baseCommit,
         protected_baseline_hidden_acceptance_sha256: fixture.hiddenAcceptanceSha256,
+        protected_baseline_verifier_runtime_sha256: verifierRuntimeSha256,
         protected_baseline_exit_code: fixture.baselineExitCode,
         protected_baseline_passed: false,
         candidate_self_report_authority: false,

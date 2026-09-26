@@ -35,11 +35,14 @@ test("complex masked light wrap still fails conservative because export owns pos
   assert.equal(preview.reason,"MASKED_LIGHT_WRAP_EXPORT_ONLY");
 });
 
-test("light wrap overlay uses SVG alpha erosion rather than a generic glow",()=>{
+test("light wrap overlay uses SVG alpha erosion and can chain governed edge erosion",()=>{
   const source=fs.readFileSync("components/creative/specialist/ImageStudioLightWrapPreviewOverlay.jsx","utf8");
   assert.match(source,/feMorphology/);
   assert.match(source,/operator="erode"/);
   assert.match(source,/SourceAlpha/);
+  assert.match(source,/spec\.edge_radius/);
+  assert.match(source,/result="edgeAlpha"/);
+  assert.match(source,/in="edgeAlpha"/);
   assert.match(source,/innerBand/);
   assert.match(source,/feFlood/);
   assert.match(source,/data-light-wrap-preview/);
@@ -56,6 +59,8 @@ test("canvas and version compare share light wrap preview and masked fidelity wa
   assert.match(compare,/MASKED_LIGHT_WRAP_EXPORT_ONLY/);
   assert.match(canvas,/maskStyle=\{maskStyle\}/);
   assert.match(compare,/maskStyle=\{maskStyle\}/);
+  assert.match(canvas,/edgePreview=\{edgePreview\}/);
+  assert.match(compare,/edgePreview=\{edgePreview\}/);
 });
 
 test("canvas and compare keep export stage ordering around base effects",()=>{

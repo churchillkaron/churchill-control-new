@@ -100,6 +100,17 @@ function syntheticBusinessPartnerBenchmarkMessage(value) {
 }
 
 
+
+function syntheticBenchmarkDisplayMessage(value) {
+  const source = String(value ?? "");
+  if (!syntheticBusinessPartnerBenchmarkMessage(source)) return text(source);
+  const marker = "Benchmark case:";
+  const index = source.indexOf(marker);
+  if (index < 0) return text(source);
+  const tail = source.slice(index + marker.length).trimStart();
+  return text(tail.split(/\n\nReturn one JSON object/i)[0] || source);
+}
+
 function syntheticBenchmarkNeedsPriorDecision(value) {
   const source = String(value ?? "");
   const marker = "Benchmark case:";
@@ -514,7 +525,10 @@ export default function HomeAvantiqoIntelligence({
       ? text(await prepareAttachmentSetForTurn())
       : "";
 
-    setMessages((current) => [...current, createMessage("user", message)]);
+    const visibleMessage = syntheticBusinessPartnerBenchmarkMessage(message)
+      ? syntheticBenchmarkDisplayMessage(message)
+      : message;
+    setMessages((current) => [...current, createMessage("user", visibleMessage)]);
     setInput("");
     setError("");
     setBusy(true);

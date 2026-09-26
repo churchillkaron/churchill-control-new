@@ -117,7 +117,8 @@ assert.match(organizationalContextSource, /business_thesis_is_historical_context
 assert.match(organizationalContextSource, /business_thesis_is_not_live_proof:\s*true/);
 assert.match(organizationalContextSource, /current_business_claims_require_live_evidence:\s*true/);
 assert.match(organizationalContextSource, /version:\s*2/);
-assert.match(organizationalContextSource, /business_thesis:\s*thesisSnapshot\(state\.business_thesis\)/);
+assert.match(organizationalContextSource, /const thesis = thesisSnapshot\(state\.business_thesis\)/);
+assert.match(organizationalContextSource, /const currentBusinessThesis = thesisSnapshot\(object\(projectState\)\.business_thesis\)/);
 assert.match(organizationalContextSource, /current_business_thesis:\s*source\.current_business_thesis/);
 assert.doesNotMatch(organizationalContextSource, /business_thesis_is_live_proof:\s*true/);
 
@@ -135,7 +136,7 @@ assert.match(routeSource, /thesis_interrupt/);
 assert.match(routeSource, /OPERATOR_ATTENTION_LATENCY_V2/);
 assert.doesNotMatch(routeSource, /service_role/i);
 
-assert.match(homeSource, /fetch\("\/api\/operator\/attention"/);
+assert.match(homeSource, /fetchWithTimeout\(\s*\"\/api\/operator\/attention\"/);
 assert.match(homeSource, /data-avantiqo-attention-brief="true"/);
 assert.match(homeSource, /data-avantiqo-business-thesis="true"/);
 assert.match(homeSource, /Synthetic Intelligence/);
@@ -146,8 +147,10 @@ assert.match(homeSource, /Recommended next move/);
 assert.match(homeSource, /interruption\?\.should_interrupt === true/);
 assert.match(homeSource, /sessionStorage\.getItem\(storageKey\)/);
 assert.match(homeSource, /sessionStorage\.setItem\(storageKey, "1"\)/);
-assert.match(homeSource, /synthetic-intelligence-interruption/);
-assert.match(homeSource, /dedupe_key: dedupeKey/);
+assert.match(homeSource, /thesisUrgent \?/);
+assert.match(homeSource, /AlertTriangle/);
+assert.match(homeSource, /avantiqo:intelligence-prewarm:/);
+assert.match(homeSource, /fetch\(\"\/api\/operator\/intelligence\/prewarm\"/);
 assert.match(homeSource, /Evidence-backed/);
 assert.match(homeSource, /Recommendations are not approvals or authorization/);
 assert.match(homeSource, /sendMessage\(/);

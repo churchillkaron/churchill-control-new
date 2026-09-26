@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Eye, MessageCircle, Sparkles } from "lucide-react";
 
 
+const POLL_INTERVAL_MS = 30_000;
+
 function text(value) {
   return String(value ?? "").trim();
 }
@@ -93,6 +95,9 @@ export default function AutonomousWatchAlertBridge({ organizationId }) {
     }
 
     loadAlert();
+    const pollTimer = window.setInterval(() => {
+      if (document.visibilityState === "visible") loadAlert();
+    }, POLL_INTERVAL_MS);
     const onFocus = () => loadAlert();
     const onVisibility = () => {
       if (document.visibilityState === "visible") loadAlert();
@@ -100,6 +105,7 @@ export default function AutonomousWatchAlertBridge({ organizationId }) {
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
+      window.clearInterval(pollTimer);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };

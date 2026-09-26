@@ -8,11 +8,15 @@ import test from "node:test";
 import {
   attestCodeAICompetitiveReferenceReport,
 } from "../lib/code/runtime/CodeAICompetitiveReferenceAttestationRuntime.js";
+import { attestCodeAICompetitiveOwnedReport } from "../lib/code/runtime/CodeAICompetitiveOwnedAttestationRuntime.js";
 
 const SECRET = "competitive-reference-integration-secret-0123456789abcdef";
 const SUITE_PATH = "benchmarks/avantiqo-code-frontier-engineering-suite.json";
 const PROMPT_PATH = "benchmarks/avantiqo-code-frontier-prompt-contract.json";
-const env = { AVANTIQO_CODE_COMPETITIVE_REFERENCE_ATTESTATION_SECRET: SECRET };
+const env = {
+  AVANTIQO_CODE_COMPETITIVE_REFERENCE_ATTESTATION_SECRET: SECRET,
+  AVANTIQO_CODE_COMPETITIVE_OWNED_ATTESTATION_SECRET: "owned-competitive-secret-0123456789abcdef",
+};
 const sha256 = (value) => createHash("sha256").update(value, "utf8").digest("hex");
 
 function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85 } = {}) {
@@ -96,18 +100,28 @@ async function fixture() {
   const refAPath = join(dir, "ref-a.json");
   const refBPath = join(dir, "ref-b.json");
   const outputPath = join(dir, "competitive.json");
-  await writeFile(ownedPath, JSON.stringify({
+  const owned = attestCodeAICompetitiveOwnedReport({
+    contract: "AVANTIQO_CODE_FRONTIER_LOCAL_RUNNER_V1",
     generated_at: new Date().toISOString(),
+    measurement_mode: "LIVE_OWNED_LOCAL_NODE",
     model: { provider: "avantiqo-code", product_model: "avantiqo-code-v1" },
     runner_source_commit: "1".repeat(40),
     runner_ref: "main",
     runner_repository_clean: true,
+    suite_contract: "AVANTIQO_CODE_FRONTIER_ENGINEERING_SUITE_V1",
+    suite_sha256: suiteSha,
     prompt_contract: "AVANTIQO_CODE_FRONTIER_PROMPT_CONTRACT_V1",
     prompt_contract_sha256: promptSha,
+    local_owned_only: true,
+    external_fallback_allowed: false,
+    external_provider_execution_performed: false,
+    raw_model_output_persisted: false,
+    raw_reasoning_persisted: false,
     summary: { passed: true, complete_suite: true },
     economics: { estimated_supplier_cost_usd: 0.01 },
     observations: observations(caseIds, 50),
-  }));
+  }, { env });
+  await writeFile(ownedPath, JSON.stringify(owned));
   const refA = attestCodeAICompetitiveReferenceReport(referenceReport({
     provider: "reference-a", model: "model-a", caseIds, suiteSha, promptSha, wallMs: 100,
   }), { env });
@@ -157,7 +171,8 @@ test("near-equal quality scores remain ties and cannot establish superiority", a
   const paths = await fixture();
   const owned = JSON.parse(await readFile(paths.ownedPath, "utf8"));
   owned.observations = owned.observations.map((item) => ({ ...item, quality_score: 0.81 }));
-  await writeFile(paths.ownedPath, JSON.stringify(owned));
+  delete owned.owned_attestation;
+  await writeFile(paths.ownedPath, JSON.stringify(attestCodeAICompetitiveOwnedReport(owned, { env })));
 
   for (const referencePath of [paths.refAPath, paths.refBPath]) {
     const current = JSON.parse(await readFile(referencePath, "utf8"));
@@ -188,7 +203,8 @@ test("single material quality win cannot establish superiority", async () => {
     ...item,
     quality_score: index === 0 ? 0.90 : 0.85,
   }));
-  await writeFile(paths.ownedPath, JSON.stringify(owned));
+  delete owned.owned_attestation;
+  await writeFile(paths.ownedPath, JSON.stringify(attestCodeAICompetitiveOwnedReport(owned, { env })));
 
   for (const referencePath of [paths.refAPath, paths.refBPath]) {
     const current = JSON.parse(await readFile(referencePath, "utf8"));
@@ -219,7 +235,8 @@ test("three wins in one category cannot establish broad superiority", async () =
     category: index < 3 ? "security" : `category_${index}`,
     quality_score: index < 3 ? 0.90 : 0.85,
   }));
-  await writeFile(paths.ownedPath, JSON.stringify(owned));
+  delete owned.owned_attestation;
+  await writeFile(paths.ownedPath, JSON.stringify(attestCodeAICompetitiveOwnedReport(owned, { env })));
 
   for (const referencePath of [paths.refAPath, paths.refBPath]) {
     const current = JSON.parse(await readFile(referencePath, "utf8"));

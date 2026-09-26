@@ -21,6 +21,7 @@ function proof(overrides = {}) {
       benchmark_run_id: overrides.benchmark_run_id || BENCHMARK_RUN_ID,
       independent: true,
       verifier: "hidden-node-test",
+      verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: overrides.diff_sha256 || "2".repeat(64),
       candidate_artifact_sha256: overrides.artifact_sha256 || "3".repeat(64),
@@ -66,6 +67,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       benchmark_run_id: BENCHMARK_RUN_ID,
       independent: true,
       verifier: "hidden-node-test",
+      verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: "2".repeat(64),
       candidate_artifact_sha256: "3".repeat(64),
@@ -223,5 +225,23 @@ test("repository verification must match the exact benchmark run id", () => {
     }],
   });
   assert.equal(result.cases[0].gates.verification_run_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("repository verifier must use the canonical verifier contract", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        verifier_contract: "ARBITRARY_VERIFIER_V1",
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.independent_verifier, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

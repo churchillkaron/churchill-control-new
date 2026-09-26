@@ -307,6 +307,7 @@ for (const benchmarkCase of cases) {
         benchmark_run_id: benchmarkRunId,
         independent: true,
         verifier: "avantiqo-hidden-node-assert",
+        verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: sha256(patch),
         candidate_artifact_sha256: sha256(artifact),

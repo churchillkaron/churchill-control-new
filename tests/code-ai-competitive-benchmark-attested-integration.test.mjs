@@ -57,6 +57,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
         benchmark_run_id: benchmarkRunId,
         independent: true,
         verifier: "hidden-node-test",
+        verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: ((index + 2).toString(16).padStart(2, "0")).repeat(32),
         candidate_artifact_sha256: ((index + 40).toString(16).padStart(2, "0")).repeat(32),

@@ -14,6 +14,7 @@ import { attestCodeAICompetitiveOwnedReport } from "../lib/code/runtime/CodeAICo
 const SECRET = "competitive-reference-integration-secret-0123456789abcdef";
 const SUITE_PATH = "benchmarks/avantiqo-code-frontier-engineering-suite.json";
 const PROMPT_PATH = "benchmarks/avantiqo-code-frontier-prompt-contract.json";
+const REPOSITORY_SUITE_PATH = "benchmarks/avantiqo-code-executable-repository-suite.json";
 const env = {
   AVANTIQO_CODE_COMPETITIVE_REFERENCE_ATTESTATION_SECRET: SECRET,
   AVANTIQO_CODE_COMPETITIVE_OWNED_ATTESTATION_SECRET: "owned-competitive-secret-0123456789abcdef",
@@ -29,6 +30,122 @@ const REPOSITORY_GIT_TOOLCHAIN_SHA256 = sha256(JSON.stringify(REPOSITORY_GIT_TOO
 const repositoryVerifierProtocolSha256 = sha256(JSON.stringify({ contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1", evidence_source: "INDEPENDENT_RUNNER", runtime: "node", candidate_binding: "DIFF_AND_ARTIFACT_SHA256", hidden_acceptance_required: true, protected_baseline_required: true }));
 const repositoryBaselineDigest = ({ caseId, hiddenSha }) => sha256(JSON.stringify({ case_id: caseId, case_definition_sha256: caseDefinitionSha(caseId), base_commit: "1".repeat(40), hidden_acceptance_sha256: hiddenSha, verifier_environment_sha256: REPOSITORY_VERIFIER_ENVIRONMENT_SHA256, verifier_invocation_sha256: REPOSITORY_VERIFIER_INVOCATION_SHA256, verifier_resource_sha256: REPOSITORY_VERIFIER_RESOURCE_SHA256, git_toolchain_sha256: REPOSITORY_GIT_TOOLCHAIN_SHA256, exit_code: 1, passed: false }));
 const caseDefinitionSha = (caseId) => sha256(`case-definition:${caseId}`);
+const canonicalRepositoryCaseDefinitionSha = (benchmarkCase) => sha256(JSON.stringify({
+  case_id: String(benchmarkCase.case_id || "").trim(),
+  title: String(benchmarkCase.title || "").trim(),
+  objective: String(benchmarkCase.objective || "").trim(),
+  seed_files: Array.isArray(benchmarkCase.seed_files) ? benchmarkCase.seed_files.map((value) => String(value || "").trim()) : [],
+  candidate_paths: Array.isArray(benchmarkCase.candidate_paths) ? benchmarkCase.candidate_paths.map((value) => String(value || "").trim()) : [],
+  allowed_edit_paths: Array.isArray(benchmarkCase.allowed_edit_paths) ? benchmarkCase.allowed_edit_paths.map((value) => String(value || "").trim()) : [],
+  hidden_acceptance: benchmarkCase.hidden_acceptance || {},
+}));
+const repositoryBaselineDigestForCase = ({ caseId, caseDefinitionSha256, hiddenSha }) => sha256(JSON.stringify({
+  case_id: caseId,
+  case_definition_sha256: caseDefinitionSha256,
+  base_commit: "1".repeat(40),
+  hidden_acceptance_sha256: hiddenSha,
+  verifier_environment_sha256: REPOSITORY_VERIFIER_ENVIRONMENT_SHA256,
+  verifier_invocation_sha256: REPOSITORY_VERIFIER_INVOCATION_SHA256,
+  verifier_resource_sha256: REPOSITORY_VERIFIER_RESOURCE_SHA256,
+  git_toolchain_sha256: REPOSITORY_GIT_TOOLCHAIN_SHA256,
+  exit_code: 1,
+  passed: false,
+}));
+
+function repositoryEvidenceReport({ benchmarkCases, suiteSha, benchmarkRunId, provider = null, model = null, providerExecutionPerformed = false }) {
+  const observations = benchmarkCases.map((benchmarkCase, index) => {
+    const caseId = benchmarkCase.case_id;
+    const caseDefinitionSha256 = canonicalRepositoryCaseDefinitionSha(benchmarkCase);
+    const hiddenSha = ((index + 180).toString(16).padStart(2, "0")).repeat(32);
+    const diffSha = ((index + 20).toString(16).padStart(2, "0")).repeat(32);
+    const artifactSha = ((index + 60).toString(16).padStart(2, "0")).repeat(32);
+    const candidateTreeSha = ((index + 100).toString(16).padStart(2, "0")).repeat(20);
+    const allowedPaths = benchmarkCase.allowed_edit_paths;
+    return {
+      case_id: caseId,
+      case_definition_sha256: caseDefinitionSha256,
+      repository_origin: `https://github.com/avantiqo-benchmark/${caseId}`,
+      allowed_edit_paths: allowedPaths,
+      passed: true,
+      base_commit: "1".repeat(40),
+      diff_sha256: diffSha,
+      artifact_sha256: artifactSha,
+      candidate_tree_sha: candidateTreeSha,
+      repository_mutation_observed: true,
+      diff_nonempty: true,
+      diff_bytes: 512 + index,
+      artifact_materialized: true,
+      artifact_bytes: 1024 + index,
+      hidden_stdout_sha256: sha256(`stdout:${caseId}`),
+      hidden_stdout_bytes: 0,
+      hidden_stderr_sha256: sha256(`stderr:${caseId}`),
+      hidden_stderr_bytes: 0,
+      raw_hidden_verifier_output_persisted: false,
+      repository_verification: {
+        case_id: caseId,
+        case_definition_sha256: caseDefinitionSha256,
+        benchmark_run_id: benchmarkRunId,
+        runner_source_commit: "1".repeat(40),
+        runner_source_clean: true,
+        repository_origin: `https://github.com/avantiqo-benchmark/${caseId}`,
+        suite_sha256: suiteSha,
+        independent: true,
+        verifier: "hidden-node-test",
+        verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
+        verifier_protocol_sha256: repositoryVerifierProtocolSha256,
+        verifier_runtime_contract: "AVANTIQO_CODE_REPOSITORY_NODE_RUNTIME_V1",
+        verifier_runtime_identity: REPOSITORY_VERIFIER_RUNTIME_IDENTITY,
+        verifier_runtime_sha256: REPOSITORY_VERIFIER_RUNTIME_SHA256,
+        verifier_environment_contract: "AVANTIQO_CODE_REPOSITORY_DETERMINISTIC_ENV_V1",
+        verifier_environment_sha256: REPOSITORY_VERIFIER_ENVIRONMENT_SHA256,
+        verifier_invocation_contract: "AVANTIQO_CODE_REPOSITORY_NODE_INVOCATION_V1",
+        verifier_invocation_sha256: REPOSITORY_VERIFIER_INVOCATION_SHA256,
+        verifier_resource_contract: "AVANTIQO_CODE_REPOSITORY_BOUNDED_EXECUTION_V1",
+        verifier_resource_sha256: REPOSITORY_VERIFIER_RESOURCE_SHA256,
+        git_toolchain_contract: "AVANTIQO_CODE_REPOSITORY_GIT_TOOLCHAIN_V1",
+        git_toolchain_identity: REPOSITORY_GIT_TOOLCHAIN_IDENTITY,
+        git_toolchain_sha256: REPOSITORY_GIT_TOOLCHAIN_SHA256,
+        evidence_source: "INDEPENDENT_RUNNER",
+        candidate_diff_sha256: diffSha,
+        candidate_artifact_sha256: artifactSha,
+        candidate_diff_bytes: 512 + index,
+        candidate_artifact_bytes: 1024 + index,
+        candidate_tree_sha: candidateTreeSha,
+        changed_paths: allowedPaths,
+        allowed_edit_paths: allowedPaths,
+        passed: true,
+        exit_code: 0,
+        hidden_acceptance_sha256: hiddenSha,
+        hidden_acceptance_executed: true,
+        hidden_acceptance_test_count: index === 0 ? 4 : 5,
+        protected_baseline_sha256: repositoryBaselineDigestForCase({ caseId, caseDefinitionSha256, hiddenSha }),
+        protected_baseline_executed: true,
+        protected_baseline_test_count: index === 0 ? 4 : 5,
+        protected_baseline_base_commit: "1".repeat(40),
+        protected_baseline_hidden_acceptance_sha256: hiddenSha,
+        protected_baseline_verifier_runtime_sha256: REPOSITORY_VERIFIER_RUNTIME_SHA256,
+        protected_baseline_verifier_environment_sha256: REPOSITORY_VERIFIER_ENVIRONMENT_SHA256,
+        protected_baseline_verifier_invocation_sha256: REPOSITORY_VERIFIER_INVOCATION_SHA256,
+        protected_baseline_verifier_resource_sha256: REPOSITORY_VERIFIER_RESOURCE_SHA256,
+        protected_baseline_git_toolchain_sha256: REPOSITORY_GIT_TOOLCHAIN_SHA256,
+        protected_baseline_exit_code: 1,
+        protected_baseline_passed: false,
+        candidate_self_report_authority: false,
+      },
+    };
+  });
+  return {
+    contract: provider ? "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_REFERENCE_RUNNER_V1" : "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_LOCAL_RUNNER_V1",
+    benchmark_run_id: benchmarkRunId,
+    generated_at: new Date().toISOString(),
+    suite_contract: "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_SUITE_V1",
+    suite_sha256: suiteSha,
+    runner_source_commit: "1".repeat(40),
+    runner_source_clean: true,
+    ...(provider ? { provider, model: { provider, product_model: model }, provider_execution_performed: providerExecutionPerformed } : {}),
+    observations,
+  };
+}
 
 function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85, categoryByCase = {}, evidenceCountByCase = {}, benchmarkRunId = "55555555-5555-4555-8555-555555555555", suiteSha = null, runnerSourceCommit = "1".repeat(40) } = {}) {
   return caseIds.map((case_id, index) => ({
@@ -157,7 +274,7 @@ function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs
       estimated_supplier_cost_usd: Number((caseIds.length * 0.0005).toFixed(8)),
       cost_measurement_source: "RUNNER_SUM_OF_RECOMPUTED_CASE_COSTS_V1",
     },
-    observations: observations(caseIds, wallMs, { qualityScore, categoryByCase, evidenceCountByCase, benchmarkRunId, suiteSha }),
+    observations: observations(caseIds, wallMs, { repositoryProof: false, qualityScore, categoryByCase, evidenceCountByCase, benchmarkRunId, suiteSha }),
   };
 }
 
@@ -166,6 +283,9 @@ async function fixture() {
   const suiteSource = await readFile(SUITE_PATH, "utf8");
   const suite = JSON.parse(suiteSource);
   const promptSource = await readFile(PROMPT_PATH, "utf8");
+  const repositorySuiteSource = await readFile(REPOSITORY_SUITE_PATH, "utf8");
+  const repositorySuite = JSON.parse(repositorySuiteSource);
+  const repositorySuiteSha = sha256(repositorySuiteSource);
   const caseIds = suite.cases.map((item) => item.case_id).sort();
   const categoryByCase = Object.fromEntries(suite.cases.map((item) => [item.case_id, item.category]));
   const evidenceCountByCase = Object.fromEntries(suite.cases.map((item) => [item.case_id, item.required_evidence.length]));
@@ -174,8 +294,11 @@ async function fixture() {
   const ownedPath = join(dir, "owned.json");
   const refAPath = join(dir, "ref-a.json");
   const refBPath = join(dir, "ref-b.json");
+  const ownedRepositoryPath = join(dir, "owned-repository.json");
+  const refARepositoryPath = join(dir, "ref-a-repository.json");
+  const refBRepositoryPath = join(dir, "ref-b-repository.json");
   const outputPath = join(dir, "competitive.json");
-  const ownedObservations = observations(caseIds, 50, { categoryByCase, evidenceCountByCase, benchmarkRunId: "55555555-5555-4555-8555-555555555555", suiteSha }).map((item, index) => ({
+  const ownedObservations = observations(caseIds, 50, { repositoryProof: false, categoryByCase, evidenceCountByCase, benchmarkRunId: "55555555-5555-4555-8555-555555555555", suiteSha }).map((item, index) => ({
     ...item,
     code_cpu_fallback: false,
     code_runtime_model_already_gpu_resident: index > 0,
@@ -232,7 +355,16 @@ async function fixture() {
   }), { env });
   await writeFile(refAPath, JSON.stringify(refA));
   await writeFile(refBPath, JSON.stringify(refB));
-  return { dir, ownedPath, refAPath, refBPath, outputPath, refA };
+  await writeFile(ownedRepositoryPath, JSON.stringify(repositoryEvidenceReport({
+    benchmarkCases: repositorySuite.cases, suiteSha: repositorySuiteSha, benchmarkRunId: "66666666-6666-4666-8666-666666666666",
+  })));
+  await writeFile(refARepositoryPath, JSON.stringify(repositoryEvidenceReport({
+    benchmarkCases: repositorySuite.cases, suiteSha: repositorySuiteSha, benchmarkRunId: "77777777-7777-4777-8777-777777777777", provider: "openai", model: "model-a", providerExecutionPerformed: true,
+  })));
+  await writeFile(refBRepositoryPath, JSON.stringify(repositoryEvidenceReport({
+    benchmarkCases: repositorySuite.cases, suiteSha: repositorySuiteSha, benchmarkRunId: "88888888-8888-4888-8888-888888888888", provider: "google", model: "model-b", providerExecutionPerformed: true,
+  })));
+  return { dir, ownedPath, refAPath, refBPath, ownedRepositoryPath, refARepositoryPath, refBRepositoryPath, outputPath, refA };
 }
 
 function runBenchmark(paths) {
@@ -244,6 +376,8 @@ function runBenchmark(paths) {
       ...env,
       AVANTIQO_CODE_COMPETITIVE_OWNED: paths.ownedPath,
       AVANTIQO_CODE_COMPETITIVE_REFERENCES: `${paths.refAPath},${paths.refBPath}`,
+      AVANTIQO_CODE_COMPETITIVE_OWNED_REPOSITORY_EVIDENCE: paths.ownedRepositoryPath,
+      AVANTIQO_CODE_COMPETITIVE_REFERENCE_REPOSITORY_EVIDENCE: `${paths.refARepositoryPath},${paths.refBRepositoryPath}`,
       AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_MODELS: JSON.stringify({ openai: "model-a", google: "model-b" }),
       AVANTIQO_CODE_COMPETITIVE_OUTPUT: paths.outputPath,
     },
@@ -260,6 +394,9 @@ test("competitive certification requires valid attested live reference artifacts
   assert.equal(report.quality_superiority_observed, false);
   assert.equal(report.superiority_claim_allowed, false);
   assert.equal(report.requirements.cryptographic_reference_attestation_required, true);
+  assert.equal(report.repository_task_evidence.mode, "SEPARATE_EXECUTABLE_REPOSITORY_REPORTS");
+  assert.equal(report.repository_task_evidence.certified, true);
+  assert.equal(report.requirements.separate_executable_repository_evidence_supported, true);
 
   const tampered = structuredClone(paths.refA);
   tampered.observations[0].wall_ms = 1;
@@ -493,4 +630,25 @@ test("canonical evidence obligation count cannot be understated", async () => {
   const run = runBenchmark(paths);
   assert.notEqual(run.status, 0);
   assert.match(`${run.stderr}\n${run.stdout}`, /AVANTIQO_CODE_COMPETITIVE_CANONICAL_EVIDENCE_COUNT_MISMATCH/);
+});
+
+test("separate repository reference evidence must match the required provider and model", async () => {
+  const paths = await fixture();
+  const referenceRepository = JSON.parse(await readFile(paths.refARepositoryPath, "utf8"));
+  referenceRepository.model = { provider: "openai", product_model: "wrong-model" };
+  await writeFile(paths.refARepositoryPath, JSON.stringify(referenceRepository));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_REPOSITORY_REFERENCE_MISSING:openai/);
+});
+
+test("separate repository evidence must match the canonical executable case definition", async () => {
+  const paths = await fixture();
+  const ownedRepository = JSON.parse(await readFile(paths.ownedRepositoryPath, "utf8"));
+  ownedRepository.observations[0].case_definition_sha256 = "f".repeat(64);
+  ownedRepository.observations[0].repository_verification.case_definition_sha256 = "f".repeat(64);
+  await writeFile(paths.ownedRepositoryPath, JSON.stringify(ownedRepository));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_REPOSITORY_CASE_DEFINITION_MISMATCH/);
 });

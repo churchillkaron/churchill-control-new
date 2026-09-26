@@ -10,8 +10,10 @@ const DEFAULT_OWNED = "/tmp/avantiqo-code-certification-benchmark.json";
 const DEFAULT_OUTPUT = "/tmp/avantiqo-code-competitive-benchmark.json";
 const DEFAULT_SUITE = "benchmarks/avantiqo-code-frontier-engineering-suite.json";
 const DEFAULT_PROMPT_CONTRACT = "benchmarks/avantiqo-code-frontier-prompt-contract.json";
+const DEFAULT_REPOSITORY_SUITE = "benchmarks/avantiqo-code-executable-repository-suite.json";
 const SUITE_CONTRACT = "AVANTIQO_CODE_FRONTIER_ENGINEERING_SUITE_V1";
 const PROMPT_CONTRACT = "AVANTIQO_CODE_FRONTIER_PROMPT_CONTRACT_V1";
+const REPOSITORY_SUITE_CONTRACT = "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_SUITE_V1";
 const MIN_CASES = 20;
 const MAX_REFERENCE_AGE_DAYS = 30;
 const MAX_CROSS_EVIDENCE_SKEW_HOURS = 24;
@@ -65,6 +67,26 @@ function requiredReferenceModels(requiredProviders) {
     normalized[provider] = model;
   }
   return normalized;
+}
+
+function repositoryCaseDefinitionSha256(item) {
+  const canonical = {
+    case_id: text(item?.case_id),
+    title: text(item?.title),
+    objective: text(item?.objective),
+    seed_files: list(item?.seed_files).map((value) => text(value)),
+    candidate_paths: list(item?.candidate_paths).map((value) => text(value)),
+    allowed_edit_paths: list(item?.allowed_edit_paths).map((value) => text(value)),
+    hidden_acceptance: item?.hidden_acceptance && typeof item.hidden_acceptance === "object" && !Array.isArray(item.hidden_acceptance)
+      ? item.hidden_acceptance
+      : {},
+  };
+  return sha256(JSON.stringify(canonical));
+}
+
+function exactObservationIds(report, requiredCaseIds) {
+  const ids = list(report?.observations).map((item) => text(item?.case_id)).filter(Boolean).sort();
+  return ids.length === requiredCaseIds.length && ids.every((id, index) => id === requiredCaseIds[index]);
 }
 
 function percentile(values, p) {
@@ -308,6 +330,16 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
 const ownedPath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_OWNED || DEFAULT_OWNED);
 const suitePath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_SUITE || DEFAULT_SUITE);
 const promptContractPath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_PROMPT_CONTRACT || DEFAULT_PROMPT_CONTRACT);
+const repositorySuitePath = resolve(process.env.AVANTIQO_CODE_COMPETITIVE_REPOSITORY_SUITE || DEFAULT_REPOSITORY_SUITE);
+const ownedRepositoryEvidenceInput = text(process.env.AVANTIQO_CODE_COMPETITIVE_OWNED_REPOSITORY_EVIDENCE);
+const referenceRepositoryEvidenceInputs = text(process.env.AVANTIQO_CODE_COMPETITIVE_REFERENCE_REPOSITORY_EVIDENCE)
+  .split(",")
+  .map((item) => text(item))
+  .filter(Boolean);
+const separateRepositoryEvidenceRequested = Boolean(ownedRepositoryEvidenceInput || referenceRepositoryEvidenceInputs.length);
+if (separateRepositoryEvidenceRequested && (!ownedRepositoryEvidenceInput || !referenceRepositoryEvidenceInputs.length)) {
+  throw new Error("AVANTIQO_CODE_COMPETITIVE_COMPLETE_REPOSITORY_EVIDENCE_SET_REQUIRED");
+}
 const referencePaths = text(process.env.AVANTIQO_CODE_COMPETITIVE_REFERENCES)
   .split(",")
   .map((item) => text(item))
@@ -326,6 +358,20 @@ const canonicalEvidenceCountByCase = new Map(list(suite?.cases).map((item) => [
 ]));
 if (requiredCaseIds.length < MIN_CASES || new Set(requiredCaseIds).size !== requiredCaseIds.length) {
   throw new Error("AVANTIQO_CODE_COMPETITIVE_SUITE_INVALID");
+}
+const repositorySuiteSource = await readFile(repositorySuitePath, "utf8");
+const repositorySuite = JSON.parse(repositorySuiteSource);
+if (text(repositorySuite?.contract) !== REPOSITORY_SUITE_CONTRACT) {
+  throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_SUITE_CONTRACT_INVALID");
+}
+const repositorySuiteSha256 = sha256(repositorySuiteSource);
+const requiredRepositoryCaseIds = list(repositorySuite?.cases).map((item) => text(item?.case_id)).filter(Boolean).sort();
+const canonicalRepositoryCaseDefinitionById = new Map(list(repositorySuite?.cases).map((item) => [
+  text(item?.case_id),
+  repositoryCaseDefinitionSha256(item),
+]));
+if (!requiredRepositoryCaseIds.length || new Set(requiredRepositoryCaseIds).size !== requiredRepositoryCaseIds.length) {
+  throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_SUITE_INVALID");
 }
 const owned = JSON.parse(await readFile(ownedPath, "utf8"));
 if (owned?.summary?.passed !== true || owned?.summary?.complete_suite !== true) {
@@ -438,11 +484,65 @@ const providerDiversityCertified =
   requiredProviders.every((provider) => availableProviders.includes(provider)) &&
   availableProviders.length >= requiredProviders.length;
 const competitiveCertified = providerDiversityCertified && referenceModelBindingsCertified && comparisons.length >= 2 && comparisons.every((item) => item.passed);
-const ownedRepositoryTaskEvidence = assessCodeAIRepositoryTaskBenchmark(owned);
-const referenceRepositoryTaskEvidence = references.map((reference) => assessCodeAIRepositoryTaskBenchmark(reference));
+let ownedRepositoryTaskEvidence;
+let referenceRepositoryTaskEvidence;
+let repositoryEvidenceMode = "INLINE_FRONTIER_OBSERVATIONS_LEGACY";
+if (separateRepositoryEvidenceRequested) {
+  repositoryEvidenceMode = "SEPARATE_EXECUTABLE_REPOSITORY_REPORTS";
+  const ownedRepositoryReport = JSON.parse(await readFile(resolve(ownedRepositoryEvidenceInput), "utf8"));
+  const referenceRepositoryReports = await Promise.all(referenceRepositoryEvidenceInputs.map(async (path) =>
+    JSON.parse(await readFile(resolve(path), "utf8")),
+  ));
+  const validateRepositoryReport = (report, { expectedProvider = null, expectedModel = null, ownedEvidence = false } = {}) => {
+    if (text(report?.suite_contract) !== REPOSITORY_SUITE_CONTRACT || text(report?.suite_sha256).toLowerCase() !== repositorySuiteSha256.toLowerCase()) {
+      throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_SUITE_MISMATCH");
+    }
+    if (text(report?.runner_source_commit).toLowerCase() !== ownedRunnerCommit.toLowerCase() || report?.runner_source_clean !== true) {
+      throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_RUNNER_SOURCE_MISMATCH");
+    }
+    if (!exactObservationIds(report, requiredRepositoryCaseIds)) {
+      throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_CASE_SET_MISMATCH");
+    }
+    for (const observation of list(report?.observations)) {
+      const caseId = text(observation?.case_id);
+      const canonicalCaseSha = canonicalRepositoryCaseDefinitionById.get(caseId);
+      if (!canonicalCaseSha || text(observation?.case_definition_sha256).toLowerCase() !== canonicalCaseSha.toLowerCase()) {
+        throw new Error(`AVANTIQO_CODE_COMPETITIVE_REPOSITORY_CASE_DEFINITION_MISMATCH:${caseId || "UNKNOWN"}`);
+      }
+    }
+    if (!ownedEvidence) {
+      const provider = canonicalReferenceProvider(report?.provider || report?.model?.provider);
+      const model = text(report?.model?.product_model || report?.model);
+      if (provider !== expectedProvider || model !== expectedModel) {
+        throw new Error(`AVANTIQO_CODE_COMPETITIVE_REPOSITORY_REFERENCE_IDENTITY_MISMATCH:${expectedProvider || "unknown"}`);
+      }
+      if (report?.provider_execution_performed !== true) {
+        throw new Error(`AVANTIQO_CODE_COMPETITIVE_REPOSITORY_REFERENCE_EXECUTION_REQUIRED:${expectedProvider || "unknown"}`);
+      }
+    }
+    const assessed = assessCodeAIRepositoryTaskBenchmark(report);
+    if (assessed.repository_task_artifact_certified !== true) {
+      throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_ARTIFACT_NOT_CERTIFIED");
+    }
+    return assessed;
+  };
+  ownedRepositoryTaskEvidence = validateRepositoryReport(ownedRepositoryReport, { ownedEvidence: true });
+  referenceRepositoryTaskEvidence = requiredProviders.map((provider) => {
+    const expectedModel = requiredModels[provider];
+    const report = referenceRepositoryReports.find((candidate) =>
+      canonicalReferenceProvider(candidate?.provider || candidate?.model?.provider) === provider &&
+      text(candidate?.model?.product_model || candidate?.model) === expectedModel,
+    );
+    if (!report) throw new Error(`AVANTIQO_CODE_COMPETITIVE_REPOSITORY_REFERENCE_MISSING:${provider}`);
+    return validateRepositoryReport(report, { expectedProvider: provider, expectedModel });
+  });
+} else {
+  ownedRepositoryTaskEvidence = assessCodeAIRepositoryTaskBenchmark(owned);
+  referenceRepositoryTaskEvidence = references.map((reference) => assessCodeAIRepositoryTaskBenchmark(reference));
+}
 const repositoryTaskArtifactCertified =
   ownedRepositoryTaskEvidence.repository_task_artifact_certified === true &&
-  referenceRepositoryTaskEvidence.length >= 2 &&
+  referenceRepositoryTaskEvidence.length >= requiredProviders.length &&
   referenceRepositoryTaskEvidence.every((item) => item.repository_task_artifact_certified === true);
 const qualitySuperiorityObserved =
   comparisons.length >= 2 &&
@@ -498,6 +598,8 @@ const report = {
     actual_repository_mutation_evidence_required_for_superiority: true,
     independent_repository_verification_required_for_superiority: true,
     hidden_acceptance_evidence_required_for_superiority: true,
+    separate_executable_repository_evidence_supported: true,
+    canonical_executable_repository_suite_required: true,
     speed_alone_cannot_establish_quality_superiority: true,
     quality_superiority_requires_reference_quality_win: true,
     minimum_superiority_quality_win_rate_per_reference: MIN_SUPERIORITY_WIN_RATE,
@@ -506,6 +608,9 @@ const report = {
   },
   comparisons,
   repository_task_evidence: {
+    mode: repositoryEvidenceMode,
+    suite_contract: REPOSITORY_SUITE_CONTRACT,
+    suite_sha256: repositorySuiteSha256,
     owned: ownedRepositoryTaskEvidence,
     references: referenceRepositoryTaskEvidence,
     certified: repositoryTaskArtifactCertified,

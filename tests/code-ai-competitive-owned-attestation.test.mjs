@@ -232,3 +232,20 @@ test("owned attestation rejects ambiguous case identity before signing", () => {
     /CODE_AI_COMPETITIVE_OWNED_CATEGORY_INVALID/,
   );
 });
+
+
+test("owned attestation requires canonical non-future UTC timestamp", () => {
+  const alternate = report();
+  alternate.generated_at = alternate.generated_at.replace("Z", "+00:00");
+  assert.throws(
+    () => attestCodeAICompetitiveOwnedReport(alternate, { env }),
+    /CODE_AI_COMPETITIVE_OWNED_GENERATED_AT_CANONICAL_REQUIRED/,
+  );
+
+  const future = report();
+  future.generated_at = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  assert.throws(
+    () => attestCodeAICompetitiveOwnedReport(future, { env }),
+    /CODE_AI_COMPETITIVE_OWNED_FUTURE_TIMESTAMP_FORBIDDEN/,
+  );
+});

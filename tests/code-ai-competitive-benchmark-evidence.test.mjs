@@ -7,6 +7,9 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= "test-service-role-key";
 const {
   projectCodeAICompetitiveBenchmarkEvidence,
   refreshCodeAICompetitiveBenchmarkEvidenceFreshness,
+  sealCodeAICompetitiveBenchmarkStoredEvidence,
+  verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity,
+  validateCodeAICompetitiveBenchmarkStorageCommit,
 } = await import("../lib/code/runtime/CodeAICompetitiveBenchmarkEvidenceRuntime.js");
 const {
   attestCodeAICompetitiveFullRunManifest,
@@ -203,6 +206,48 @@ test("competitive evidence rejects a backlog derived from a different report", (
   );
 });
 
+
+test("durable competitive history must be stored on the same source commit as the attested run", () => {
+  const evidence = boundProjection(report());
+  const matchingCommit = "1".repeat(40);
+  assert.equal(
+    validateCodeAICompetitiveBenchmarkStorageCommit(evidence, matchingCommit),
+    matchingCommit,
+  );
+  assert.throws(
+    () => validateCodeAICompetitiveBenchmarkStorageCommit(evidence, "9".repeat(40)),
+    /CODE_AI_COMPETITIVE_BENCHMARK_STORAGE_SOURCE_COMMIT_MISMATCH/,
+  );
+});
+
+test("durable competitive history detects tampered stored metadata", () => {
+  const evidence = boundProjection(report());
+  const sealed = sealCodeAICompetitiveBenchmarkStoredEvidence(evidence, {
+    storage_repository_commit: "1".repeat(40),
+    persisted_at: new Date().toISOString(),
+  });
+  const valid = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(sealed);
+  assert.equal(valid.valid, true);
+  assert.match(sealed.history_integrity_sha256, /^[a-f0-9]{64}$/);
+
+  const tampered = {
+    ...sealed,
+    comparisons: sealed.comparisons.map((item, index) =>
+      index === 0 ? { ...item, wins: Number(item.wins || 0) + 1 } : item,
+    ),
+  };
+  const invalid = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(tampered);
+  assert.equal(invalid.valid, false);
+  assert.equal(invalid.legacy_unsealed, false);
+});
+
+test("legacy unsealed competitive history fails closed to advisory", () => {
+  const evidence = boundProjection(report());
+  const integrity = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(evidence);
+  assert.equal(integrity.valid, false);
+  assert.equal(integrity.legacy_unsealed, true);
+});
+
 test("competitive benchmark evidence persists globally but remains advisory to current main", async () => {
   const runtime = await readFile("lib/code/runtime/CodeAICompetitiveBenchmarkEvidenceRuntime.js", "utf8");
   const benchmark = await readFile("lib/code/runtime/CodeAIEngineeringPerformanceBenchmarkRuntime.js", "utf8");
@@ -219,6 +264,9 @@ test("competitive benchmark evidence persists globally but remains advisory to c
   assert.match(runtime, /freshness_recomputed_at_read/);
   assert.match(runtime, /verifyCodeAICompetitiveFullRunManifest/);
   assert.match(runtime, /full_run_manifest_bound/);
+  assert.match(runtime, /history_integrity_sha256/);
+  assert.match(runtime, /timingSafeEqual/);
+  assert.match(runtime, /STORAGE_SOURCE_COMMIT_MISMATCH/);
   assert.match(runtime, /CODE_AI_COMPETITIVE_FULL_RUN_REPORT_SHA_MISMATCH/);
   assert.match(benchmark, /loadLatestCodeAICompetitiveBenchmarkEvidence/);
   assert.match(benchmark, /competitive_evidence: competitiveEvidence/);

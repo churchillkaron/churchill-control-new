@@ -177,7 +177,9 @@ async function seedRepository(benchmarkCase) {
   };
 }
 
-const suite = JSON.parse(await readFile(suitePath, "utf8"));
+const suiteSource = await readFile(suitePath, "utf8");
+const suiteSha256 = sha256(suiteSource);
+const suite = JSON.parse(suiteSource);
 if (text(suite.contract, 180) !== SUITE_CONTRACT) throw new Error(`${CONTRACT}_SUITE_CONTRACT_INVALID`);
 const allCases = list(suite.cases);
 const cases = requestedLimit > 0 ? allCases.slice(0, Math.min(requestedLimit, allCases.length)) : allCases;
@@ -189,6 +191,7 @@ if (dryRun) {
     contract: CONTRACT,
     mode: "DRY_RUN",
     suite_contract: SUITE_CONTRACT,
+    suite_sha256: suiteSha256,
     case_count: cases.length,
     isolated_candidate_trial: true,
     hidden_acceptance_after_candidate_only: true,
@@ -346,6 +349,7 @@ for (const benchmarkCase of cases) {
         case_id: benchmarkCase.case_id,
         benchmark_run_id: benchmarkRunId,
         repository_origin: fixture.origin,
+        suite_sha256: suiteSha256,
         independent: true,
         verifier: "avantiqo-hidden-node-assert",
         verifier_contract: CODE_AI_REPOSITORY_VERIFIER_CONTRACT,
@@ -402,6 +406,7 @@ console.log(JSON.stringify({
   success: passed === observations.length,
   contract: CONTRACT,
   suite_contract: SUITE_CONTRACT,
+  suite_sha256: suiteSha256,
   case_count: observations.length,
   passed_case_count: passed,
   pass_rate: observations.length ? passed / observations.length : 0,

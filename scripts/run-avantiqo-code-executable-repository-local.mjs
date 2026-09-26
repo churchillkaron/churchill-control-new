@@ -36,6 +36,9 @@ const verifierRuntimeIdentity = Object.freeze({
   arch: process.arch,
 });
 const verifierRuntimeSha256 = sha256(JSON.stringify(verifierRuntimeIdentity));
+const VERIFIER_ENVIRONMENT_CONTRACT = "AVANTIQO_CODE_REPOSITORY_DETERMINISTIC_ENV_V1";
+const HIDDEN_VERIFIER_ENV = Object.freeze({ NODE_ENV: "test", TZ: "UTC", LANG: "C", LC_ALL: "C" });
+const verifierEnvironmentSha256 = sha256(JSON.stringify(HIDDEN_VERIFIER_ENV));
 const sleep = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
 
 function run(command, args, cwd, env = process.env) {
@@ -157,7 +160,7 @@ async function seedRepository(benchmarkCase) {
   const hiddenAcceptanceSha256 = sha256(hiddenAcceptanceSource);
   const hiddenAcceptanceTestCount = hiddenAssertionCount(hiddenAcceptanceSource);
   await writeFile(hiddenPath, hiddenAcceptanceSource, "utf8");
-  const baseline = run(process.execPath, [hiddenPath], verifier);
+  const baseline = run(process.execPath, [hiddenPath], verifier, HIDDEN_VERIFIER_ENV);
   if (baseline.status === 0) throw new Error(`${CONTRACT}_BASELINE_MUST_FAIL:${benchmarkCase.case_id}`);
   const baselineExitCode = Number(baseline.status);
   const protectedBaselineSha256 = sha256(JSON.stringify({
@@ -305,7 +308,7 @@ for (const benchmarkCase of cases) {
         must("git", ["add", "-A"], fixture.verifier);
         run("git", ["reset", "--", "hidden-acceptance.mjs"], fixture.verifier);
         candidateTreeSha = text(must("git", ["write-tree"], fixture.verifier).stdout, 80);
-        const hidden = run(process.execPath, [fixture.hiddenPath], fixture.verifier);
+        const hidden = run(process.execPath, [fixture.hiddenPath], fixture.verifier, HIDDEN_VERIFIER_ENV);
         hiddenExitCode = hidden.status;
         hiddenStdout = text(hidden.stdout, 1200);
         hiddenStderr = text(hidden.stderr, 1200);
@@ -347,6 +350,8 @@ for (const benchmarkCase of cases) {
         verifier_runtime_contract: CODE_AI_REPOSITORY_VERIFIER_RUNTIME_CONTRACT,
         verifier_runtime_identity: verifierRuntimeIdentity,
         verifier_runtime_sha256: verifierRuntimeSha256,
+        verifier_environment_contract: VERIFIER_ENVIRONMENT_CONTRACT,
+        verifier_environment_sha256: verifierEnvironmentSha256,
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: sha256(patch),
         candidate_artifact_sha256: sha256(artifact),
@@ -364,6 +369,7 @@ for (const benchmarkCase of cases) {
         protected_baseline_base_commit: fixture.baseCommit,
         protected_baseline_hidden_acceptance_sha256: fixture.hiddenAcceptanceSha256,
         protected_baseline_verifier_runtime_sha256: verifierRuntimeSha256,
+        protected_baseline_verifier_environment_sha256: verifierEnvironmentSha256,
         protected_baseline_exit_code: fixture.baselineExitCode,
         protected_baseline_passed: false,
         candidate_self_report_authority: false,

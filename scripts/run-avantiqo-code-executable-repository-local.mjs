@@ -273,12 +273,17 @@ for (const benchmarkCase of cases) {
     let hiddenExitCode = null;
     let hiddenStdout = "";
     let hiddenStderr = "";
+    let verifierChangedPaths = [];
     if (patch.trim()) {
       const patchPath = join(fixture.root, "candidate.patch");
       await writeFile(patchPath, patch, "utf8");
       const applied = run("git", ["apply", "--check", patchPath], fixture.verifier);
       if (applied.status === 0) {
         must("git", ["apply", patchPath], fixture.verifier);
+        verifierChangedPaths = text(run("git", ["diff", "--name-only", "HEAD"], fixture.verifier).stdout, 12000)
+          .split(/\r?\n/)
+          .map((value) => value.trim())
+          .filter(Boolean);
         const hidden = run(process.execPath, [fixture.hiddenPath], fixture.verifier);
         hiddenExitCode = hidden.status;
         hiddenStdout = text(hidden.stdout, 1200);
@@ -318,6 +323,8 @@ for (const benchmarkCase of cases) {
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: sha256(patch),
         candidate_artifact_sha256: sha256(artifact),
+        changed_paths: verifierChangedPaths,
+        allowed_edit_paths: list(benchmarkCase.allowed_edit_paths).map((value) => text(value, 500)),
         passed: hiddenPassed,
         exit_code: hiddenExitCode,
         hidden_acceptance_sha256: fixture.hiddenAcceptanceSha256,

@@ -314,8 +314,29 @@ function CodeTextPriorityWindowActive {
   try {
     $raw = ReadTextFileOrEmpty $CodeTextPriorityWindowPath
     if (-not $raw) { return $false }
-    $until = [DateTime]::Parse($raw,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind)
-    return ([DateTime]::UtcNow -lt $until.ToUniversalTime())
+    $until = [DateTime]::Parse($raw,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime()
+    $now = [DateTime]::UtcNow
+    if ($now -ge $until) { return $false }
+
+    # The two-second post-Code handoff is an intentional grace window. A longer timestamp is only
+    # authoritative while a Code text job actually owns the shared Ollama mutex. If its caller or
+    # worker dies before the finally block resets the timestamp, the free mutex proves the 300-second
+    # marker is stale and must not starve deep Video/Business reasoning.
+    $remainingSeconds = ($until - $now).TotalSeconds
+    if ($remainingSeconds -le 2.5) { return $true }
+
+    $mutex = New-Object System.Threading.Mutex($false, 'Global\AvantiqoNode01OllamaTextGpu')
+    $acquired = $false
+    try {
+      $acquired = $mutex.WaitOne([TimeSpan]::Zero)
+      if ($acquired) {
+        try { $mutex.ReleaseMutex() } catch {}
+        return $false
+      }
+      return $true
+    } finally {
+      $mutex.Dispose()
+    }
   } catch {
     return $false
   }

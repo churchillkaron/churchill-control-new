@@ -32,7 +32,7 @@ function proof(overrides = {}) {
       hidden_acceptance_test_count: 4,
       protected_baseline_sha256: "5".repeat(64),
       protected_baseline_executed: true,
-      protected_baseline_test_count: 12,
+      protected_baseline_test_count: 4,
       protected_baseline_base_commit: "1".repeat(40),
       protected_baseline_hidden_acceptance_sha256: "4".repeat(64),
       protected_baseline_exit_code: 1,
@@ -243,5 +243,23 @@ test("repository verifier must use the canonical verifier contract", () => {
     }],
   });
   assert.equal(result.cases[0].gates.independent_verifier, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("protected baseline and post-fix verification must execute the same hidden test count", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        protected_baseline_test_count: base.repository_verification.hidden_acceptance_test_count + 1,
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.protected_baseline_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

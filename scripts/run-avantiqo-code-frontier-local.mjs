@@ -118,6 +118,11 @@ if (text(process.env[APPROVAL]).toUpperCase() !== "YES") {
   throw new Error("AVANTIQO_CODE_FRONTIER_LOCAL_APPROVED=YES_REQUIRED");
 }
 if (!providerAvailable) throw new Error(`${CONTRACT}_LOCAL_PROVIDER_UNAVAILABLE`);
+const fullSuiteRun = selectedCases.length === allCases.length;
+const ownedComputeUsdPerHour = Number(process.env.AVANTIQO_CODE_OWNED_COMPUTE_USD_PER_HOUR);
+if (fullSuiteRun && !(Number.isFinite(ownedComputeUsdPerHour) && ownedComputeUsdPerHour > 0)) {
+  throw new Error("AVANTIQO_CODE_OWNED_COMPUTE_USD_PER_HOUR_REQUIRED");
+}
 const resolvedOrganization = await resolveAvantiqoLearningOrganization({ allowDatabaseFallback: true });
 const organizationId = text(resolvedOrganization?.organization_id, 160);
 if (!organizationId) throw new Error(`${CONTRACT}_LEARNING_ORGANIZATION_REQUIRED`);
@@ -173,6 +178,11 @@ for (const entry of prompts) {
   const raw = text(output.result, 30000);
   const grade = gradeCodeAICompetitiveReferenceCase(entry.case, raw);
   const metrics = object(output.metrics);
+  const inferenceElapsedMs = tokenMetric(metrics, ["elapsed_ms"]);
+  const supplierCostUsd =
+    inferenceElapsedMs !== null && Number.isFinite(ownedComputeUsdPerHour) && ownedComputeUsdPerHour > 0
+      ? Number(((inferenceElapsedMs / 3_600_000) * ownedComputeUsdPerHour).toFixed(8))
+      : null;
   observations.push({
     case_id: caseId,
     category: text(entry.case.category, 160) || null,
@@ -186,7 +196,13 @@ for (const entry of prompts) {
     latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
     input_tokens: tokenMetric(metrics, ["input_tokens", "prompt_tokens", "prompt_eval_count"]),
     output_tokens: tokenMetric(metrics, ["output_tokens", "completion_tokens", "eval_count"]),
-    inference_elapsed_ms: tokenMetric(metrics, ["elapsed_ms"]),
+    inference_elapsed_ms: inferenceElapsedMs,
+    owned_compute_usd_per_hour: Number.isFinite(ownedComputeUsdPerHour) && ownedComputeUsdPerHour > 0 ? ownedComputeUsdPerHour : null,
+    owned_compute_rate_source: Number.isFinite(ownedComputeUsdPerHour) && ownedComputeUsdPerHour > 0
+      ? "OPERATOR_APPROVED_LOCAL_COMPUTE_RATE_V1"
+      : null,
+    cost_measurement_source: supplierCostUsd !== null ? "RUNNER_RECOMPUTED_FROM_WORKER_ELAPSED_V1" : null,
+    supplier_cost_usd: supplierCostUsd,
     model_total_duration_ms: tokenMetric(metrics, ["total_duration_ns"]) !== null
       ? Math.round(tokenMetric(metrics, ["total_duration_ns"]) / 1e6)
       : null,
@@ -219,6 +235,10 @@ const latencyCertification = certifyCodeAIFrontierLatency(observations, {
   minimum_warm_samples: process.env.AVANTIQO_CODE_FRONTIER_MINIMUM_WARM_SAMPLES,
 });
 const correctnessPassed = passedCount === observations.length;
+const costedObservations = observations.filter((item) => Number.isFinite(Number(item.supplier_cost_usd)) && Number(item.supplier_cost_usd) >= 0);
+const totalSupplierCostUsd = costedObservations.length === observations.length
+  ? Number(costedObservations.reduce((sum, item) => sum + Number(item.supplier_cost_usd), 0).toFixed(8))
+  : null;
 const report = {
   contract: CONTRACT,
   generated_at: new Date().toISOString(),
@@ -238,6 +258,14 @@ const report = {
   external_provider_execution_performed: false,
   raw_model_output_persisted: false,
   raw_reasoning_persisted: false,
+  economics: {
+    estimated_supplier_cost_usd: totalSupplierCostUsd,
+    cost_measurement_source: totalSupplierCostUsd !== null ? "RUNNER_RECOMPUTED_FROM_WORKER_ELAPSED_V1" : null,
+    owned_compute_usd_per_hour: Number.isFinite(ownedComputeUsdPerHour) && ownedComputeUsdPerHour > 0 ? ownedComputeUsdPerHour : null,
+    owned_compute_rate_source: Number.isFinite(ownedComputeUsdPerHour) && ownedComputeUsdPerHour > 0
+      ? "OPERATOR_APPROVED_LOCAL_COMPUTE_RATE_V1"
+      : null,
+  },
   observations,
   summary: {
     requested_cases: selectedCases.length,

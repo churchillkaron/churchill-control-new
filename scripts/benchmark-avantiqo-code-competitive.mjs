@@ -16,6 +16,7 @@ const MAX_REFERENCE_AGE_DAYS = 30;
 const MIN_NON_LOSS_RATE = 0.95;
 const MIN_NARRATIVE_GROUNDING_SCORE = 0.5;
 const MIN_QUALITY_WIN_MARGIN = 0.03;
+const MIN_SUPERIORITY_WIN_RATE = 0.10;
 const MAX_P95_LATENCY_RATIO = 1.25;
 const MAX_COST_RATIO = 1.25;
 
@@ -113,6 +114,7 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
   const losses = comparisons.filter((item) => item.quality_outcome === "LOSS").length;
   const ties = comparisons.filter((item) => item.quality_outcome === "TIE").length;
   const nonLossRate = comparisons.length ? (wins + ties) / comparisons.length : 0;
+  const qualityWinRate = comparisons.length ? wins / comparisons.length : 0;
   const latencyWins = comparisons.filter((item) => item.latency_outcome === "WIN").length;
   const latencyLosses = comparisons.filter((item) => item.latency_outcome === "LOSS").length;
   const latencyTies = comparisons.filter((item) => item.latency_outcome === "TIE").length;
@@ -163,6 +165,7 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
     losses,
     ties,
     quality_non_loss_rate: Number(nonLossRate.toFixed(4)),
+    quality_win_rate: Number(qualityWinRate.toFixed(4)),
     latency_wins: latencyWins,
     latency_losses: latencyLosses,
     latency_ties: latencyTies,
@@ -242,8 +245,11 @@ const repositoryTaskArtifactCertified =
   referenceRepositoryTaskEvidence.every((item) => item.repository_task_artifact_certified === true);
 const qualitySuperiorityObserved =
   comparisons.length >= 2 &&
-  comparisons.every((item) => item.owned_pass_rate >= item.reference_pass_rate) &&
-  comparisons.some((item) => item.wins > 0 && item.losses === 0);
+  comparisons.every((item) =>
+    item.owned_pass_rate >= item.reference_pass_rate &&
+    item.losses === 0 &&
+    item.quality_win_rate >= MIN_SUPERIORITY_WIN_RATE,
+  );
 const superiorityClaimAllowed = competitiveCertified && repositoryTaskArtifactCertified && qualitySuperiorityObserved;
 
 const report = {
@@ -279,6 +285,8 @@ const report = {
     hidden_acceptance_evidence_required_for_superiority: true,
     speed_alone_cannot_establish_quality_superiority: true,
     quality_superiority_requires_reference_quality_win: true,
+    minimum_superiority_quality_win_rate_per_reference: MIN_SUPERIORITY_WIN_RATE,
+    superiority_requires_zero_quality_losses_per_reference: true,
   },
   comparisons,
   repository_task_evidence: {

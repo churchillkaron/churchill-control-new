@@ -23,9 +23,16 @@ test("failed critique is not reported as a successful repair", () => {
 
 test("creative reasoning validates every returned structured boundary", () => {
   assert.match(reasoning, /function outputMatchesShape/);
-  assert.match(reasoning, /assertOutputShape\(owned\.parsed\?\.result \|\| owned\.parsed, outputShape, "owned_supervisor"\)/);
-  assert.match(reasoning, /assertOutputShape\(parsed\.result \|\| parsed, outputShape, "governed_fallback"\)/);
-  assert.match(reasoning, /assertOutputShape\(local\.result, outputShape, "deterministic_local_fallback"\)/);
+  assert.match(reasoning, /function normalizeOutputShapeCandidate/);
+  assert.match(reasoning, /knownEnvelopeCandidates/);
+  assert.match(reasoning, /normalizeOutputShapeCandidate\(/);
+  assert.match(reasoning, /function resolveStructuredResult\(parsed, outputShape, source\)/);
+  assert.match(reasoning, /resolveStructuredResult\(owned\.parsed, outputShape, "owned_supervisor"\)/);
+  assert.match(reasoning, /runOwnedSupervisorShapeRepair/);
+  assert.match(reasoning, /owned_supervisor_shape_repair/);
+  assert.match(reasoning, /owned_shape_repair_used/);
+  assert.match(reasoning, /resolveStructuredResult\(parsed, outputShape, "governed_fallback"\)/);
+  assert.match(reasoning, /resolveStructuredResult\(local, outputShape, "deterministic_local_fallback"\)/);
 });
 const modalDirect = fs.readFileSync(
   new URL("../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceModalDirectRuntime.js", import.meta.url),
@@ -58,4 +65,18 @@ test("timed out creative fallback cancels its exact governed job", () => {
   assert.match(reasoning, /GOVERNED_FALLBACK_SETTLEMENT_DEADLINE_MS = 420_000/);
   assert.match(reasoning, /ServiceExecutionRuntime\.cancelPending\(\{/);
   assert.match(reasoning, /reason: "CREATIVE_REASONING_FALLBACK_PENDING_TIMEOUT"/);
+});
+
+test("owned shape repair uses deep contract compilation instead of the fast lane timeout path", () => {
+  assert.match(supervisor, /owned_shape_repair === true \? "deep" : "fast"/);
+  assert.match(supervisor, /execution_lane: compilerExecutionLane/);
+  assert.match(supervisor, /structured_supervisor_execution_lane: compilerExecutionLane/);
+});
+
+test("structured supervisor recovers a valid balanced JSON object without another reasoning call", () => {
+  const source = fs.readFileSync("lib/intelligence/runtime/AvantiqoStructuredIntelligenceSupervisorRuntime.js", "utf8");
+  assert.match(source, /function balancedJsonObjectCandidates\(source\)/);
+  assert.match(source, /candidates\.push\(\.\.\.balancedJsonObjectCandidates\(source\)\)/);
+  assert.match(source, /if \(typeof parsed === "string"\) parsed = JSON\.parse\(parsed\)/);
+  assert.doesNotMatch(source, /firstBrace = source\.indexOf/);
 });

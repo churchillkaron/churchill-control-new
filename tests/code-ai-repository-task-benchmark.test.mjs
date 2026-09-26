@@ -1,12 +1,24 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import { assessCodeAIRepositoryTaskBenchmark } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
 const BENCHMARK_RUN_ID = "11111111-1111-4111-8111-111111111111";
 
+function baselineDigest({ caseId, baseCommit = "1".repeat(40), hiddenSha = "4".repeat(64), exitCode = 1, passed = false }) {
+  return createHash("sha256").update(JSON.stringify({
+    case_id: caseId,
+    base_commit: baseCommit.toLowerCase(),
+    hidden_acceptance_sha256: hiddenSha.toLowerCase(),
+    exit_code: exitCode,
+    passed,
+  }), "utf8").digest("hex");
+}
+
 function proof(overrides = {}) {
+  const caseId = overrides.case_id || "case-1";
   return {
-    case_id: "case-1",
+    case_id: caseId,
     passed: true,
     base_commit: "1".repeat(40),
     diff_sha256: "2".repeat(64),
@@ -17,7 +29,7 @@ function proof(overrides = {}) {
     artifact_materialized: true,
     artifact_bytes: 1024,
     repository_verification: {
-      case_id: overrides.case_id || "case-1",
+      case_id: caseId,
       benchmark_run_id: overrides.benchmark_run_id || BENCHMARK_RUN_ID,
       independent: true,
       verifier: "hidden-node-test",
@@ -30,7 +42,7 @@ function proof(overrides = {}) {
       hidden_acceptance_sha256: "4".repeat(64),
       hidden_acceptance_executed: true,
       hidden_acceptance_test_count: 4,
-      protected_baseline_sha256: "5".repeat(64),
+      protected_baseline_sha256: baselineDigest({ caseId }),
       protected_baseline_executed: true,
       protected_baseline_test_count: 4,
       protected_baseline_base_commit: "1".repeat(40),
@@ -74,7 +86,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       passed: true,
       exit_code: 0,
       hidden_acceptance_sha256: "4".repeat(64),
-      protected_baseline_sha256: "5".repeat(64),
+      protected_baseline_sha256: baselineDigest({ caseId: "case-2" }),
       protected_baseline_executed: true,
       protected_baseline_test_count: 1,
       protected_baseline_base_commit: "1".repeat(40),
@@ -114,6 +126,7 @@ test("distinct proof identities across cases certify", () => {
       candidate_artifact_sha256: "7".repeat(64),
       hidden_acceptance_sha256: "8".repeat(64),
       protected_baseline_hidden_acceptance_sha256: "8".repeat(64),
+      protected_baseline_sha256: baselineDigest({ caseId: "case-2", hiddenSha: "8".repeat(64) }),
     },
   };
   const result = assessCodeAIRepositoryTaskBenchmark({ benchmark_run_id: BENCHMARK_RUN_ID, runner_source_commit: "1".repeat(40), observations: [first, second] });
@@ -228,7 +241,6 @@ test("repository verification must match the exact benchmark run id", () => {
   assert.equal(result.repository_task_artifact_certified, false);
 });
 
-
 test("repository verifier must use the canonical verifier contract", () => {
   const base = proof();
   const result = assessCodeAIRepositoryTaskBenchmark({
@@ -245,6 +257,24 @@ test("repository verifier must use the canonical verifier contract", () => {
   assert.equal(result.cases[0].gates.independent_verifier, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });
+
+test("arbitrary protected baseline digest cannot certify", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        protected_baseline_sha256: "f".repeat(64),
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.protected_baseline_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
 
 
 test("protected baseline and post-fix verification must execute the same hidden test count", () => {

@@ -19,6 +19,8 @@ function proof(overrides = {}) {
       independent: true,
       verifier: "hidden-node-test",
       evidence_source: "INDEPENDENT_RUNNER",
+      candidate_diff_sha256: overrides.diff_sha256 || "2".repeat(64),
+      candidate_artifact_sha256: overrides.artifact_sha256 || "3".repeat(64),
       passed: true,
       exit_code: 0,
       hidden_acceptance_sha256: "4".repeat(64),
@@ -57,6 +59,8 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       independent: true,
       verifier: "hidden-node-test",
       evidence_source: "INDEPENDENT_RUNNER",
+      candidate_diff_sha256: "2".repeat(64),
+      candidate_artifact_sha256: "3".repeat(64),
       passed: true,
       exit_code: 0,
       hidden_acceptance_sha256: "4".repeat(64),
@@ -90,6 +94,8 @@ test("distinct proof identities across cases certify", () => {
     artifact_sha256: "7".repeat(64),
     repository_verification: {
       ...secondBase.repository_verification,
+      candidate_diff_sha256: "6".repeat(64),
+      candidate_artifact_sha256: "7".repeat(64),
       hidden_acceptance_sha256: "8".repeat(64),
     },
   };
@@ -130,5 +136,22 @@ test("repository proof base commit must match attested runner commit", () => {
     observations: [proof()],
   });
   assert.equal(result.cases[0].gates.base_commit_bound_to_runner, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("verification proof must bind the exact candidate diff and artifact", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        candidate_diff_sha256: "9".repeat(64),
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.verifier_candidate_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

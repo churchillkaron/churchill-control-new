@@ -293,6 +293,8 @@ for (const benchmarkCase of cases) {
         independent: true,
         verifier: "avantiqo-hidden-node-assert",
         evidence_source: "INDEPENDENT_RUNNER",
+        candidate_diff_sha256: sha256(patch),
+        candidate_artifact_sha256: sha256(artifact),
         passed: hiddenPassed,
         exit_code: hiddenExitCode,
         hidden_acceptance_sha256: sha256(hiddenSource(benchmarkCase?.hidden_acceptance?.case_set)),

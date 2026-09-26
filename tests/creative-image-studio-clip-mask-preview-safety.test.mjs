@@ -43,16 +43,22 @@ test("feathered geometric masks preview through the shared SVG alpha contract",(
   }
 });
 
-test("semantic raster and brush-refined masks never masquerade as exact geometry",()=>{
+test("semantic and raster masks stay export-authoritative while brush-refined geometry previews",()=>{
   const semantic=imageStudioMaskPreviewDescriptor(target,{id:"s",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_source_kind:"SEMANTIC",mask_shape:"RECT"}});
   const raster=imageStudioMaskPreviewDescriptor(target,{id:"r",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_source_kind:"RASTER_MATTE",mask_shape:"RECT",mask_provenance:{matte_storage_reference:"storage://creative/matte.png"}}});
-  const brush=imageStudioMaskPreviewDescriptor(target,{id:"b",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_shape:"RECT",mask_brush_strokes:[{mode:"ADD",points:[{x:.5,y:.5}]}]}});
+  const brush=imageStudioMaskPreviewDescriptor(target,{id:"b",bounds:{x:20,y:10,width:160,height:80},metadata:{mask_shape:"RECT",mask_brush_strokes:[
+    {mode:"ADD",points:[{x:.2,y:.2},{x:.8,y:.8}],size_px:32,hardness:.5,opacity:.75},
+    {mode:"SUBTRACT",points:[{x:.5,y:.5}],size_px:18,hardness:1,opacity:.4},
+  ]}});
   assert.equal(semantic.preview_supported,false);
   assert.equal(semantic.reason,"MASK_SOURCE_PREVIEW_COMPLEX");
   assert.equal(raster.preview_supported,false);
   assert.equal(raster.reason,"MASK_SOURCE_PREVIEW_COMPLEX");
-  assert.equal(brush.preview_supported,false);
-  assert.equal(brush.reason,"MASK_BRUSH_PREVIEW_COMPLEX");
+  assert.equal(brush.preview_supported,true);
+  assert.equal(brush.fidelity,"APPROXIMATE_RASTER_EXACT_GEOMETRY");
+  assert.match(brush.style.maskImage,/stroke%3D%22white%22/);
+  assert.match(brush.style.maskImage,/stroke%3D%22black%22/);
+  assert.match(brush.style.maskImage,/brush-0/);
 });
 
 test("adjustment preview inherits shared semantic mask fidelity decision",()=>{
@@ -69,4 +75,19 @@ test("canvas omits false complex clip style and surfaces export-only fidelity ba
   assert.match(source,/imageStudioMaskPreviewDescriptor/);
   assert.match(source,/maskPreview\.preview_supported\?maskPreview\.style:\{\}/);
   assert.match(source,/Complex clip mask · export preview only/);
+});
+
+test("malformed persisted brush strokes fail conservative without crashing preview",()=>{
+  const preview=imageStudioMaskPreviewDescriptor(target,{id:"bad",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_shape:"RECT",mask_brush_strokes:[{mode:"ADD",points:[]}]}});
+  assert.equal(preview.preview_supported,false);
+  assert.equal(preview.reason,"MASK_BRUSH_PREVIEW_INVALID");
+});
+
+test("adjustment masks inherit brush-refined geometric alpha preview",()=>{
+  const mask={id:"m2",artboard_id:"board",layer_type:"MASK",bounds:{x:20,y:10,width:160,height:80},metadata:{clip_mask_target_id:"img",mask_shape:"RECT",mask_brush_strokes:[{mode:"SUBTRACT",points:[{x:.25,y:.25},{x:.75,y:.75}],size_px:24,hardness:.6,opacity:.8}]}};
+  const adjustment={id:"a2",artboard_id:"board",layer_type:"ADJUSTMENT",visible:true,metadata:{adjustment_target_layer_ids:["img"],adjustment_mask_layer_id:"m2"},style:{adjustments:{exposure:1}}};
+  const [preview]=imageStudioAdjustmentPreviewDescriptors([target,adjustment,mask],target);
+  assert.equal(preview.preview_supported,true);
+  assert.deepEqual(preview.failures,[]);
+  assert.match(preview.mask_style.maskImage,/stroke%3D%22black%22/);
 });

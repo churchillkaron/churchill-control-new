@@ -112,7 +112,7 @@ test("Image Studio clipping mask geometry is shared by preview and deterministic
   assert.match(reusable.imageStudioMaskPreviewStyle(target,mask).clipPath,/inset\(/);
   const canvas=fs.readFileSync(new URL("../components/creative/specialist/ImageStudioCanvasSurface.jsx", import.meta.url),"utf8");
   const exporter=fs.readFileSync(new URL("../lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js", import.meta.url),"utf8");
-  assert.match(canvas,/imageStudioMaskPreviewStyle/);
+  assert.match(canvas,/imageStudioMaskPreviewDescriptor/);
   assert.match(canvas,/is_clip_mask/);
   assert.match(exporter,/imageStudioMaskGeometry/);
   assert.match(exporter,/IMAGE_STUDIO_EXPORT_CLIP_MASK_MISSING/);

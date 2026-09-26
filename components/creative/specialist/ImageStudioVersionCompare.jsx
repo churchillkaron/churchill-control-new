@@ -8,6 +8,9 @@ import { imageStudioPreviewEffectStyle } from "@/lib/creative/stills/runtime/Cre
 import { imageStudioMaskPreviewDescriptor } from "@/lib/creative/stills/runtime/CreativeImageStudioReusableDesignRuntime.js";
 import { imageStudioAdjustmentPreviewDescriptors } from "@/lib/creative/stills/runtime/CreativeImageStudioAdjustmentPreviewRuntime.js";
 import { imageStudioGroundShadowPreview } from "@/lib/creative/stills/runtime/CreativeImageStudioContactPreviewRuntime.js";
+import { imageStudioPerspectiveCssPreview } from "@/lib/creative/stills/runtime/CreativeImageStudioPerspectiveWarpRuntime.js";
+import { imageStudioRetouchPreviewStyle } from "@/lib/creative/stills/runtime/CreativeImageStudioRetouchRuntime.js";
+import ImageStudioTexturePreviewOverlay from "./ImageStudioTexturePreviewOverlay";
 import { useImageStudioFonts } from "./useImageStudioFonts";
 
 const n=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
@@ -45,21 +48,26 @@ function Snapshot({version,assets,workspace}) {
         if(layer.layer_type==="TEXT"){
           const measured=measureImageStudioText({text:layer.content?.text||"Text",bounds:b,style:layer.style||{}});
           const justify=measured.verticalAlign==="middle"?"center":measured.verticalAlign==="bottom"?"flex-end":"flex-start";
-          return <div key={layer.id} className="absolute flex overflow-hidden whitespace-pre" style={{...style,opacity:effects.opacity,mixBlendMode:effects.mixBlendMode,fontSize:measured.fontSize*scale,fontWeight:measured.weight,fontFamily:fonts.fontFamilyFor(layer.style||{}),color:layer.style?.color||"#111",lineHeight:measured.lineHeight,letterSpacing:measured.letterSpacing*scale,textAlign:measured.align,justifyContent:justify,flexDirection:"column"}}>{measured.visibleLines.join("\n")}</div>;
+          return <div key={layer.id} className="absolute flex overflow-hidden whitespace-pre" style={{...style,opacity:effects.opacity,mixBlendMode:effects.mixBlendMode,filter:effects.filter,fontSize:measured.fontSize*scale,fontWeight:measured.weight,fontFamily:fonts.fontFamilyFor(layer.style||{}),color:layer.style?.color||"#111",lineHeight:measured.lineHeight,letterSpacing:measured.letterSpacing*scale,textAlign:measured.align,justifyContent:justify,flexDirection:"column"}}>{measured.visibleLines.join("\n")}</div>;
         }
         const asset=assetFor(layer.source_asset_id,assets);
         const url=assetUrl(asset);
         const preview=imageStudioPreviewGeometry(layer,sourceSize(asset,b),scale);
         const mask=layer.metadata?.clip_mask_layer_id?layers.find((item)=>item.id===layer.metadata.clip_mask_layer_id):null;
-        const maskStyle=mask?imageStudioMaskPreviewStyle(layer,mask):{};
+        const maskPreview=imageStudioMaskPreviewDescriptor(layer,mask);
+        const maskStyle=maskPreview.preview_supported?maskPreview.style:{};
         const adjustmentPreviews=imageStudioAdjustmentPreviewDescriptors(layers,layer);
         const shadowPreview=imageStudioGroundShadowPreview({style:layer.style||{},rotation,scale,asset_url:url,preview,mask_style:maskStyle,has_mask:Boolean(mask)});
-        const contentStyle={opacity:effects.opacity,mixBlendMode:effects.mixBlendMode,filter:effects.filter,...maskStyle};
+        const perspective=imageStudioPerspectiveCssPreview(layer.style||{},n(b.width,240)*scale,n(b.height,180)*scale);
+        const perspectiveStyle=perspective.enabled?{transform:perspective.transform,transformOrigin:perspective.transform_origin}:{transform:"none"};
+        const contentStyle={opacity:effects.opacity,mixBlendMode:effects.mixBlendMode,filter:effects.filter,...maskStyle,...perspectiveStyle};
         return <div key={layer.id} className="absolute" style={style}>
           {shadowPreview.preview_supported?<div data-compare-contact-shadow={layer.id} className="pointer-events-none absolute inset-0" style={shadowPreview.outer_style}><div className="absolute inset-0" style={shadowPreview.silhouette_style}/></div>:null}
           {url?<div className="relative h-full w-full overflow-hidden" style={{...contentStyle,borderRadius:preview.frame.borderRadius}}>
             <Image src={url} alt="" width={Math.max(1,Math.round(preview.image.width))} height={Math.max(1,Math.round(preview.image.height))} sizes="400px" style={{position:"absolute",left:preview.image.left,top:preview.image.top,width:preview.image.width,height:preview.image.height,maxWidth:"none"}}/>
             {adjustmentPreviews.filter((item)=>item.preview_supported&&item.opacity>0).map((item)=><div key={`compare-adjustment-${item.id}`} data-compare-adjustment-preview={item.id} className="pointer-events-none absolute inset-0" style={{...item.mask_style,opacity:item.opacity,backdropFilter:item.filter,WebkitBackdropFilter:item.filter}}/>)}
+            <ImageStudioTexturePreviewOverlay style={layer.style||{}} scale={scale} selected={false}/>
+            {(layer.style?.retouch_operations||[]).map((operation,index)=><div key={operation.id||index} data-compare-retouch-preview={operation.id||index} className="pointer-events-none absolute" style={imageStudioRetouchPreviewStyle(operation,n(b.width,240)*scale,n(b.height,180)*scale)}/>)}
           </div>:null}
         </div>;
       })}

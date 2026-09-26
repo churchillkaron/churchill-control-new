@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { certifyCodeAIFrontierLatency } from "../lib/code/runtime/CodeAIFrontierLatencyCertificationRuntime.js";
 import {
   attestCodeAICompetitiveReferenceReport,
 } from "../lib/code/runtime/CodeAICompetitiveReferenceAttestationRuntime.js";
@@ -121,6 +122,17 @@ async function fixture() {
   const refAPath = join(dir, "ref-a.json");
   const refBPath = join(dir, "ref-b.json");
   const outputPath = join(dir, "competitive.json");
+  const ownedObservations = observations(caseIds, 50, { categoryByCase }).map((item, index) => ({
+    ...item,
+    code_cpu_fallback: false,
+    code_runtime_model_already_gpu_resident: index > 0,
+    inference_elapsed_ms: 1000,
+    owned_compute_usd_per_hour: 1.8,
+    owned_compute_rate_source: "OPERATOR_APPROVED_LOCAL_COMPUTE_RATE_V1",
+    cost_measurement_source: "RUNNER_RECOMPUTED_FROM_WORKER_ELAPSED_V1",
+    supplier_cost_usd: 0.0005,
+  }));
+  const ownedLatencyCertification = certifyCodeAIFrontierLatency(ownedObservations);
   const owned = attestCodeAICompetitiveOwnedReport({
     contract: "AVANTIQO_CODE_FRONTIER_LOCAL_RUNNER_V1",
     benchmark_run_id: "55555555-5555-4555-8555-555555555555",
@@ -146,7 +158,7 @@ async function fixture() {
       passed_cases: caseIds.length,
       pass_rate: 1,
       correctness_passed: true,
-      latency_certification: { passed: true },
+      latency_certification: ownedLatencyCertification,
       passed: true,
       complete_suite: true,
     },
@@ -156,14 +168,7 @@ async function fixture() {
       owned_compute_usd_per_hour: 1.8,
       owned_compute_rate_source: "OPERATOR_APPROVED_LOCAL_COMPUTE_RATE_V1",
     },
-    observations: observations(caseIds, 50, { categoryByCase }).map((item) => ({
-      ...item,
-      inference_elapsed_ms: 1000,
-      owned_compute_usd_per_hour: 1.8,
-      owned_compute_rate_source: "OPERATOR_APPROVED_LOCAL_COMPUTE_RATE_V1",
-      cost_measurement_source: "RUNNER_RECOMPUTED_FROM_WORKER_ELAPSED_V1",
-      supplier_cost_usd: 0.0005,
-    })),
+    observations: ownedObservations,
   }, { env });
   await writeFile(ownedPath, JSON.stringify(owned));
   const refA = attestCodeAICompetitiveReferenceReport(referenceReport({

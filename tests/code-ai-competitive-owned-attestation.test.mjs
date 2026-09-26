@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { certifyCodeAIFrontierLatency } from "../lib/code/runtime/CodeAIFrontierLatencyCertificationRuntime.js";
 import {
   attestCodeAICompetitiveOwnedReport,
   verifyCodeAICompetitiveOwnedReport,
@@ -13,6 +14,27 @@ const SUITE_SHA = "a".repeat(64);
 const PROMPT_SHA = "b".repeat(64);
 
 function report() {
+  const observations = CASES.map((case_id, index) => ({
+      case_id,
+      passed: true,
+      quality_score: 0.85,
+      evidence_grounding_score: 0.9,
+      narrative_grounding_score: 0.9,
+      evidence_distinctness_score: 0.9,
+      response_template_fingerprint_sha256: (index + 1).toString(16).padStart(2, "0").repeat(32),
+      response_template_simhash64: (index + 40).toString(16).padStart(2, "0").repeat(8),
+      evidence_key_count: 2,
+      wall_ms: 100 + index,
+      latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
+      code_cpu_fallback: false,
+      code_runtime_model_already_gpu_resident: index > 0,
+      inference_elapsed_ms: 1000,
+      owned_compute_usd_per_hour: 1.8,
+      owned_compute_rate_source: "OPERATOR_APPROVED_LOCAL_COMPUTE_RATE_V1",
+      cost_measurement_source: "RUNNER_RECOMPUTED_FROM_WORKER_ELAPSED_V1",
+      supplier_cost_usd: 0.0005,
+    }));
+  const latencyCertification = certifyCodeAIFrontierLatency(observations);
   return {
     contract: "AVANTIQO_CODE_FRONTIER_LOCAL_RUNNER_V1",
     benchmark_run_id: "22222222-2222-4222-8222-222222222222",
@@ -30,24 +52,7 @@ function report() {
     external_provider_execution_performed: false,
     raw_model_output_persisted: false,
     raw_reasoning_persisted: false,
-    observations: CASES.map((case_id, index) => ({
-      case_id,
-      passed: true,
-      quality_score: 0.85,
-      evidence_grounding_score: 0.9,
-      narrative_grounding_score: 0.9,
-      evidence_distinctness_score: 0.9,
-      response_template_fingerprint_sha256: (index + 1).toString(16).padStart(2, "0").repeat(32),
-      response_template_simhash64: (index + 40).toString(16).padStart(2, "0").repeat(8),
-      evidence_key_count: 2,
-      wall_ms: 100 + index,
-      latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
-      inference_elapsed_ms: 1000,
-      owned_compute_usd_per_hour: 1.8,
-      owned_compute_rate_source: "OPERATOR_APPROVED_LOCAL_COMPUTE_RATE_V1",
-      cost_measurement_source: "RUNNER_RECOMPUTED_FROM_WORKER_ELAPSED_V1",
-      supplier_cost_usd: 0.0005,
-    })),
+    observations,
     economics: {
       estimated_supplier_cost_usd: 0.01,
       cost_measurement_source: "RUNNER_RECOMPUTED_FROM_WORKER_ELAPSED_V1",
@@ -60,7 +65,7 @@ function report() {
       passed_cases: CASES.length,
       pass_rate: 1,
       correctness_passed: true,
-      latency_certification: { passed: true },
+      latency_certification: latencyCertification,
       passed: true,
       complete_suite: true,
     },
@@ -135,5 +140,25 @@ test("owned attestation rejects a contradictory signed summary", () => {
   assert.throws(
     () => attestCodeAICompetitiveOwnedReport(invalid, { env }),
     /CODE_AI_COMPETITIVE_OWNED_SUMMARY_MISMATCH/,
+  );
+});
+
+
+test("owned attestation recomputes latency certification and rejects spoofed pass", () => {
+  const invalid = report();
+  invalid.summary.latency_certification.measurements.warm_p95_ms = 1;
+  assert.throws(
+    () => attestCodeAICompetitiveOwnedReport(invalid, { env }),
+    /CODE_AI_COMPETITIVE_OWNED_LATENCY_CERTIFICATION_MISMATCH/,
+  );
+});
+
+test("owned attestation rejects weakened latency limits", () => {
+  const invalid = report();
+  invalid.summary.latency_certification.limits.warm_p95_ms = 10000;
+  invalid.summary.latency_certification.passed = true;
+  assert.throws(
+    () => attestCodeAICompetitiveOwnedReport(invalid, { env }),
+    /CODE_AI_COMPETITIVE_OWNED_LATENCY_LIMITS_INVALID/,
   );
 });

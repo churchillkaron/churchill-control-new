@@ -123,6 +123,27 @@ export const useImageStudioWorkspaceStore = create((set) => ({
       historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[],
     };
   }),
+  createAdjustmentSemanticMaskFromSelected: (mode, options = {}) => set((state) => {
+    if(state.selection.layer_ids.length!==1)return state;
+    const adjustment=state.layers.find((layer)=>layer.id===state.selection.layer_ids[0]&&layer.layer_type==="ADJUSTMENT"&&!layer.locked);
+    const targets=adjustment?.metadata?.adjustment_target_layer_ids||[];
+    if(!adjustment||targets.length!==1)return state;
+    const target=state.layers.find((layer)=>layer.id===targets[0]&&layer.layer_type==="IMAGE");
+    if(!target)return state;
+    const existingId=adjustment.metadata?.adjustment_mask_layer_id;
+    const baseMask=buildImageStudioMaskLayer({
+      id:`mask-${crypto.randomUUID()}`,artboard_id:adjustment.artboard_id,target_layer_id:target.id,
+      region:{...(target.bounds||{})},mask_shape:"RECT",sort_order:Number(adjustment.sort_order||0)+1,
+    });
+    let mask={...baseMask,metadata:{...(baseMask.metadata||{}),...buildImageStudioSemanticMaskPatch(mode,options),adjustment_mask_owner_id:adjustment.id}};
+    if(options.mask_asset_id){try{mask=attachImageStudioSemanticMatte(mask,options);}catch{return state;}}
+    const withoutExisting=existingId?state.layers.filter((layer)=>layer.id!==existingId):state.layers;
+    return {
+      layers:[...withoutExisting.map((layer)=>layer.id===adjustment.id?{...layer,metadata:{...(layer.metadata||{}),adjustment_mask_layer_id:mask.id}}:layer),mask],
+      selection:{...state.selection,layer_ids:[mask.id]},dirty:true,
+      historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[],
+    };
+  }),
   createSemanticMaskFromSelected: (mode, options = {}) => set((state) => {
     if (state.selection.layer_ids.length !== 1) return state;
     const target=state.layers.find((layer)=>layer.id===state.selection.layer_ids[0]&&layer.layer_type==="IMAGE"&&!layer.locked);

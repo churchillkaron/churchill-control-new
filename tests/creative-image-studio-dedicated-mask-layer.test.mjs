@@ -34,6 +34,7 @@ test("editor creates dedicated mask from Region and exposes first-class mask lay
   const toolbar=fs.readFileSync("components/creative/specialist/ImageStudioCanvasToolbar.jsx","utf8");
   const inspector=fs.readFileSync("components/creative/specialist/ImageStudioLayerInspector.jsx","utf8");
   const panel=fs.readFileSync("components/creative/specialist/ImageStudioLayerPanel.jsx","utf8");
+  const canvas=fs.readFileSync("components/creative/specialist/ImageStudioCanvasSurface.jsx","utf8");
   assert.match(store,/createMaskLayerFromRegion/);
   assert.match(store,/buildImageStudioMaskLayer/);
   assert.match(toolbar,/Create mask layer from Region/);
@@ -41,6 +42,8 @@ test("editor creates dedicated mask from Region and exposes first-class mask lay
   assert.match(inspector,/Ellipse/);
   assert.match(inspector,/Rounded rectangle/);
   assert.match(panel,/layer_type==="MASK"/);
+  assert.match(canvas,/Mask · \{shape\.replace/);
+  assert.match(canvas,/layer\.layer_type==="MASK"/);
 });
 
 test("deterministic export renders dedicated mask shapes instead of rectangle-only masks",()=>{

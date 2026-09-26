@@ -72,6 +72,9 @@ function must(command, args, cwd) {
   }
   return result;
 }
+const runnerSourceCommit = text(must("git", ["rev-parse", "HEAD"], process.cwd()).stdout, 80).toLowerCase();
+if (!/^[a-f0-9]{40}$/i.test(runnerSourceCommit)) throw new Error(`${CONTRACT}_RUNNER_SOURCE_COMMIT_INVALID`);
+
 function hiddenAssertionCount(source) {
   const count = (String(source || "").match(/\bassert\.[A-Za-z]+\s*\(/g) || []).length;
   if (count <= 0) throw new Error(`${CONTRACT}_HIDDEN_ASSERTION_COUNT_REQUIRED`);
@@ -371,6 +374,7 @@ for (const benchmarkCase of cases) {
       repository_verification: {
         case_id: benchmarkCase.case_id,
         benchmark_run_id: benchmarkRunId,
+        runner_source_commit: runnerSourceCommit,
         repository_origin: fixture.origin,
         suite_sha256: suiteSha256,
         independent: true,
@@ -441,7 +445,7 @@ console.log(JSON.stringify({
   pass_rate: observations.length ? passed / observations.length : 0,
   worker_attestation: workerAttestation,
   benchmark_run_id: benchmarkRunId,
-  runner_source_commit: observations[0]?.base_commit || null,
+  runner_source_commit: runnerSourceCommit,
   observations,
   local_compute_only: true,
   commit_performed: false,

@@ -31,12 +31,14 @@ function baselineDigest({ caseId, baseCommit = "1".repeat(40), hiddenSha = "4".r
 
 function proof(overrides = {}) {
   const caseId = overrides.case_id || "case-1";
+  const baseCommit = overrides.base_commit || "1".repeat(40);
+  const runnerSourceCommit = overrides.runner_source_commit || "1".repeat(40);
   return {
     case_id: caseId,
     repository_origin: `https://github.com/avantiqo-benchmark/${caseId}`,
     allowed_edit_paths: ["invoice-total.mjs"],
     passed: true,
-    base_commit: "1".repeat(40),
+    base_commit: baseCommit,
     diff_sha256: "2".repeat(64),
     artifact_sha256: "3".repeat(64),
     candidate_tree_sha: overrides.candidate_tree_sha || "a".repeat(40),
@@ -53,6 +55,7 @@ function proof(overrides = {}) {
     repository_verification: {
       case_id: caseId,
       benchmark_run_id: overrides.benchmark_run_id || BENCHMARK_RUN_ID,
+      runner_source_commit: runnerSourceCommit,
       repository_origin: `https://github.com/avantiqo-benchmark/${caseId}`,
       suite_sha256: overrides.suite_sha256 || SUITE_SHA256,
       independent: true,
@@ -81,10 +84,10 @@ function proof(overrides = {}) {
       hidden_acceptance_sha256: "4".repeat(64),
       hidden_acceptance_executed: true,
       hidden_acceptance_test_count: 4,
-      protected_baseline_sha256: baselineDigest({ caseId }),
+      protected_baseline_sha256: baselineDigest({ caseId, baseCommit }),
       protected_baseline_executed: true,
       protected_baseline_test_count: 4,
-      protected_baseline_base_commit: "1".repeat(40),
+      protected_baseline_base_commit: baseCommit,
       protected_baseline_hidden_acceptance_sha256: "4".repeat(64),
       protected_baseline_verifier_runtime_sha256: VERIFIER_RUNTIME_SHA256,
       verifier_environment_contract: "AVANTIQO_CODE_REPOSITORY_DETERMINISTIC_ENV_V1",
@@ -134,6 +137,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
     repository_verification: {
       case_id: "case-2",
       benchmark_run_id: BENCHMARK_RUN_ID,
+      runner_source_commit: "1".repeat(40),
       repository_origin: "https://github.com/avantiqo-benchmark/case-2",
       suite_sha256: SUITE_SHA256,
       independent: true,
@@ -234,13 +238,26 @@ test("failed benchmark case cannot certify repository proof", () => {
 });
 
 
-test("repository proof base commit must match attested runner commit", () => {
+test("candidate base commit is independent from the attested runner source commit", () => {
+  const candidate = proof({ base_commit: "9".repeat(40), runner_source_commit: "1".repeat(40) });
   const result = assessCodeAIRepositoryTaskBenchmark({
     benchmark_run_id: BENCHMARK_RUN_ID,
-    runner_source_commit: "9".repeat(40),
-    observations: [proof()],
+    runner_source_commit: "1".repeat(40),
+    observations: [candidate],
   });
-  assert.equal(result.cases[0].gates.base_commit_bound_to_runner, false);
+  assert.equal(result.cases[0].gates.exact_base_commit, true);
+  assert.equal(result.cases[0].gates.verification_runner_source_bound, true);
+  assert.equal(result.repository_task_artifact_certified, true);
+});
+
+test("repository verification must match the attested runner source commit", () => {
+  const candidate = proof({ runner_source_commit: "8".repeat(40) });
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [candidate],
+  });
+  assert.equal(result.cases[0].gates.verification_runner_source_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });
 

@@ -27,7 +27,7 @@ const REPOSITORY_VERIFIER_RESOURCE_SHA256 = sha256(JSON.stringify({ timeout_ms: 
 const repositoryVerifierProtocolSha256 = sha256(JSON.stringify({ contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1", evidence_source: "INDEPENDENT_RUNNER", runtime: "node", candidate_binding: "DIFF_AND_ARTIFACT_SHA256", hidden_acceptance_required: true, protected_baseline_required: true }));
 const repositoryBaselineDigest = ({ caseId, hiddenSha }) => sha256(JSON.stringify({ case_id: caseId, base_commit: "1".repeat(40), hidden_acceptance_sha256: hiddenSha, verifier_environment_sha256: REPOSITORY_VERIFIER_ENVIRONMENT_SHA256, verifier_invocation_sha256: REPOSITORY_VERIFIER_INVOCATION_SHA256, verifier_resource_sha256: REPOSITORY_VERIFIER_RESOURCE_SHA256, exit_code: 1, passed: false }));
 
-function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85, categoryByCase = {}, evidenceCountByCase = {}, benchmarkRunId = "55555555-5555-4555-8555-555555555555", suiteSha = null } = {}) {
+function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85, categoryByCase = {}, evidenceCountByCase = {}, benchmarkRunId = "55555555-5555-4555-8555-555555555555", suiteSha = null, runnerSourceCommit = "1".repeat(40) } = {}) {
   return caseIds.map((case_id, index) => ({
     case_id,
     repository_origin: `https://github.com/avantiqo-benchmark/${case_id}`,
@@ -65,6 +65,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
       repository_verification: {
         case_id,
         benchmark_run_id: benchmarkRunId,
+        runner_source_commit: runnerSourceCommit,
         repository_origin: `https://github.com/avantiqo-benchmark/${case_id}`,
         suite_sha256: suiteSha,
         independent: true,

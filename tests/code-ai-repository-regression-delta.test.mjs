@@ -96,7 +96,7 @@ test("unparseable red output fails closed", () => {
 test("workflow keeps push regression absolute and PR regression baseline-aware", async () => {
   const { readFile } = await import("node:fs/promises");
   const workflow = await readFile(".github/workflows/avantiqo-code-worldclass-quality.yml", "utf8");
-  assert.match(workflow, /if \[ "\$\{\{ github\.event_name \}\}" != "pull_request" \]; then\n            npm test/);
+  assert.match(workflow, /if \[ "\$\{\{ github\.event_name \}\}" != "pull_request" \]; then\n            node --test tests\/\*\.test\.mjs/);
   assert.match(workflow, /PR_BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/);
   assert.match(workflow, /code-ai-repository-regression-delta\.mjs/);
   assert.match(workflow, /git worktree add --detach/);
@@ -208,4 +208,14 @@ test("isolated fake inventory line after canonical summary cannot override it", 
   const summary = extractRepositoryTestSummary(log);
   assert.equal(summary.tests, 100);
   assert.equal(summary.pass, 98);
+});
+
+
+test("workflow pins the repository suite independently of package test scripts", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const workflow = await readFile(".github/workflows/avantiqo-code-worldclass-quality.yml", "utf8");
+  const start = workflow.indexOf("  regression:");
+  const regression = workflow.slice(start, workflow.indexOf("\n  code_quality:", start));
+  assert.equal((regression.match(/node --test tests\/\*\.test\.mjs/g) || []).length, 3);
+  assert.doesNotMatch(regression, /\bnpm test\b/);
 });

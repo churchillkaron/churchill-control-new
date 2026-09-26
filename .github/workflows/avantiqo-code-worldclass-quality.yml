@@ -95,12 +95,12 @@ jobs:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           if [ "${{ github.event_name }}" != "pull_request" ]; then
-            npm test
+            node --test tests/*.test.mjs
             exit 0
           fi
 
           set +e
-          npm test > /tmp/code-head-tests.log 2>&1
+          node --test tests/*.test.mjs > /tmp/code-head-tests.log 2>&1
           head_rc=$?
           set -e
           test -n "${PR_BASE_SHA}"
@@ -116,7 +116,7 @@ jobs:
           fi
 
           set +e
-          (cd "${base_dir}" && npm test > /tmp/code-base-tests.log 2>&1)
+          (cd "${base_dir}" && node --test tests/*.test.mjs > /tmp/code-base-tests.log 2>&1)
           base_rc=$?
           set -e
 

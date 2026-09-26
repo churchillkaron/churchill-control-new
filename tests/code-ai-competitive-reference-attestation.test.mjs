@@ -166,3 +166,13 @@ test("reference attestation rejects summary counters that disagree with observat
     /CODE_AI_COMPETITIVE_REFERENCE_SUMMARY_MISMATCH/,
   );
 });
+
+
+test("failed reference case cannot retain positive quality evidence", () => {
+  const invalid = report();
+  invalid.observations[0].passed = false;
+  assert.throws(
+    () => attestCodeAICompetitiveReferenceReport(invalid, { env }),
+    /CODE_AI_COMPETITIVE_REFERENCE_FAILED_CASE_QUALITY_EVIDENCE_FORBIDDEN/,
+  );
+});

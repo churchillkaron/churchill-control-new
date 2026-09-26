@@ -162,3 +162,13 @@ test("owned attestation rejects weakened latency limits", () => {
     /CODE_AI_COMPETITIVE_OWNED_LATENCY_LIMITS_INVALID/,
   );
 });
+
+
+test("failed owned case cannot retain positive quality evidence", () => {
+  const invalid = report();
+  invalid.observations[0].passed = false;
+  assert.throws(
+    () => attestCodeAICompetitiveOwnedReport(invalid, { env }),
+    /CODE_AI_COMPETITIVE_OWNED_FAILED_CASE_QUALITY_EVIDENCE_FORBIDDEN/,
+  );
+});

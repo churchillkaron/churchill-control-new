@@ -176,6 +176,27 @@ export const useImageStudioWorkspaceStore = create((set) => ({
     try{updated=attachImageStudioSemanticMatte(mask,evidence);}catch{return state;}
     return {layers:state.layers.map((layer)=>layer.id===maskId?updated:layer),dirty:true,historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[]};
   }),
+  attachSmartMaskLayer: (targetId, maskLayer) => set((state) => {
+    const target=state.layers.find((layer)=>layer.id===targetId&&layer.layer_type==="IMAGE"&&!layer.locked);
+    if(!target||!maskLayer?.id||target.metadata?.clip_mask_layer_id)return state;
+    const nextMask={...maskLayer,artboard_id:target.artboard_id,metadata:{...(maskLayer.metadata||{}),clip_mask_target_id:target.id,is_clip_mask:true,dedicated_mask_layer:true}};
+    return {
+      layers:[...state.layers.map((layer)=>layer.id===target.id?{...layer,metadata:{...(layer.metadata||{}),clip_mask_layer_id:nextMask.id}}:layer),nextMask],
+      selection:{...state.selection,layer_ids:[nextMask.id]},dirty:true,
+      historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[],
+    };
+  }),
+  approveSelectedSmartMask: () => set((state) => {
+    if(state.selection.layer_ids.length!==1)return state;
+    const id=state.selection.layer_ids[0];
+    const mask=state.layers.find((layer)=>layer.id===id&&layer.layer_type==="MASK"&&layer.metadata?.smart_mask===true);
+    if(!mask)return state;
+    return {
+      layers:state.layers.map((layer)=>layer.id===id?{...layer,metadata:{...(layer.metadata||{}),smart_mask_review_approved:true,smart_mask_review_required:false,smart_mask_status:"APPROVED",smart_mask_reviewed_at:new Date().toISOString()}}:layer),
+      dirty:true,historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[],
+    };
+
+  }),
   createMaskLayerFromRegion: (mask_shape = "RECT") => set((state) => {
     if (!state.ui.region || state.selection.layer_ids.length !== 1) return state;
     const target = state.layers.find((layer) => layer.id === state.selection.layer_ids[0] && layer.artboard_id === state.selection.artboard_id && layer.layer_type === "IMAGE" && !layer.locked);

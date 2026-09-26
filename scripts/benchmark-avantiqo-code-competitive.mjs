@@ -17,6 +17,7 @@ const MIN_NON_LOSS_RATE = 0.95;
 const MIN_NARRATIVE_GROUNDING_SCORE = 0.5;
 const MIN_QUALITY_WIN_MARGIN = 0.03;
 const MIN_SUPERIORITY_WIN_RATE = 0.10;
+const MIN_SUPERIORITY_WIN_CATEGORIES = 3;
 const MAX_P95_LATENCY_RATIO = 1.25;
 const MAX_COST_RATIO = 1.25;
 
@@ -84,6 +85,7 @@ function compareCase(owned, reference) {
     : "UNKNOWN";
   return {
     case_id: text(owned?.case_id),
+    category: text(owned?.category || reference?.category) || null,
     owned_passed: ownedPassed,
     reference_passed: referencePassed,
     owned_wall_ms: ownedLatency,
@@ -115,6 +117,9 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
   const ties = comparisons.filter((item) => item.quality_outcome === "TIE").length;
   const nonLossRate = comparisons.length ? (wins + ties) / comparisons.length : 0;
   const qualityWinRate = comparisons.length ? wins / comparisons.length : 0;
+  const qualityWinCategories = [...new Set(comparisons
+    .filter((item) => item.quality_outcome === "WIN" && item.category)
+    .map((item) => item.category))].sort();
   const latencyWins = comparisons.filter((item) => item.latency_outcome === "WIN").length;
   const latencyLosses = comparisons.filter((item) => item.latency_outcome === "LOSS").length;
   const latencyTies = comparisons.filter((item) => item.latency_outcome === "TIE").length;
@@ -166,6 +171,8 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
     ties,
     quality_non_loss_rate: Number(nonLossRate.toFixed(4)),
     quality_win_rate: Number(qualityWinRate.toFixed(4)),
+    quality_win_categories: qualityWinCategories,
+    quality_win_category_count: qualityWinCategories.length,
     latency_wins: latencyWins,
     latency_losses: latencyLosses,
     latency_ties: latencyTies,
@@ -248,7 +255,8 @@ const qualitySuperiorityObserved =
   comparisons.every((item) =>
     item.owned_pass_rate >= item.reference_pass_rate &&
     item.losses === 0 &&
-    item.quality_win_rate >= MIN_SUPERIORITY_WIN_RATE,
+    item.quality_win_rate >= MIN_SUPERIORITY_WIN_RATE &&
+    item.quality_win_category_count >= MIN_SUPERIORITY_WIN_CATEGORIES,
   );
 const superiorityClaimAllowed = competitiveCertified && repositoryTaskArtifactCertified && qualitySuperiorityObserved;
 
@@ -286,6 +294,7 @@ const report = {
     speed_alone_cannot_establish_quality_superiority: true,
     quality_superiority_requires_reference_quality_win: true,
     minimum_superiority_quality_win_rate_per_reference: MIN_SUPERIORITY_WIN_RATE,
+    minimum_superiority_quality_win_categories_per_reference: MIN_SUPERIORITY_WIN_CATEGORIES,
     superiority_requires_zero_quality_losses_per_reference: true,
   },
   comparisons,

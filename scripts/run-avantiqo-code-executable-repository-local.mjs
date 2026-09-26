@@ -212,6 +212,7 @@ async function seedRepository(benchmarkCase) {
   const baselineExitCode = Number(baseline.status);
   const protectedBaselineSha256 = sha256(JSON.stringify({
     case_id: benchmarkCase.case_id,
+    case_definition_sha256: caseDefinitionSha256(benchmarkCase),
     base_commit: baseCommit,
     hidden_acceptance_sha256: hiddenAcceptanceSha256,
     verifier_environment_sha256: verifierEnvironmentSha256,

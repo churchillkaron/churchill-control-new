@@ -19,9 +19,10 @@ const VERIFIER_ENVIRONMENT_SHA256 = codeAIRepositoryVerifierEnvironmentSha256();
 const GIT_TOOLCHAIN_IDENTITY = Object.freeze({ engine: "git", version_output: "git version 2.50.1 (Apple Git-155)", platform: "darwin", arch: "arm64" });
 const GIT_TOOLCHAIN_SHA256 = createHash("sha256").update(JSON.stringify(GIT_TOOLCHAIN_IDENTITY), "utf8").digest("hex");
 
-function baselineDigest({ caseId, baseCommit = "1".repeat(40), hiddenSha = "4".repeat(64), environmentSha = codeAIRepositoryVerifierEnvironmentSha256(), invocationSha = codeAIRepositoryVerifierInvocationSha256(), resourceSha = codeAIRepositoryVerifierResourceSha256(), gitToolchainSha = GIT_TOOLCHAIN_SHA256, exitCode = 1, passed = false }) {
+function baselineDigest({ caseId, caseDefinitionSha = CASE_DEFINITION_SHA256, baseCommit = "1".repeat(40), hiddenSha = "4".repeat(64), environmentSha = codeAIRepositoryVerifierEnvironmentSha256(), invocationSha = codeAIRepositoryVerifierInvocationSha256(), resourceSha = codeAIRepositoryVerifierResourceSha256(), gitToolchainSha = GIT_TOOLCHAIN_SHA256, exitCode = 1, passed = false }) {
   return createHash("sha256").update(JSON.stringify({
     case_id: caseId,
+    case_definition_sha256: caseDefinitionSha.toLowerCase(),
     base_commit: baseCommit.toLowerCase(),
     hidden_acceptance_sha256: hiddenSha.toLowerCase(),
     verifier_environment_sha256: environmentSha.toLowerCase(),
@@ -690,5 +691,23 @@ test("repository verification must bind the exact case definition digest", () =>
     }],
   });
   assert.equal(result.cases[0].gates.verification_case_definition_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("protected baseline digest is bound to case definition digest", () => {
+  const base = proof();
+  const alternateCaseDefinitionSha = "6".repeat(64);
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      case_definition_sha256: alternateCaseDefinitionSha,
+      repository_verification: { ...base.repository_verification, case_definition_sha256: alternateCaseDefinitionSha },
+    }],
+  });
+  assert.equal(result.cases[0].gates.verification_case_definition_bound, true);
+  assert.equal(result.cases[0].gates.protected_baseline_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

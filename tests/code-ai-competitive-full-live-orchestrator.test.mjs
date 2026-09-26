@@ -62,3 +62,12 @@ test("full orchestrator forbids stale artifact reuse and emits a hashed run mani
   assert.match(source, /AVANTIQO_CODE_COMPETITIVE_FULL_RUN_MANIFEST_V1/);
   assert.match(source, /benchmark_run_id: text\(parsed\?\.benchmark_run_id\)/);
 });
+
+
+test("full orchestrator derives provider execution claims from produced reference artifacts", () => {
+  assert.match(source, /provider_execution_performed: parsed\?\.provider_execution_performed === true/);
+  assert.match(source, /REFERENCE_PROVIDER_EXECUTION_EVIDENCE_INCOMPLETE/);
+  assert.match(source, /REFERENCE_PROVIDER_MODEL_EVIDENCE_MISMATCH/);
+  assert.match(source, /external_provider_execution_performed: externalProviderExecutionPerformed/);
+  assert.doesNotMatch(source, /external_provider_execution_performed: true,\n\s*runtime_provider_effect/);
+});

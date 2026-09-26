@@ -17,7 +17,7 @@ function clean(value) { return String(value ?? "").trim(); }
 async function authorizeProject({ organizationId, projectId }) {
   const { data, error } = await supabaseAdmin
     .from("creative_projects")
-    .select("id,organization_id,production_type,archived")
+    .select("id,organization_id,production_type,archived,metadata")
     .eq("id", projectId)
     .eq("organization_id", organizationId)
     .maybeSingle();
@@ -68,6 +68,7 @@ export async function POST(request) {
       organization_id: scope.organizationId,
       project_id: scope.projectId,
       actor_id: body.actor_id || null,
+      project: scope.project,
     });
     return NextResponse.json({ success: true, result });
   } catch (error) {

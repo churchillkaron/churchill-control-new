@@ -178,7 +178,7 @@ function MusicGeneratorGate({ status }) {
   );
 }
 
-function StudioHome({ modeState, composeReady, composeStatus, readinessError, onOpen, onOpenRoom, organizationId, projectId, projects = [], professionalReleaseRefreshKey }) {
+function StudioHome({ modeState, composeReady, composeStatus, readinessError, onOpen, onOpenRoom, onCreateMusicVideo, musicVideoBusy, musicVideoError, organizationId, projectId, projects = [], professionalReleaseRefreshKey }) {
   const primaryModes = PRIMARY_MODE_IDS.map((id) => MODES.find((item) => item.id === id)).filter(Boolean);
 
   return (
@@ -220,6 +220,22 @@ function StudioHome({ modeState, composeReady, composeStatus, readinessError, on
               return <a key={item.id} href={`/workspace/${organizationId}/creative/music?project=${item.id}`} className={`rounded-xl border p-3.5 transition ${active ? "border-[#B98A57]/30 bg-[#FCF7EF]" : "border-black/[0.07] bg-[#FCFBF8] hover:border-[#B98A57]/25"}`}><div className="truncate text-[11px] font-semibold text-[#413C36]">{item.name || item.title || "Music Project"}</div><div className="mt-1 text-[8px] uppercase tracking-[0.09em] text-[#9A948B]">{active ? "Open now" : (item.production_type || "Music project")}</div></a>;
             })}
           </div>
+        </section>
+      ) : null}
+
+      {projectId ? (
+        <section className="mt-5 rounded-[22px] border border-[#B98A57]/20 bg-[#FBF6ED] p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8A633C]"><Film className="h-3.5 w-3.5" /> Music Video</div>
+              <div className="mt-1.5 text-[18px] font-medium tracking-[-0.03em] text-[#2A2723]">Turn this song into an official music video</div>
+              <div className="mt-1 text-[11px] leading-5 text-[#817B73]">Music Studio keeps authority over the exact song. Video Studio creates or reuses the linked full-song project and inherits timing, musical structure, vocal intelligence and continuity requirements.</div>
+            </div>
+            <button type="button" disabled={musicVideoBusy} onClick={onCreateMusicVideo} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#A97844]/25 bg-[#D6A66A]/10 px-4 py-2.5 text-[10px] font-semibold text-[#7B5733] transition hover:bg-[#D6A66A]/15 disabled:opacity-40">
+              <Film className="h-3.5 w-3.5" /> {musicVideoBusy ? "Preparing Video Studio…" : "Create Music Video"}
+            </button>
+          </div>
+          {musicVideoError ? <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[9px] text-red-700">{musicVideoError}</div> : null}
         </section>
       ) : null}
 
@@ -303,6 +319,8 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
   const [readiness, setReadiness] = useState(null);
   const [professionalReleaseRevision, setProfessionalReleaseRevision] = useState(0);
   const [readinessError, setReadinessError] = useState("");
+  const [musicVideoBusy, setMusicVideoBusy] = useState(false);
+  const [musicVideoError, setMusicVideoError] = useState("");
   const project = runtime.projectRuntime?.current || null;
   const mission = runtime.missionRuntime?.current || null;
   const organizationId = runtime.organizationId || null;
@@ -356,6 +374,29 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
   const activeMode = MODES.find((item) => item.id === mode) || null;
   function openAudioRoom(room) { setAudioRoom(room.id); setMode(room.default_mode || "workstation"); }
   function changeAudioRoom(roomId) { const room = PROFESSIONAL_AUDIO_ROOMS.find((item) => item.id === roomId); if (room) openAudioRoom(room); }
+  async function createMusicVideo() {
+    if (!organizationId || !project?.id || musicVideoBusy) return;
+    setMusicVideoBusy(true);
+    setMusicVideoError("");
+    try {
+      const response = await fetch("/api/creative/video/music-handoff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organization_id: organizationId,
+          music_project_id: project.id,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok || body.success === false || !body.video_project_id) {
+        throw new Error(body.error || "Music video project could not be prepared");
+      }
+      window.location.assign(`/workspace/${organizationId}/creative/video?project_id=${body.video_project_id}`);
+    } catch (error) {
+      setMusicVideoError(error?.message || "Music video project could not be prepared");
+      setMusicVideoBusy(false);
+    }
+  }
 
   return (
     <div className="min-h-full bg-[#F4F3EF] text-[#191919]">
@@ -367,6 +408,9 @@ export default function MusicStudioWorkspace({ runtime, editor }) {
           readinessError={readinessError}
           onOpen={setMode}
           onOpenRoom={openAudioRoom}
+          onCreateMusicVideo={createMusicVideo}
+          musicVideoBusy={musicVideoBusy}
+          musicVideoError={musicVideoError}
           organizationId={organizationId}
           projectId={project?.id || null}
           projects={(runtime.projectRuntime?.items || []).filter((item) => { const value = `${item.production_type || ""} ${item.project_type || ""} ${item.metadata?.media_kind || ""} ${item.metadata?.studio || ""}`.toLowerCase(); return item.id === project?.id || /music|audio|song/.test(value); })}

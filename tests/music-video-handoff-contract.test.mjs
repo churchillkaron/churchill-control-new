@@ -3,6 +3,8 @@ import fs from "node:fs";
 import test from "node:test";
 
 const handoff = fs.readFileSync("lib/creative/video/runtime/CreativeMusicVideoHandoffRuntime.js", "utf8");
+const route = fs.readFileSync("app/api/creative/video/music-handoff/route.js", "utf8");
+const workspace = fs.readFileSync("components/creative/ProductionStudio/workspaces/MusicStudioWorkspace.jsx", "utf8");
 const finalization = fs.readFileSync("lib/creative/music/runtime/CreativeMusicProfessionalFinalizationRuntime.js", "utf8");
 
 test("professional mastering settles the current Music Studio master", () => {
@@ -29,4 +31,14 @@ test("music-video production profile requires musical alignment and fast verifie
   assert.match(handoff, /music_bpm/);
   assert.match(handoff, /music_time_signature/);
   assert.match(handoff, /vocal_preparation/);
+});
+
+test("Music Studio can create or reuse a linked Video Studio project without manual ids", () => {
+  assert.match(handoff, /createOrReuseMusicVideoProject/);
+  assert.match(handoff, /audioAuthorityRank/);
+  assert.match(handoff, /kind === "SOURCE"/);
+  assert.match(route, /createOrReuseMusicVideoProject/);
+  assert.match(workspace, /Create Music Video/);
+  assert.match(workspace, /\/api\/creative\/video\/music-handoff/);
+  assert.match(workspace, /creative\/video\?project_id=/);
 });

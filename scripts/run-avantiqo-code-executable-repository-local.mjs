@@ -16,6 +16,7 @@ import {
   codeAIRepositoryVerifierProtocolSha256,
 } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 import { attestCodeAIRepositoryReferenceReport } from "../lib/code/runtime/CodeAIRepositoryReferenceAttestationRuntime.js";
+import { attestCodeAIRepositoryOwnedReport } from "../lib/code/runtime/CodeAIRepositoryOwnedAttestationRuntime.js";
 
 loadAvantiqoEnv();
 
@@ -652,7 +653,7 @@ const report = {
 };
 const deliverable = referenceMode
   ? attestCodeAIRepositoryReferenceReport(report, { env: process.env })
-  : report;
+  : attestCodeAIRepositoryOwnedReport(report, { env: process.env });
 if (outputPath) await writeFile(resolve(outputPath), JSON.stringify(deliverable, null, 2) + "\n", "utf8");
 console.log(JSON.stringify(deliverable, null, 2));
 if (passed !== observations.length) process.exitCode = 2;

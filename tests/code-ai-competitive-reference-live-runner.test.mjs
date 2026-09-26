@@ -317,3 +317,35 @@ test("template fingerprint ignores case anchor substitutions while preserving su
   assert.match(first.response_template_fingerprint_sha256, /^[a-f0-9]{64}$/);
   assert.equal(first.response_template_fingerprint_sha256, second.response_template_fingerprint_sha256);
 });
+
+
+test("template simhash remains close after a small generic filler change", () => {
+  const benchmarkCase = {
+    case_id: "simhash-case",
+    category: "performance",
+    title: "Parallelize independent reads",
+    required_evidence: ["parallelized", "latency_measurement"],
+  };
+  const base = {
+    case_id: "simhash-case",
+    diagnosis: "Independent reads execute serially at the request boundary and add avoidable delay.",
+    solution: "Parallelize the independent reads while preserving output ordering and existing failure handling.",
+    verification: "Measure latency before and after the change and compare the response behavior for equivalence.",
+    evidence: {
+      parallelized: "Independent reads execute concurrently after the change while preserving the request boundary.",
+      latency_measurement: "Latency measurement compares the same request before and after parallel execution.",
+    },
+  };
+  const changed = structuredClone(base);
+  changed.solution += " This remains narrowly scoped.";
+  const first = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify(base));
+  const second = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify(changed));
+  const distance = (() => {
+    let value = BigInt(`0x${first.response_template_simhash64}`) ^ BigInt(`0x${second.response_template_simhash64}`);
+    let count = 0;
+    while (value) { count += Number(value & 1n); value >>= 1n; }
+    return count;
+  })();
+  assert.notEqual(first.response_template_fingerprint_sha256, second.response_template_fingerprint_sha256);
+  assert.ok(distance < 8);
+});

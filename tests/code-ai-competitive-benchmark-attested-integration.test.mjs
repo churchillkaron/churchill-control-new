@@ -28,7 +28,8 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
     evidence_grounding_score: 0.9,
     narrative_grounding_score: 0.9,
     evidence_distinctness_score: 0.9,
-    response_template_fingerprint_sha256: ((index + 120).toString(16).padStart(2, "0")).repeat(32),
+    response_template_fingerprint_sha256: sha256(`template:${case_id}`),
+    response_template_simhash64: sha256(`simhash:${case_id}`).slice(0, 16),
     latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
     wall_ms: wallMs + index,
     input_tokens: 100,
@@ -387,4 +388,19 @@ test("duplicate cross-case template fingerprints are rejected", async () => {
   assert.equal(report.competitive_certified, false);
   assert.equal(report.comparisons[0].gates.owned_cross_case_templates_unique, false);
   assert.equal(report.comparisons[1].gates.owned_cross_case_templates_unique, false);
+});
+
+
+test("near-duplicate cross-case template simhashes are rejected", async () => {
+  const paths = await fixture();
+  const owned = JSON.parse(await readFile(paths.ownedPath, "utf8"));
+  owned.observations[1].response_template_simhash64 = owned.observations[0].response_template_simhash64.slice(0, 15) +
+    (owned.observations[0].response_template_simhash64.endsWith("0") ? "1" : "0");
+  delete owned.owned_attestation;
+  await writeFile(paths.ownedPath, JSON.stringify(attestCodeAICompetitiveOwnedReport(owned, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  const report = JSON.parse(await readFile(paths.outputPath, "utf8"));
+  assert.equal(report.comparisons[0].gates.owned_cross_case_templates_unique, false);
+  assert.ok(report.comparisons[0].owned_template_fingerprints.minimum_simhash_hamming_distance < 8);
 });

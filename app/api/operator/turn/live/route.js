@@ -13,6 +13,7 @@ import {
 import {
   operatorExecutionStatePresentation,
 } from "@/lib/operator/presentation/OperatorExecutionStatePresentation.js";
+import { runBusinessPartnerBrowserBenchmarkTurn } from "@/lib/operator/runtime/BusinessPartnerBrowserBenchmarkRuntime.mjs";
 
 export const runtime = "nodejs";
 // Owned Intelligence is zero-idle. A cold Fast request may first prove that
@@ -110,6 +111,40 @@ export async function POST(request) {
     if (organizationId) {
       const access = await requireOrganizationAccess({ organizationId, request });
       if (access.success) {
+        const browserBenchmarkTurn = await runBusinessPartnerBrowserBenchmarkTurn({
+          organizationId: access.organizationId || organizationId,
+          partyId: access.staff?.party_id || access.staff?.partyId || null,
+          entityId: text(body.entityId || body.entity_id) || null,
+          message: body.message,
+          conversation: Array.isArray(body.conversation) ? body.conversation : [],
+        });
+        if (browserBenchmarkTurn) {
+          return Response.json({
+            success: true,
+            state_unchanged: true,
+            decision: {
+              response_text: JSON.stringify(browserBenchmarkTurn.decision),
+              intent: "benchmark",
+              confidence: 1,
+              clarification: { required: false, question: null, options: [] },
+              navigation: { target_id: null },
+              execution: { capability_key: null, payload: {}, reason: null },
+              plan: [],
+            },
+            navigation: null,
+            execution: { status: "not_run", capability: null, result: null },
+            provider_evidence: {
+              contract: browserBenchmarkTurn.contract,
+              synthetic_only: true,
+              business_mutation_performed: false,
+              conversation_persisted: false,
+              authorization_effect: "NONE",
+            },
+            agreement_state: {},
+            project_state: {},
+            authorization_effect: "NONE",
+          });
+        }
         const instantGreeting = resolveOperatorInstantGreeting({
           message: body.message,
           source: body.source || "text",

@@ -41,3 +41,22 @@ test("inspector exposes matte choke soften despill and decontamination controls"
   for(const label of ["Matte choke px","Edge soften px","Despill strength %","Decontaminate %"])assert.match(source,new RegExp(label));
   assert.match(source,/Despill mode/);
 });
+
+
+test("matte choke shrinks alpha while expansion grows it",()=>{
+  const raw=Buffer.from([
+    0,0,0,0, 100,100,100,255, 0,0,0,0,
+  ]);
+  const choked=applyImageStudioEdgeIntegration(raw,3,1,4,{edge_integration:{matte_choke_px:1}});
+  const expanded=applyImageStudioEdgeIntegration(raw,3,1,4,{edge_integration:{matte_choke_px:-1}});
+  assert.equal(choked.bytes[7],0);
+  assert.equal(expanded.bytes[3],255);
+  assert.equal(expanded.bytes[11],255);
+});
+
+test("edge morphology uses separable linear-time passes for large masters",()=>{
+  const source=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioEdgeIntegrationRuntime.js","utf8");
+  assert.match(source,/separableAlpha/);
+  assert.match(source,/extremaLine/);
+  assert.match(source,/blurLine/);
+});

@@ -9,6 +9,7 @@ const {
   refreshCodeAICompetitiveBenchmarkEvidenceFreshness,
   sealCodeAICompetitiveBenchmarkStoredEvidence,
   verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity,
+  verifyCodeAICompetitiveBenchmarkStoredEvidenceRecord,
   validateCodeAICompetitiveBenchmarkStorageCommit,
   quarantineInvalidCodeAICompetitiveBenchmarkStoredEvidence,
 } = await import("../lib/code/runtime/CodeAICompetitiveBenchmarkEvidenceRuntime.js");
@@ -330,6 +331,8 @@ test("competitive benchmark evidence persists globally but remains advisory to c
   assert.match(runtime, /AVANTIQO_CODE_COMPETITIVE_HISTORY_ATTESTATION_V2/);
   assert.match(runtime, /ATTESTATION_KEYRING/);
   assert.match(runtime, /ATTESTATION_KEY_ID/);
+  assert.match(runtime, /HISTORY_ROW_TIMESTAMP_MISMATCH/);
+  assert.match(runtime, /verifyCodeAICompetitiveBenchmarkStoredEvidenceRecord/);
   assert.match(runtime, /createHmac/);
   assert.match(runtime, /timingSafeEqual/);
   assert.match(runtime, /STORAGE_SOURCE_COMMIT_MISMATCH/);
@@ -419,4 +422,42 @@ test("new history uses the configured active rotation key", () => {
   const verified = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(sealed, { env: ROTATED_HISTORY_ENV });
   assert.equal(verified.valid, true);
   assert.equal(verified.key_id, "k2");
+});
+
+
+test("sealed history record is accepted only when row timestamp matches persisted_at", () => {
+  const evidence = boundProjection(report());
+  const persistedAt = new Date().toISOString();
+  const sealed = sealCodeAICompetitiveBenchmarkStoredEvidence(evidence, {
+    storage_repository_commit: "1".repeat(40),
+    persisted_at: persistedAt,
+    env: ROTATED_HISTORY_ENV,
+  });
+  const verified = verifyCodeAICompetitiveBenchmarkStoredEvidenceRecord(sealed, {
+    row_updated_at: persistedAt,
+    env: ROTATED_HISTORY_ENV,
+  });
+  assert.equal(verified.valid, true);
+  assert.equal(verified.row_timestamp_valid, true);
+  assert.equal(verified.replay_resistant, true);
+});
+
+test("replayed sealed history with a newer row timestamp fails closed", () => {
+  const evidence = boundProjection(report());
+  const persistedAt = new Date(Date.now() - 60_000).toISOString();
+  const sealed = sealCodeAICompetitiveBenchmarkStoredEvidence(evidence, {
+    storage_repository_commit: "1".repeat(40),
+    persisted_at: persistedAt,
+    env: ROTATED_HISTORY_ENV,
+  });
+  const replayed = verifyCodeAICompetitiveBenchmarkStoredEvidenceRecord(sealed, {
+    row_updated_at: new Date().toISOString(),
+    env: ROTATED_HISTORY_ENV,
+  });
+  assert.equal(replayed.valid, false);
+  assert.equal(replayed.row_timestamp_valid, false);
+  assert.equal(replayed.reason, "HISTORY_ROW_TIMESTAMP_MISMATCH");
+  const quarantined = quarantineInvalidCodeAICompetitiveBenchmarkStoredEvidence(sealed, replayed);
+  assert.equal(quarantined.competitive_certified, false);
+  assert.equal(quarantined.decision_support_allowed, false);
 });

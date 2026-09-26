@@ -42,7 +42,7 @@ if (!new Set(["openai", "anthropic"]).has(provider)) {
 if (!model) throw new Error("AVANTIQO_CODE_COMPETITIVE_REFERENCE_MODEL_REQUIRED");
 const inputUsdPer1m = number(process.env.AVANTIQO_CODE_COMPETITIVE_REFERENCE_INPUT_USD_PER_1M);
 const outputUsdPer1m = number(process.env.AVANTIQO_CODE_COMPETITIVE_REFERENCE_OUTPUT_USD_PER_1M);
-if (!(inputUsdPer1m >= 0) || !(outputUsdPer1m >= 0)) {
+if (!(inputUsdPer1m > 0) || !(outputUsdPer1m > 0)) {
   throw new Error("AVANTIQO_CODE_COMPETITIVE_REFERENCE_PRICING_REQUIRED");
 }
 
@@ -75,6 +75,10 @@ if (provider === "openai") {
       wall_ms: Date.now() - startedAt,
       input_tokens: inputTokens,
       output_tokens: outputTokens,
+      token_usage_source: "PROVIDER_API_USAGE_V1",
+      pricing_input_usd_per_1m: inputUsdPer1m,
+      pricing_output_usd_per_1m: outputUsdPer1m,
+      pricing_source: "OPERATOR_APPROVED_REFERENCE_PRICING_V1",
       cost_usd: costFor(inputTokens, outputTokens),
     };
   };
@@ -110,6 +114,10 @@ if (provider === "openai") {
       wall_ms: Date.now() - startedAt,
       input_tokens: inputTokens,
       output_tokens: outputTokens,
+      token_usage_source: "PROVIDER_API_USAGE_V1",
+      pricing_input_usd_per_1m: inputUsdPer1m,
+      pricing_output_usd_per_1m: outputUsdPer1m,
+      pricing_source: "OPERATOR_APPROVED_REFERENCE_PRICING_V1",
       cost_usd: costFor(inputTokens, outputTokens),
     };
   };

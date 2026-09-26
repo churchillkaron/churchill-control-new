@@ -35,7 +35,14 @@ function report(overrides = {}) {
       passed: true,
       latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
       wall_ms: 100 + index,
-      supplier_cost_usd: 0.001,
+      input_tokens: 100,
+      output_tokens: 80,
+      token_usage_source: "PROVIDER_API_USAGE_V1",
+      pricing_input_usd_per_1m: 5,
+      pricing_output_usd_per_1m: 10,
+      pricing_source: "OPERATOR_APPROVED_REFERENCE_PRICING_V1",
+      cost_measurement_source: "RUNNER_RECOMPUTED_FROM_USAGE_AND_PRICING_V1",
+      supplier_cost_usd: 0.0013,
     })),
     ...overrides,
   };
@@ -89,5 +96,15 @@ test("unsigned or spoofed live reference reports are rejected", () => {
   assert.throws(
     () => validateCodeAICompetitiveReferenceReportShape(report({ provider_execution_performed: false }), verifyOptions),
     /CODE_AI_COMPETITIVE_REFERENCE_PROVIDER_EXECUTION_REQUIRED/,
+  );
+});
+
+
+test("tampered recomputed cost is rejected before signing", () => {
+  const invalid = report();
+  invalid.observations[0].supplier_cost_usd = 0.00001;
+  assert.throws(
+    () => attestCodeAICompetitiveReferenceReport(invalid, { env }),
+    /CODE_AI_COMPETITIVE_REFERENCE_COST_RECOMPUTATION_MISMATCH/,
   );
 });

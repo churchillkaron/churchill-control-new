@@ -52,7 +52,11 @@ test("controlled live reference runner uses the canonical prompt contract and si
         wall_ms: 1,
         input_tokens: 100,
         output_tokens: 80,
-        cost_usd: 0.002,
+        token_usage_source: "PROVIDER_API_USAGE_V1",
+        pricing_input_usd_per_1m: 5,
+        pricing_output_usd_per_1m: 10,
+        pricing_source: "OPERATOR_APPROVED_REFERENCE_PRICING_V1",
+        cost_usd: 999,
       };
     },
   });
@@ -63,7 +67,12 @@ test("controlled live reference runner uses the canonical prompt contract and si
   assert.equal(report.raw_model_output_persisted, false);
   assert.equal(report.raw_reasoning_persisted, false);
   assert.equal(report.normal_avantiqo_code_execution_uses_reference_provider, false);
-  assert.equal(report.economics.estimated_supplier_cost_usd, Number((suite.cases.length * 0.002).toFixed(8)));
+  assert.equal(report.economics.estimated_supplier_cost_usd, Number((suite.cases.length * 0.0013).toFixed(8)));
+  assert.ok(report.observations.every((item) => item.cost_measurement_source === "RUNNER_RECOMPUTED_FROM_USAGE_AND_PRICING_V1"));
+  assert.ok(report.observations.every((item) => item.token_usage_source === "PROVIDER_API_USAGE_V1"));
+  assert.ok(report.observations.every((item) => item.pricing_source === "OPERATOR_APPROVED_REFERENCE_PRICING_V1"));
+  assert.equal(report.observations[0].supplier_cost_usd, 0.0013);
+  assert.equal(report.observations[0].provider_reported_cost_usd, 999);
   assert.ok(report.observations.every((item) => item.raw_output_persisted === false));
   assert.ok(report.observations.every((item) => item.latency_measurement_source === "RUNNER_MONOTONIC_CLOCK_V1"));
   assert.equal(report.observations[0].provider_reported_wall_ms, 1);

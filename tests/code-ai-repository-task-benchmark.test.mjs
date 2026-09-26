@@ -67,3 +67,32 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
   assert.equal(result.cases[0].gates.repository_mutation_observed, false);
   assert.equal(result.cases[0].gates.hidden_acceptance_bound, false);
 });
+
+
+test("reused proof identity across cases is rejected", () => {
+  const first = proof();
+  const second = { ...proof(), case_id: "case-2" };
+  const result = assessCodeAIRepositoryTaskBenchmark({ observations: [first, second] });
+  assert.equal(result.passed_case_count, 2);
+  assert.equal(result.repository_proof_identity_unique_per_case, false);
+  assert.equal(result.unique_repository_proof_identity_count, 1);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+test("distinct proof identities across cases certify", () => {
+  const first = proof();
+  const second = {
+    ...proof(),
+    case_id: "case-2",
+    diff_sha256: "6".repeat(64),
+    artifact_sha256: "7".repeat(64),
+    repository_verification: {
+      ...proof().repository_verification,
+      hidden_acceptance_sha256: "8".repeat(64),
+    },
+  };
+  const result = assessCodeAIRepositoryTaskBenchmark({ observations: [first, second] });
+  assert.equal(result.repository_proof_identity_unique_per_case, true);
+  assert.equal(result.unique_repository_proof_identity_count, 2);
+  assert.equal(result.repository_task_artifact_certified, true);
+});

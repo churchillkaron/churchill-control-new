@@ -19,6 +19,7 @@ function proof(overrides = {}) {
   const caseId = overrides.case_id || "case-1";
   return {
     case_id: caseId,
+    repository_origin: `https://github.com/avantiqo-benchmark/${caseId}`,
     allowed_edit_paths: ["invoice-total.mjs"],
     passed: true,
     base_commit: "1".repeat(40),
@@ -37,6 +38,7 @@ function proof(overrides = {}) {
     repository_verification: {
       case_id: caseId,
       benchmark_run_id: overrides.benchmark_run_id || BENCHMARK_RUN_ID,
+      repository_origin: `https://github.com/avantiqo-benchmark/${caseId}`,
       independent: true,
       verifier: "hidden-node-test",
       verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
@@ -78,6 +80,7 @@ test("candidate pass flag alone cannot certify repository task superiority", () 
 test("synthetic-looking hashes without executed repository evidence cannot certify", () => {
   const synthetic = {
     case_id: "case-2",
+    repository_origin: "https://github.com/avantiqo-benchmark/case-2",
     allowed_edit_paths: ["invoice-total.mjs"],
     passed: true,
     base_commit: "1".repeat(40),
@@ -91,6 +94,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
     repository_verification: {
       case_id: "case-2",
       benchmark_run_id: BENCHMARK_RUN_ID,
+      repository_origin: "https://github.com/avantiqo-benchmark/case-2",
       independent: true,
       verifier: "hidden-node-test",
       verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
@@ -402,5 +406,20 @@ test("raw hidden verifier output cannot certify", () => {
     observations: [{ ...base, raw_hidden_verifier_output_persisted: true }],
   });
   assert.equal(result.cases[0].gates.hidden_verifier_output_redacted, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("repository proof must match canonical case origin", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_origin: "https://github.com/avantiqo-benchmark/other-case",
+    }],
+  });
+  assert.equal(result.cases[0].gates.repository_origin_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

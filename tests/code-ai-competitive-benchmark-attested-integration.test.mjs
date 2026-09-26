@@ -23,6 +23,7 @@ const sha256 = (value) => createHash("sha256").update(value, "utf8").digest("hex
 function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85, categoryByCase = {}, evidenceCountByCase = {}, benchmarkRunId = "55555555-5555-4555-8555-555555555555" } = {}) {
   return caseIds.map((case_id, index) => ({
     case_id,
+    repository_origin: `https://github.com/avantiqo-benchmark/${case_id}`,
     category: categoryByCase[case_id] || null,
     allowed_edit_paths: [`benchmark-case-${index}.mjs`],
     passed: true,
@@ -55,6 +56,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
       artifact_bytes: 1024,
       repository_verification: {
         case_id,
+        repository_origin: `https://github.com/avantiqo-benchmark/${case_id}`,
         benchmark_run_id: benchmarkRunId,
         independent: true,
         verifier: "hidden-node-test",

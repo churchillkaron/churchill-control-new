@@ -303,6 +303,7 @@ for (const benchmarkCase of cases) {
       .join("\n---FILE---\n");
     observations.push({
       case_id: benchmarkCase.case_id,
+      repository_origin: fixture.origin,
       allowed_edit_paths: list(benchmarkCase.allowed_edit_paths).map((value) => text(value, 500)),
       passed: hiddenPassed,
       status: text(result?.status, 120),
@@ -323,6 +324,7 @@ for (const benchmarkCase of cases) {
       repository_verification: {
         case_id: benchmarkCase.case_id,
         benchmark_run_id: benchmarkRunId,
+        repository_origin: fixture.origin,
         independent: true,
         verifier: "avantiqo-hidden-node-assert",
         verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",

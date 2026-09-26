@@ -79,6 +79,9 @@ test("controlled live reference runner uses the canonical prompt contract and si
   assert.equal(report.observations[0].provider_reported_wall_ms, 1);
   assert.ok(report.observations[0].wall_ms >= 10);
   assert.ok(seenPrompts[0].includes(`Scenario: ${suite.cases[0].title}`));
+  assert.ok(seenPrompts[0].includes(suite.cases[0].scenario));
+  assert.ok(seenPrompts[0].includes(suite.cases[0].observed_evidence[0]));
+  assert.ok(seenPrompts[0].includes(suite.cases[0].constraints[0]));
   assert.equal(verifyCodeAICompetitiveReferenceReport(report, {
     env,
     suite_contract: suite.contract,
@@ -349,4 +352,38 @@ test("template simhash remains close after a small generic filler change", () =>
   })();
   assert.notEqual(first.response_template_fingerprint_sha256, second.response_template_fingerprint_sha256);
   assert.ok(distance < 8);
+});
+
+
+test("scenario-specific engineering detail scores above generic benchmark boilerplate", () => {
+  const benchmarkCase = {
+    case_id: "scenario-specificity",
+    category: "security",
+    title: "Close a cross-organization authorization leak",
+    required_evidence: ["organization_bound", "negative_test"],
+    evaluation_anchors: ["org-a", "org-b", "invoice-foreign-7"],
+  };
+  const generic = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify({
+    case_id: "scenario-specificity",
+    diagnosis: "The authorization boundary must be scoped to the authenticated organization rather than client controlled data.",
+    solution: "Use server owned organization context and reject mismatched scope while preserving unrelated authorization behavior.",
+    verification: "Add a positive same organization check and a negative cross organization test before treating the repair as complete.",
+    evidence: {
+      organization_bound: "Bind the organization to authenticated server context at the query boundary.",
+      negative_test: "Verify a different organization cannot retrieve another organization invoice.",
+    },
+  }));
+  const specific = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify({
+    case_id: "scenario-specificity",
+    diagnosis: "The org-a session can be overridden by org-b input, which exposes invoice-foreign-7 across the authorization boundary.",
+    solution: "Ignore org-b caller scope and bind the query to authenticated org-a before invoice lookup while preserving entity checks.",
+    verification: "Re-run the cross-organization fixture and prove org-a cannot read invoice-foreign-7 from org-b, plus retain the same-org positive case.",
+    evidence: {
+      organization_bound: "The query predicate derives org-a from authenticated context and never trusts the supplied org-b value.",
+      negative_test: "The org-a request for invoice-foreign-7 owned by org-b must return no foreign record.",
+    },
+  }));
+  assert.equal(generic.passed, true);
+  assert.equal(specific.passed, true);
+  assert.ok(specific.quality_score > generic.quality_score);
 });

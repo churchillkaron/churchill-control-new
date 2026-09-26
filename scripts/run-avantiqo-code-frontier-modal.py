@@ -72,9 +72,14 @@ def load_prompt_contract(path: Path) -> tuple[dict[str, Any], str]:
 
 def render_prompt(prompt_contract: dict[str, Any], case: dict[str, Any]) -> str:
     required = [text(v) for v in case.get("required_evidence", []) if text(v)]
+    observed = [text(v) for v in case.get("observed_evidence", []) if text(v)]
+    constraints = [text(v) for v in case.get("constraints", []) if text(v)]
     replacements = {
         "{{title}}": text(case.get("title")),
         "{{category}}": text(case.get("category")),
+        "{{scenario_json}}": json.dumps(text(case.get("scenario"))),
+        "{{observed_evidence_json}}": json.dumps(observed),
+        "{{constraints_json}}": json.dumps(constraints),
         "{{case_id_json}}": json.dumps(text(case.get("case_id"))),
         "{{required_evidence_json}}": json.dumps(required),
     }

@@ -3,6 +3,10 @@ import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
+import {
+  attestCodeAICompetitiveFullRunManifest,
+  verifyCodeAICompetitiveFullRunManifest,
+} from "../lib/code/runtime/CodeAICompetitiveFullRunAttestationRuntime.js";
 
 loadAvantiqoEnv();
 
@@ -259,7 +263,7 @@ if (
 ) {
   throw new Error(`${CONTRACT}_SOURCE_CHANGED_DURING_RUN`);
 }
-const manifest = {
+const manifestCore = {
   contract: "AVANTIQO_CODE_COMPETITIVE_FULL_RUN_MANIFEST_V1",
   orchestrator_run_id: orchestratorRunId,
   run_root: runRoot,
@@ -277,6 +281,8 @@ const manifest = {
   competitive_certified: report.competitive_certified === true,
   production_deploy_performed: false,
 };
+const manifest = attestCodeAICompetitiveFullRunManifest(manifestCore, { env: process.env });
+verifyCodeAICompetitiveFullRunManifest(manifest, { env: process.env });
 await writeFile(paths.manifest, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 const manifestRaw = await readFile(paths.manifest);
 const manifestSha256 = sha256(manifestRaw);
@@ -288,6 +294,8 @@ console.log(JSON.stringify({
   competitive_report: paths.competitive,
   manifest: paths.manifest,
   manifest_sha256: manifestSha256,
+  manifest_attestation_contract: manifest.full_run_attestation?.contract || null,
+  manifest_attestation_digest: manifest.full_run_attestation?.digest || null,
   competitive_certified: report.competitive_certified === true,
   repository_task_artifact_certified: report.repository_task_evidence?.certified === true,
   quality_superiority_observed: report.quality_superiority_observed === true,

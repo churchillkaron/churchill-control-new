@@ -97,3 +97,11 @@ test("full orchestrator fails closed if source changes during the run", () => {
   assert.match(source, /SOURCE_CHANGED_DURING_RUN/);
   assert.match(source, /source_stable_for_entire_run: true/);
 });
+
+
+test("full orchestrator HMAC-attests and verifies the complete run manifest", () => {
+  assert.match(source, /attestCodeAICompetitiveFullRunManifest/);
+  assert.match(source, /verifyCodeAICompetitiveFullRunManifest/);
+  assert.match(source, /manifest_attestation_contract/);
+  assert.match(source, /manifest_attestation_digest/);
+});

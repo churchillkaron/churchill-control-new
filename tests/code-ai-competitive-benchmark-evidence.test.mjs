@@ -21,6 +21,7 @@ const FULL_RUN_ENV = {
 };
 const SOURCE_REPORT_SHA256 = "a".repeat(64);
 const FULL_RUN_MANIFEST_SHA256 = "b".repeat(64);
+const HISTORY_ENV = FULL_RUN_ENV;
 
 function comparison(provider, model, lossCase) {
   return {
@@ -225,8 +226,9 @@ test("durable competitive history detects tampered stored metadata", () => {
   const sealed = sealCodeAICompetitiveBenchmarkStoredEvidence(evidence, {
     storage_repository_commit: "1".repeat(40),
     persisted_at: new Date().toISOString(),
+    env: HISTORY_ENV,
   });
-  const valid = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(sealed);
+  const valid = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(sealed, { env: HISTORY_ENV });
   assert.equal(valid.valid, true);
   assert.match(sealed.history_integrity_sha256, /^[a-f0-9]{64}$/);
 
@@ -236,16 +238,46 @@ test("durable competitive history detects tampered stored metadata", () => {
       index === 0 ? { ...item, wins: Number(item.wins || 0) + 1 } : item,
     ),
   };
-  const invalid = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(tampered);
+  const invalid = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(tampered, { env: HISTORY_ENV });
   assert.equal(invalid.valid, false);
   assert.equal(invalid.legacy_unsealed, false);
 });
 
 test("legacy unsealed competitive history fails closed to advisory", () => {
   const evidence = boundProjection(report());
-  const integrity = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(evidence);
+  const integrity = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(evidence, { env: HISTORY_ENV });
   assert.equal(integrity.valid, false);
   assert.equal(integrity.legacy_unsealed, true);
+});
+
+test("public fingerprint recomputation cannot forge durable history", () => {
+  const evidence = boundProjection(report());
+  const sealed = sealCodeAICompetitiveBenchmarkStoredEvidence(evidence, {
+    storage_repository_commit: "1".repeat(40),
+    persisted_at: new Date().toISOString(),
+    env: HISTORY_ENV,
+  });
+  const forged = {
+    ...sealed,
+    configuration_sha256: "8".repeat(64),
+  };
+  // An attacker can recompute an ordinary SHA-256 fingerprint but not the server-only HMAC.
+  const invalid = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(forged, { env: HISTORY_ENV });
+  assert.equal(invalid.valid, false);
+  assert.equal(invalid.hmac_valid, false);
+});
+
+test("history verification fails closed when the server attestation secret is unavailable", () => {
+  const evidence = boundProjection(report());
+  const sealed = sealCodeAICompetitiveBenchmarkStoredEvidence(evidence, {
+    storage_repository_commit: "1".repeat(40),
+    persisted_at: new Date().toISOString(),
+    env: HISTORY_ENV,
+  });
+  const result = verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity(sealed, { env: {} });
+  assert.equal(result.valid, false);
+  assert.equal(result.secret_available, false);
+  assert.equal(result.reason, "ATTESTATION_SECRET_UNAVAILABLE");
 });
 
 test("competitive benchmark evidence persists globally but remains advisory to current main", async () => {
@@ -265,6 +297,8 @@ test("competitive benchmark evidence persists globally but remains advisory to c
   assert.match(runtime, /verifyCodeAICompetitiveFullRunManifest/);
   assert.match(runtime, /full_run_manifest_bound/);
   assert.match(runtime, /history_integrity_sha256/);
+  assert.match(runtime, /AVANTIQO_CODE_COMPETITIVE_HISTORY_ATTESTATION_V1/);
+  assert.match(runtime, /createHmac/);
   assert.match(runtime, /timingSafeEqual/);
   assert.match(runtime, /STORAGE_SOURCE_COMMIT_MISMATCH/);
   assert.match(runtime, /CODE_AI_COMPETITIVE_FULL_RUN_REPORT_SHA_MISMATCH/);

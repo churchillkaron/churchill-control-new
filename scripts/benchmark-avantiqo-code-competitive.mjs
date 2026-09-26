@@ -21,11 +21,26 @@ const MIN_SUPERIORITY_WIN_RATE = 0.10;
 const MIN_SUPERIORITY_WIN_CATEGORIES = 3;
 const MAX_P95_LATENCY_RATIO = 1.25;
 const MAX_COST_RATIO = 1.25;
+const DEFAULT_REQUIRED_REFERENCE_PROVIDERS = Object.freeze(["openai", "google"]);
 
 const text = (value) => String(value ?? "").trim();
 const finite = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
 const list = (value) => Array.isArray(value) ? value : [];
 const sha256 = (value) => createHash("sha256").update(String(value ?? ""), "utf8").digest("hex");
+
+
+function canonicalReferenceProvider(value) {
+  const provider = text(value).toLowerCase();
+  return provider === "gemini" ? "google" : provider;
+}
+
+function requiredReferenceProviders() {
+  const configured = text(process.env.AVANTIQO_CODE_COMPETITIVE_REQUIRED_PROVIDERS)
+    .split(",")
+    .map(canonicalReferenceProvider)
+    .filter(Boolean);
+  return [...new Set(configured.length ? configured : DEFAULT_REQUIRED_REFERENCE_PROVIDERS)].sort();
+}
 
 function percentile(values, p) {
   const safe = values.map(finite).filter((value) => value !== null).sort((a, b) => a - b);
@@ -238,6 +253,12 @@ if (
   throw new Error("AVANTIQO_CODE_COMPETITIVE_OWNED_PROMPT_CONTRACT_MISMATCH");
 }
 const references = await Promise.all(referencePaths.map(async (path) => JSON.parse(await readFile(path, "utf8"))));
+const requiredProviders = requiredReferenceProviders();
+const availableProviders = [...new Set(references.map((reference) => canonicalReferenceProvider(reference?.provider)).filter(Boolean))].sort();
+const missingProviders = requiredProviders.filter((provider) => !availableProviders.includes(provider));
+if (missingProviders.length) {
+  throw new Error(`AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_PROVIDERS_MISSING:${missingProviders.join(",")}`);
+}
 for (const reference of references) {
   verifyCodeAICompetitiveReferenceReport(reference, {
     suite_contract: SUITE_CONTRACT,
@@ -251,7 +272,10 @@ for (const reference of references) {
   }
 }
 const comparisons = references.map((reference) => compareReference(owned, reference, requiredCaseIds));
-const competitiveCertified = comparisons.length >= 2 && comparisons.every((item) => item.passed);
+const providerDiversityCertified =
+  requiredProviders.every((provider) => availableProviders.includes(provider)) &&
+  availableProviders.length >= requiredProviders.length;
+const competitiveCertified = providerDiversityCertified && comparisons.length >= 2 && comparisons.every((item) => item.passed);
 const ownedRepositoryTaskEvidence = assessCodeAIRepositoryTaskBenchmark(owned);
 const referenceRepositoryTaskEvidence = references.map((reference) => assessCodeAIRepositoryTaskBenchmark(reference));
 const repositoryTaskArtifactCertified =
@@ -290,6 +314,8 @@ const report = {
     maximum_p95_latency_ratio: MAX_P95_LATENCY_RATIO,
     maximum_cost_ratio: MAX_COST_RATIO,
     identical_task_ids_required: true,
+    distinct_required_reference_providers: true,
+    default_required_reference_providers: DEFAULT_REQUIRED_REFERENCE_PROVIDERS,
     canonical_suite_exact_match_required: true,
     cryptographic_reference_attestation_required: true,
     exact_suite_sha256_binding_required: true,
@@ -312,6 +338,9 @@ const report = {
     certified: repositoryTaskArtifactCertified,
   },
   competitive_certified: competitiveCertified,
+  provider_diversity_certified: providerDiversityCertified,
+  required_reference_providers: requiredProviders,
+  available_reference_providers: availableProviders,
   quality_superiority_observed: qualitySuperiorityObserved,
   superiority_claim_allowed: superiorityClaimAllowed,
 };
@@ -322,6 +351,9 @@ console.log(JSON.stringify({
   contract: CONTRACT,
   output_path: outputPath,
   competitive_certified: competitiveCertified,
+  provider_diversity_certified: providerDiversityCertified,
+  required_reference_providers: requiredProviders,
+  available_reference_providers: availableProviders,
   repository_task_artifact_certified: repositoryTaskArtifactCertified,
   superiority_claim_allowed: superiorityClaimAllowed,
   references: comparisons.map(({ reference, case_count, win_rate, passed, gates }) => ({ reference, case_count, win_rate, passed, gates })),

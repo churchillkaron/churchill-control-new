@@ -135,10 +135,10 @@ async function fixture() {
   }, { env });
   await writeFile(ownedPath, JSON.stringify(owned));
   const refA = attestCodeAICompetitiveReferenceReport(referenceReport({
-    provider: "reference-a", model: "model-a", caseIds, suiteSha, promptSha, wallMs: 100,
+    provider: "openai", model: "model-a", caseIds, suiteSha, promptSha, wallMs: 100,
   }), { env });
   const refB = attestCodeAICompetitiveReferenceReport(referenceReport({
-    provider: "reference-b", model: "model-b", caseIds, suiteSha, promptSha, wallMs: 110,
+    provider: "google", model: "model-b", caseIds, suiteSha, promptSha, wallMs: 110,
   }), { env });
   await writeFile(refAPath, JSON.stringify(refA));
   await writeFile(refBPath, JSON.stringify(refB));
@@ -276,4 +276,16 @@ test("three wins in one category cannot establish broad superiority", async () =
   }
   assert.equal(report.quality_superiority_observed, false);
   assert.equal(report.superiority_claim_allowed, false);
+});
+
+
+test("duplicate vendor references cannot satisfy the provider floor", async () => {
+  const paths = await fixture();
+  const current = JSON.parse(await readFile(paths.refBPath, "utf8"));
+  const unsigned = { ...current, provider: "openai" };
+  delete unsigned.attestation;
+  await writeFile(paths.refBPath, JSON.stringify(attestCodeAICompetitiveReferenceReport(unsigned, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_PROVIDERS_MISSING:google/);
 });

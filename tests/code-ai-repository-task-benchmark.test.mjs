@@ -312,3 +312,22 @@ test("out-of-scope changed path cannot certify repository proof", () => {
 >>>>>>> 3e789f315 (harden(code): prove repository edits stay in scope)
   assert.equal(result.repository_task_artifact_certified, false);
 });
+
+
+test("widened allowed scope cannot hide missing verifier mutations", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        changed_paths: ["invoice-total.mjs"],
+        allowed_edit_paths: ["invoice-total.mjs", "extra-helper.mjs"],
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.verifier_edit_scope_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});

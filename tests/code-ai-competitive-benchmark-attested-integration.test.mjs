@@ -713,3 +713,31 @@ test("signed repository evidence must align in time with its frontier reference"
   assert.notEqual(run.status, 0);
   assert.match(`${run.stderr}\n${run.stdout}`, /AVANTIQO_CODE_COMPETITIVE_REPOSITORY_FRONTIER_SKEW_EXCEEDED:openai:model-a/);
 });
+
+test("signed repository benchmark run ids must be unique", async () => {
+  const paths = await fixture();
+  const owned = JSON.parse(await readFile(paths.ownedRepositoryPath, "utf8"));
+  const reference = JSON.parse(await readFile(paths.refARepositoryPath, "utf8"));
+  reference.benchmark_run_id = owned.benchmark_run_id;
+  for (const observation of reference.observations) {
+    observation.repository_verification.benchmark_run_id = owned.benchmark_run_id;
+  }
+  await writeFile(paths.refARepositoryPath, JSON.stringify(attestCodeAIRepositoryReferenceReport(reference, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(`${run.stderr}\n${run.stdout}`, /AVANTIQO_CODE_COMPETITIVE_UNIQUE_REPOSITORY_RUN_IDS_REQUIRED/);
+});
+
+test("repository benchmark run ids cannot collide with frontier run ids", async () => {
+  const paths = await fixture();
+  const frontier = JSON.parse(await readFile(paths.ownedPath, "utf8"));
+  const owned = JSON.parse(await readFile(paths.ownedRepositoryPath, "utf8"));
+  owned.benchmark_run_id = frontier.benchmark_run_id;
+  for (const observation of owned.observations) {
+    observation.repository_verification.benchmark_run_id = frontier.benchmark_run_id;
+  }
+  await writeFile(paths.ownedRepositoryPath, JSON.stringify(attestCodeAIRepositoryOwnedReport(owned, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(`${run.stderr}\n${run.stdout}`, /AVANTIQO_CODE_COMPETITIVE_REPOSITORY_FRONTIER_RUN_ID_COLLISION/);
+});

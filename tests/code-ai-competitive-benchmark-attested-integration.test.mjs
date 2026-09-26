@@ -127,7 +127,9 @@ test("competitive certification requires valid attested live reference artifacts
   assert.equal(passed.status, 0, passed.stderr || passed.stdout);
   const report = JSON.parse(await readFile(paths.outputPath, "utf8"));
   assert.equal(report.competitive_certified, true);
-  assert.equal(report.superiority_claim_allowed, true);
+  assert.equal(report.competitive_certified, true);
+  assert.equal(report.quality_superiority_observed, false);
+  assert.equal(report.superiority_claim_allowed, false);
   assert.equal(report.requirements.cryptographic_reference_attestation_required, true);
 
   const tampered = structuredClone(paths.refA);

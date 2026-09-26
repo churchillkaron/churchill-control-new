@@ -13,7 +13,7 @@ const SUITE_CONTRACT = "AVANTIQO_CODE_FRONTIER_ENGINEERING_SUITE_V1";
 const PROMPT_CONTRACT = "AVANTIQO_CODE_FRONTIER_PROMPT_CONTRACT_V1";
 const MIN_CASES = 20;
 const MAX_REFERENCE_AGE_DAYS = 30;
-const MIN_WIN_RATE = 0.55;
+const MIN_NON_LOSS_RATE = 0.95;
 const MAX_P95_LATENCY_RATIO = 1.25;
 const MAX_COST_RATIO = 1.25;
 
@@ -58,18 +58,19 @@ function compareCase(owned, reference) {
   const referencePassed = reference?.passed === true;
   const ownedLatency = finite(owned?.wall_ms);
   const referenceLatency = finite(reference?.wall_ms);
-  const correctness = ownedPassed === referencePassed ? 0 : ownedPassed ? 1 : -1;
-  const latency = ownedLatency !== null && referenceLatency !== null
-    ? referenceLatency === ownedLatency ? 0 : ownedLatency < referenceLatency ? 1 : -1
-    : 0;
-  const score = correctness * 10 + latency;
+  const qualityOutcome = ownedPassed === referencePassed ? "TIE" : ownedPassed ? "WIN" : "LOSS";
+  const latencyOutcome = ownedLatency !== null && referenceLatency !== null
+    ? referenceLatency === ownedLatency ? "TIE" : ownedLatency < referenceLatency ? "WIN" : "LOSS"
+    : "UNKNOWN";
   return {
     case_id: text(owned?.case_id),
     owned_passed: ownedPassed,
     reference_passed: referencePassed,
     owned_wall_ms: ownedLatency,
     reference_wall_ms: referenceLatency,
-    outcome: score > 0 ? "WIN" : score < 0 ? "LOSS" : "TIE",
+    quality_outcome: qualityOutcome,
+    latency_outcome: latencyOutcome,
+    outcome: qualityOutcome,
   };
 }
 
@@ -82,11 +83,13 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
   const exactRequiredReference = referenceIds.length === requiredCaseIds.length && referenceIds.every((id, index) => id === requiredCaseIds[index]);
   const sameCases = exactRequiredOwned && exactRequiredReference;
   const comparisons = sameCases ? requiredCaseIds.map((id) => compareCase(owned.get(id), reference.get(id))) : [];
-  const wins = comparisons.filter((item) => item.outcome === "WIN").length;
-  const losses = comparisons.filter((item) => item.outcome === "LOSS").length;
-  const ties = comparisons.filter((item) => item.outcome === "TIE").length;
-  const decisive = wins + losses;
-  const winRate = decisive ? wins / decisive : 0;
+  const wins = comparisons.filter((item) => item.quality_outcome === "WIN").length;
+  const losses = comparisons.filter((item) => item.quality_outcome === "LOSS").length;
+  const ties = comparisons.filter((item) => item.quality_outcome === "TIE").length;
+  const nonLossRate = comparisons.length ? (wins + ties) / comparisons.length : 0;
+  const latencyWins = comparisons.filter((item) => item.latency_outcome === "WIN").length;
+  const latencyLosses = comparisons.filter((item) => item.latency_outcome === "LOSS").length;
+  const latencyTies = comparisons.filter((item) => item.latency_outcome === "TIE").length;
   const ownedPassRate = comparisons.length ? comparisons.filter((item) => item.owned_passed).length / comparisons.length : 0;
   const referencePassRate = comparisons.length ? comparisons.filter((item) => item.reference_passed).length / comparisons.length : 0;
   const ownedP95 = percentile(comparisons.map((item) => item.owned_wall_ms), 0.95);
@@ -105,7 +108,7 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
     reference_uses_canonical_suite: exactRequiredReference,
     minimum_case_count: comparisons.length >= MIN_CASES,
     owned_pass_rate_not_worse: ownedPassRate >= referencePassRate,
-    owned_win_rate: winRate >= MIN_WIN_RATE,
+    owned_quality_non_loss_rate: nonLossRate >= MIN_NON_LOSS_RATE,
     reference_fresh: referenceFresh,
     p95_latency_competitive: latencyRatio !== null && latencyRatio <= MAX_P95_LATENCY_RATIO,
     cost_competitive: costRatio !== null && costRatio <= MAX_COST_RATIO,
@@ -118,7 +121,10 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
     wins,
     losses,
     ties,
-    win_rate: Number(winRate.toFixed(4)),
+    quality_non_loss_rate: Number(nonLossRate.toFixed(4)),
+    latency_wins: latencyWins,
+    latency_losses: latencyLosses,
+    latency_ties: latencyTies,
     owned_pass_rate: Number(ownedPassRate.toFixed(4)),
     reference_pass_rate: Number(referencePassRate.toFixed(4)),
     owned_p95_wall_ms: ownedP95,
@@ -193,7 +199,11 @@ const repositoryTaskArtifactCertified =
   ownedRepositoryTaskEvidence.repository_task_artifact_certified === true &&
   referenceRepositoryTaskEvidence.length >= 2 &&
   referenceRepositoryTaskEvidence.every((item) => item.repository_task_artifact_certified === true);
-const superiorityClaimAllowed = competitiveCertified && repositoryTaskArtifactCertified;
+const qualitySuperiorityObserved =
+  comparisons.length >= 2 &&
+  comparisons.every((item) => item.owned_pass_rate >= item.reference_pass_rate) &&
+  comparisons.some((item) => item.wins > 0 && item.losses === 0);
+const superiorityClaimAllowed = competitiveCertified && repositoryTaskArtifactCertified && qualitySuperiorityObserved;
 
 const report = {
   contract: CONTRACT,
@@ -208,7 +218,7 @@ const report = {
     minimum_references: 2,
     minimum_cases_per_reference: MIN_CASES,
     maximum_reference_age_days: MAX_REFERENCE_AGE_DAYS,
-    minimum_decisive_win_rate: MIN_WIN_RATE,
+    minimum_quality_non_loss_rate: MIN_NON_LOSS_RATE,
     maximum_p95_latency_ratio: MAX_P95_LATENCY_RATIO,
     maximum_cost_ratio: MAX_COST_RATIO,
     identical_task_ids_required: true,
@@ -221,6 +231,8 @@ const report = {
     actual_repository_mutation_evidence_required_for_superiority: true,
     independent_repository_verification_required_for_superiority: true,
     hidden_acceptance_evidence_required_for_superiority: true,
+    speed_alone_cannot_establish_quality_superiority: true,
+    quality_superiority_requires_reference_quality_win: true,
   },
   comparisons,
   repository_task_evidence: {
@@ -229,6 +241,7 @@ const report = {
     certified: repositoryTaskArtifactCertified,
   },
   competitive_certified: competitiveCertified,
+  quality_superiority_observed: qualitySuperiorityObserved,
   superiority_claim_allowed: superiorityClaimAllowed,
 };
 

@@ -85,6 +85,19 @@ if (!/^[a-f0-9]{40}$/i.test(runnerSourceCommit)) throw new Error(`${CONTRACT}_RU
 const runnerSourceStatus = text(must("git", ["status", "--porcelain", "--untracked-files=no"], process.cwd()).stdout, 12000);
 if (runnerSourceStatus) throw new Error(`${CONTRACT}_RUNNER_SOURCE_DIRTY`);
 
+function caseDefinitionSha256(benchmarkCase) {
+  const canonical = {
+    case_id: text(benchmarkCase?.case_id, 240),
+    title: text(benchmarkCase?.title, 1000),
+    objective: text(benchmarkCase?.objective, 4000),
+    seed_files: list(benchmarkCase?.seed_files).map((value) => text(value, 500)),
+    candidate_paths: list(benchmarkCase?.candidate_paths).map((value) => text(value, 500)),
+    allowed_edit_paths: list(benchmarkCase?.allowed_edit_paths).map((value) => text(value, 500)),
+    hidden_acceptance: object(benchmarkCase?.hidden_acceptance),
+  };
+  return sha256(JSON.stringify(canonical));
+}
+
 function hiddenAssertionCount(source) {
   const count = (String(source || "").match(/\bassert\.[A-Za-z]+\s*\(/g) || []).length;
   if (count <= 0) throw new Error(`${CONTRACT}_HIDDEN_ASSERTION_COUNT_REQUIRED`);
@@ -363,6 +376,7 @@ for (const benchmarkCase of cases) {
       .join("\n---FILE---\n");
     observations.push({
       case_id: benchmarkCase.case_id,
+      case_definition_sha256: caseDefinitionSha256(benchmarkCase),
       repository_origin: fixture.origin,
       allowed_edit_paths: list(benchmarkCase.allowed_edit_paths).map((value) => text(value, 500)),
       passed: hiddenPassed,
@@ -384,6 +398,7 @@ for (const benchmarkCase of cases) {
       artifact_bytes: Buffer.byteLength(artifact, "utf8"),
       repository_verification: {
         case_id: benchmarkCase.case_id,
+        case_definition_sha256: caseDefinitionSha256(benchmarkCase),
         benchmark_run_id: benchmarkRunId,
         runner_source_commit: runnerSourceCommit,
         runner_source_clean: true,

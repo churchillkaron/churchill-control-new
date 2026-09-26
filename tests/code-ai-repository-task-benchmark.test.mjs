@@ -11,6 +11,7 @@ import {
 
 const BENCHMARK_RUN_ID = "11111111-1111-4111-8111-111111111111";
 const SUITE_SHA256 = "9".repeat(64);
+const CASE_DEFINITION_SHA256 = "7".repeat(64);
 const assessCodeAIRepositoryTaskBenchmark = (report) => assessRepositoryTaskBenchmarkRaw({ suite_sha256: SUITE_SHA256, runner_source_clean: true, ...report });
 const VERIFIER_RUNTIME_IDENTITY = Object.freeze({ engine: "node", version: "v24.14.1", platform: "darwin", arch: "arm64" });
 const VERIFIER_RUNTIME_SHA256 = createHash("sha256").update(JSON.stringify(VERIFIER_RUNTIME_IDENTITY), "utf8").digest("hex");
@@ -38,6 +39,7 @@ function proof(overrides = {}) {
   const runnerSourceCommit = overrides.runner_source_commit || "1".repeat(40);
   return {
     case_id: caseId,
+    case_definition_sha256: overrides.case_definition_sha256 || CASE_DEFINITION_SHA256,
     repository_origin: `https://github.com/avantiqo-benchmark/${caseId}`,
     allowed_edit_paths: ["invoice-total.mjs"],
     passed: true,
@@ -57,6 +59,7 @@ function proof(overrides = {}) {
     raw_hidden_verifier_output_persisted: false,
     repository_verification: {
       case_id: caseId,
+      case_definition_sha256: overrides.case_definition_sha256 || CASE_DEFINITION_SHA256,
       benchmark_run_id: overrides.benchmark_run_id || BENCHMARK_RUN_ID,
       runner_source_commit: runnerSourceCommit,
       runner_source_clean: true,
@@ -133,6 +136,7 @@ test("candidate pass flag alone cannot certify repository task superiority", () 
 test("synthetic-looking hashes without executed repository evidence cannot certify", () => {
   const synthetic = {
     case_id: "case-2",
+    case_definition_sha256: CASE_DEFINITION_SHA256,
     repository_origin: "https://github.com/avantiqo-benchmark/case-2",
     allowed_edit_paths: ["invoice-total.mjs"],
     passed: true,
@@ -147,6 +151,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
     raw_hidden_verifier_output_persisted: false,
     repository_verification: {
       case_id: "case-2",
+      case_definition_sha256: CASE_DEFINITION_SHA256,
       benchmark_run_id: BENCHMARK_RUN_ID,
       runner_source_commit: "1".repeat(40),
       runner_source_clean: true,
@@ -667,5 +672,23 @@ test("spoofed git toolchain digest cannot certify", () => {
     observations: [{ ...base, repository_verification: { ...base.repository_verification, git_toolchain_sha256: "e".repeat(64) } }],
   });
   assert.equal(result.cases[0].gates.git_toolchain_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("repository verification must bind the exact case definition digest", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        case_definition_sha256: "8".repeat(64),
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.verification_case_definition_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

@@ -356,3 +356,15 @@ test("owned benchmark below the absolute mean quality floor is rejected", async 
   assert.notEqual(run.status, 0);
   assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_OWNED_ABSOLUTE_QUALITY_FLOOR_NOT_MET/);
 });
+
+
+test("degraded reference below the absolute quality floor is rejected", async () => {
+  const paths = await fixture();
+  const current = JSON.parse(await readFile(paths.refBPath, "utf8"));
+  const unsigned = { ...current, observations: current.observations.map((item) => ({ ...item, quality_score: 0.60 })) };
+  delete unsigned.attestation;
+  await writeFile(paths.refBPath, JSON.stringify(attestCodeAICompetitiveReferenceReport(unsigned, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_REFERENCE_ABSOLUTE_QUALITY_FLOOR_NOT_MET:google/);
+});

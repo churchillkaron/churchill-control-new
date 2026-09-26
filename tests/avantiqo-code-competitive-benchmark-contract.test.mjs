@@ -30,6 +30,8 @@ test("competitive benchmark measures quality latency and cost", () => {
   assert.match(source, /MIN_ABSOLUTE_CASE_QUALITY_SCORE/);
   assert.match(source, /MIN_ABSOLUTE_MEAN_QUALITY_SCORE/);
   assert.match(source, /OWNED_ABSOLUTE_QUALITY_FLOOR_NOT_MET/);
+  assert.match(source, /REFERENCE_ABSOLUTE_QUALITY_FLOOR_NOT_MET/);
+  assert.match(source, /symmetric_absolute_quality_floor_required/);
   assert.match(source, /MIN_SUPERIORITY_WIN_RATE/);
   assert.match(source, /MIN_SUPERIORITY_WIN_CATEGORIES/);
   assert.match(source, /quality_win_category_count/);

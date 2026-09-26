@@ -330,3 +330,26 @@ test("duplicate signed benchmark run ids are rejected", async () => {
   assert.notEqual(run.status, 0);
   assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_UNIQUE_BENCHMARK_RUN_IDS_REQUIRED/);
 });
+
+
+test("owned benchmark below the absolute quality floor is rejected", async () => {
+  const paths = await fixture();
+  const owned = JSON.parse(await readFile(paths.ownedPath, "utf8"));
+  owned.observations = owned.observations.map((item, index) => ({ ...item, quality_score: index === 0 ? 0.49 : 0.85 }));
+  delete owned.owned_attestation;
+  await writeFile(paths.ownedPath, JSON.stringify(attestCodeAICompetitiveOwnedReport(owned, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_OWNED_ABSOLUTE_QUALITY_FLOOR_NOT_MET/);
+});
+
+test("owned benchmark below the absolute mean quality floor is rejected", async () => {
+  const paths = await fixture();
+  const owned = JSON.parse(await readFile(paths.ownedPath, "utf8"));
+  owned.observations = owned.observations.map((item) => ({ ...item, quality_score: 0.60 }));
+  delete owned.owned_attestation;
+  await writeFile(paths.ownedPath, JSON.stringify(attestCodeAICompetitiveOwnedReport(owned, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_OWNED_ABSOLUTE_QUALITY_FLOOR_NOT_MET/);
+});

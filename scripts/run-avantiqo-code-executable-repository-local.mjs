@@ -74,6 +74,8 @@ function must(command, args, cwd) {
 }
 const runnerSourceCommit = text(must("git", ["rev-parse", "HEAD"], process.cwd()).stdout, 80).toLowerCase();
 if (!/^[a-f0-9]{40}$/i.test(runnerSourceCommit)) throw new Error(`${CONTRACT}_RUNNER_SOURCE_COMMIT_INVALID`);
+const runnerSourceStatus = text(must("git", ["status", "--porcelain", "--untracked-files=no"], process.cwd()).stdout, 12000);
+if (runnerSourceStatus) throw new Error(`${CONTRACT}_RUNNER_SOURCE_DIRTY`);
 
 function hiddenAssertionCount(source) {
   const count = (String(source || "").match(/\bassert\.[A-Za-z]+\s*\(/g) || []).length;
@@ -375,6 +377,7 @@ for (const benchmarkCase of cases) {
         case_id: benchmarkCase.case_id,
         benchmark_run_id: benchmarkRunId,
         runner_source_commit: runnerSourceCommit,
+        runner_source_clean: true,
         repository_origin: fixture.origin,
         suite_sha256: suiteSha256,
         independent: true,
@@ -446,6 +449,7 @@ console.log(JSON.stringify({
   worker_attestation: workerAttestation,
   benchmark_run_id: benchmarkRunId,
   runner_source_commit: runnerSourceCommit,
+  runner_source_clean: true,
   observations,
   local_compute_only: true,
   commit_performed: false,

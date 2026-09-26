@@ -66,6 +66,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
         case_id,
         benchmark_run_id: benchmarkRunId,
         runner_source_commit: runnerSourceCommit,
+        runner_source_clean: true,
         repository_origin: `https://github.com/avantiqo-benchmark/${case_id}`,
         suite_sha256: suiteSha,
         independent: true,

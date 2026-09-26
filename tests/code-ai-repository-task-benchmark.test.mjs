@@ -11,7 +11,7 @@ import {
 
 const BENCHMARK_RUN_ID = "11111111-1111-4111-8111-111111111111";
 const SUITE_SHA256 = "9".repeat(64);
-const assessCodeAIRepositoryTaskBenchmark = (report) => assessRepositoryTaskBenchmarkRaw({ suite_sha256: SUITE_SHA256, ...report });
+const assessCodeAIRepositoryTaskBenchmark = (report) => assessRepositoryTaskBenchmarkRaw({ suite_sha256: SUITE_SHA256, runner_source_clean: true, ...report });
 const VERIFIER_RUNTIME_IDENTITY = Object.freeze({ engine: "node", version: "v24.14.1", platform: "darwin", arch: "arm64" });
 const VERIFIER_RUNTIME_SHA256 = createHash("sha256").update(JSON.stringify(VERIFIER_RUNTIME_IDENTITY), "utf8").digest("hex");
 const VERIFIER_ENVIRONMENT_SHA256 = codeAIRepositoryVerifierEnvironmentSha256();
@@ -56,6 +56,7 @@ function proof(overrides = {}) {
       case_id: caseId,
       benchmark_run_id: overrides.benchmark_run_id || BENCHMARK_RUN_ID,
       runner_source_commit: runnerSourceCommit,
+      runner_source_clean: true,
       repository_origin: `https://github.com/avantiqo-benchmark/${caseId}`,
       suite_sha256: overrides.suite_sha256 || SUITE_SHA256,
       independent: true,
@@ -138,6 +139,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       case_id: "case-2",
       benchmark_run_id: BENCHMARK_RUN_ID,
       runner_source_commit: "1".repeat(40),
+      runner_source_clean: true,
       repository_origin: "https://github.com/avantiqo-benchmark/case-2",
       suite_sha256: SUITE_SHA256,
       independent: true,
@@ -611,4 +613,25 @@ test("matching fabricated verifier resource hashes cannot certify", () => {
   });
   assert.equal(result.cases[0].gates.verifier_resource_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("dirty runner source cannot certify repository proof", () => {
+  const base = proof();
+  const reportDirty = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    runner_source_clean: false,
+    observations: [base],
+  });
+  assert.equal(reportDirty.cases[0].gates.runner_source_clean_bound, false);
+  assert.equal(reportDirty.repository_task_artifact_certified, false);
+
+  const verifierDirty = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{ ...base, repository_verification: { ...base.repository_verification, runner_source_clean: false } }],
+  });
+  assert.equal(verifierDirty.cases[0].gates.runner_source_clean_bound, false);
+  assert.equal(verifierDirty.repository_task_artifact_certified, false);
 });

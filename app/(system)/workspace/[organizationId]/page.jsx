@@ -14,6 +14,9 @@ import { useBusinessContext } from "@/app/providers/BusinessContextProvider";
 import AutonomousWatchAlertBridge from "@/components/operator/AutonomousWatchAlertBridge";
 import { getOwnedWorkspaceDomainIds, hasExactProductOwnership } from "@/lib/platform/entitlements/productWorkspaceVisibility";
 import HomeAvantiqoIntelligenceDock from "@/components/operator/HomeAvantiqoIntelligenceDock";
+import SyntheticIntelligenceControlCenter from "@/components/operator/SyntheticIntelligenceControlCenter";
+import SyntheticIntelligenceDeliveryControl from "@/components/operator/SyntheticIntelligenceDeliveryControl";
+import SyntheticIntelligenceForecastTrackRecord from "@/components/operator/SyntheticIntelligenceForecastTrackRecord";
 import { useOrganizationRuntime } from "@/lib/hooks/useOrganizationRuntime";
 import { listOperatorNavigationTargets } from "@/lib/operator/runtime/OperatorNavigationCatalog";
 
@@ -58,6 +61,11 @@ export default function OrganizationWorkspacePage() {
     businessContext.staff?.name ||
     businessContext.staff?.display_name ||
     "";
+  const role =
+    runtime?.access?.role ||
+    businessContext.role ||
+    businessContext.staff?.role ||
+    null;
   const briefing = runtime?.briefing || null;
   const metrics = runtime?.metrics || {};
   const activity = Array.isArray(runtime?.activity) ? runtime.activity : [];
@@ -238,6 +246,18 @@ export default function OrganizationWorkspacePage() {
                 ))}
               </div>
             </section>
+            <SyntheticIntelligenceControlCenter
+              organizationId={organizationId}
+              role={role}
+            />
+
+            <SyntheticIntelligenceDeliveryControl
+              organizationId={organizationId}
+              role={role}
+            />
+
+            <SyntheticIntelligenceForecastTrackRecord organizationId={organizationId} />
+
             <details className="rounded-2xl border border-black/[0.065] bg-white/70 px-5 py-3 text-[#5E5952]">
               <summary className="cursor-pointer select-none text-[10px] font-medium uppercase tracking-[0.14em] text-[#8A867F]">Recent activity</summary>
               <div className="mt-3 divide-y divide-black/[0.06]">

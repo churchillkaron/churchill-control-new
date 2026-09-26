@@ -24,7 +24,10 @@ test("master export applies advanced adjustments before compositing",()=>{
   assert.match(source,/CREATIVE_IMAGE_STUDIO_CURVES_V1/);
   assert.match(source,/CREATIVE_IMAGE_STUDIO_COLOR_GRADE_V1/);
   assert.match(source,/rgb_channel_curves: true/);
-  assert.match(source,/selective_color: true/);\n  assert.match(source,/CREATIVE_IMAGE_STUDIO_LOOK_V1/);\n  assert.match(source,/gradient_map: true/);\n  assert.match(source,/split_toning: true/);
+  assert.match(source,/selective_color: true/);
+  assert.match(source,/CREATIVE_IMAGE_STUDIO_LOOK_V1/);
+  assert.match(source,/gradient_map: true/);
+  assert.match(source,/split_toning: true/);
 });
 
 test("Image Studio inspector exposes governed advanced adjustments",()=>{
@@ -37,4 +40,9 @@ test("canvas preview consumes the same adjustment state used by export",()=>{
   const effects=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioEffectsRuntime.js","utf8");
   assert.match(effects,/imageStudioAdjustmentPreviewStyle/);
   assert.match(effects,/CREATIVE_IMAGE_STUDIO_EFFECTS_V2/);
+});
+
+test("Image Studio adjustment test source contains no literal newline escape artifacts",()=>{
+  const self=fs.readFileSync("tests/creative-image-studio-adjustment-runtime.test.mjs","utf8");
+  assert.doesNotMatch(self,/;\\n\s+assert\.match/);
 });

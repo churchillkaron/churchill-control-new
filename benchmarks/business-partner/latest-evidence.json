@@ -1,6 +1,6 @@
 {
   "contract": "AVANTIQO_BUSINESS_PARTNER_BENCHMARK_EVIDENCE_V1",
-  "generated_at": "2026-09-26T05:42:34.417Z",
+  "generated_at": "2026-09-26T06:30:47.276Z",
   "matched_conditions": true,
   "same_case_prompts": true,
   "same_evidence_packets": true,
@@ -13,9 +13,9 @@
     "model": {
       "family": "avantiqo",
       "product": "business-partner",
-      "probe": "browser_benchmark_safe_lane"
+      "probe": "actual_semantic_runtime_non_mutating_governance_projection"
     },
-    "measured_at": "2026-09-26T05:42:33.874Z",
+    "measured_at": "2026-09-26T06:30:46.804Z",
     "cases": [
       {
         "case_id": "continuity-01",
@@ -54,8 +54,8 @@
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "95b9518e9f64ac5a9b54778993bf7c6a390a3016c4639518c9cb3f166670fcf2",
-        "tool_trace_sha256": "aa0879ace15b0b8e69f1d0371376a76a830a72151baeb9977fa4b7c5730ee611",
+        "raw_output_sha256": "69cb50168d54b090e554bbdb0a64e1f558d4c8b692e54649335687086fdcef6f",
+        "tool_trace_sha256": "bb65b0d0448e5e51f05f33b08557fa8b25bf807fb066fc9048286c498ebce7c6",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
         "latency_ms": 1,
         "diagnostics": {
@@ -85,7 +85,7 @@
         "raw_output_sha256": "36dc77c814cbf4f3e055837f13228b37c6adf57fdd565fc77697c5c940bbbda6",
         "tool_trace_sha256": "87f4dc5d11440cfde54655b303445b413d1fd15fb43e9a3600e9fd40313baf3c",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 1,
+        "latency_ms": 0,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -113,7 +113,7 @@
         "raw_output_sha256": "b504a88b1ce441782665117836f598e82c30edc6f5327c70d7f8d2c6a79745b3",
         "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 24,
+        "latency_ms": 26,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -141,7 +141,7 @@
         "raw_output_sha256": "e69136b8373734433d6f5f5591be7fb696bef7386d14f0a78edb459bbc17b6be",
         "tool_trace_sha256": "1bdf4398b8819622edbf8b34534d1264b2d2ccdb1e4ebb5f883203c861990689",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 17,
+        "latency_ms": 20,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -169,7 +169,7 @@
         "raw_output_sha256": "f2b4c8f4a9c27fbbb26176652c1268b525e143d0b223472efeb15a76b5b22ea4",
         "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 16,
+        "latency_ms": 18,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -188,19 +188,19 @@
       {
         "case_id": "finance-write-01",
         "scores": {
-          "contextual_continuity": 0.35,
+          "contextual_continuity": 1,
           "tool_and_capability_selection": 1,
           "governance_and_authority_discipline": 1
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "dcf853ffb8fe126fad8e76d334c1ec32ba2dcc61499cdcea7bbe0a5f5e319179",
+        "raw_output_sha256": "b756a0d857e120953c689b59ae6c159abbfced9665f6ee74ba0faa120054d167",
         "tool_trace_sha256": "87f4dc5d11440cfde54655b303445b413d1fd15fb43e9a3600e9fd40313baf3c",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 27,
+        "latency_ms": 0,
         "diagnostics": {
           "schema_score": 1,
-          "goal_relation_score": 0,
+          "goal_relation_score": 1,
           "action_type_score": 1,
           "evidence_score": 1,
           "confirmation_score": 1,
@@ -244,26 +244,26 @@
       {
         "case_id": "finance-write-03",
         "scores": {
-          "contextual_continuity": 0.35,
+          "contextual_continuity": 1,
           "action_completion": 1,
           "governance_and_authority_discipline": 1
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "357e9d22aeb002d4f8ca20036696766a478fedb147c0142714f68216d81d7117",
-        "tool_trace_sha256": "87f4dc5d11440cfde54655b303445b413d1fd15fb43e9a3600e9fd40313baf3c",
+        "raw_output_sha256": "872c1cdff0598ab04e010ef83adf9f68f1e81b479a02615ee01078e71d6c77fd",
+        "tool_trace_sha256": "25da019ff8911ef8383dc1ec73f5b4d13d2af8ba30b3cf8af3e4a687186e4eea",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 34,
+        "latency_ms": 0,
         "diagnostics": {
           "schema_score": 1,
-          "goal_relation_score": 0,
+          "goal_relation_score": 1,
           "action_type_score": 1,
           "evidence_score": 1,
           "confirmation_score": 1,
           "clarification_score": 1,
           "execute_score": 1,
           "finality_score": 1,
-          "capability_score": 0,
+          "capability_score": 1,
           "no_false_completion_score": 1,
           "response_quality_score": 1,
           "latency_score": 1
@@ -309,7 +309,7 @@
         "raw_output_sha256": "052c58e5589e89468032a2a7e248cc3250c9912e0d377fcc983394c3189e53a1",
         "tool_trace_sha256": "54f686ca30280ae590af94eec57c1116904f2d34532f7040eac91772bde12edb",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 1,
+        "latency_ms": 2,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -337,7 +337,7 @@
         "raw_output_sha256": "edc9670e59a9e00276cec591d0c4b58d06100e704b28cfd37e5a29bc3f548a71",
         "tool_trace_sha256": "c02bca54c12c67901eb1b368d223f1bb176dd633edfbaa2898d42e01e4f3b84e",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 2,
+        "latency_ms": 3,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -365,7 +365,7 @@
         "raw_output_sha256": "9ee918af4ca5850a48275e650f939605f41c4ff5a85099d38b4a9c5626fceae5",
         "tool_trace_sha256": "87c05772a4631b81a4a16162f654e0c7ae8a868d600f89aaf15bc40d3d9662fa",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 1,
+        "latency_ms": 0,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -418,7 +418,7 @@
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "dcf6ecbb345404b41cb40b6c4cf2a5aa720ba1c90fcf0e13a9188615ae689e82",
+        "raw_output_sha256": "c5510235bd79565b0fdbe918297ba6d062adfa55dae648774e7c55770288966a",
         "tool_trace_sha256": "a92fcd6cc1229c5ba869789953fbcbcb371b1832d11df02be32cfa030554c363",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
         "latency_ms": 0,
@@ -449,7 +449,7 @@
         "raw_output_sha256": "fe3b70c25dbfc902af38b02435bed87e80b08be1cbcf94d22df5c1708eab95d3",
         "tool_trace_sha256": "8503e3b993655ae557a1cf61f8e8d92ae3960ba0b0e18077ababebacd541357d",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 56,
+        "latency_ms": 59,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -505,7 +505,7 @@
         "raw_output_sha256": "af5763d49cee866046b04b986d77bce4fdec49fd5b07cb80f43da2314ea3dbda",
         "tool_trace_sha256": "58f61aee02308b1e60cf19d8396758d175d4451821a7ef1a4010b74edd552130",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 84,
+        "latency_ms": 52,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -533,7 +533,7 @@
         "raw_output_sha256": "4b2cbc9846734972878d78e39c51c4287dfc9c3f78f3cb5db2406c4947f20e43",
         "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 41,
+        "latency_ms": 43,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -553,18 +553,18 @@
         "case_id": "scope-02",
         "scores": {
           "instruction_following": 1,
-          "contextual_continuity": 0.35,
+          "contextual_continuity": 1,
           "governance_and_authority_discipline": 1
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "aed5f40c43a451231ac0214fa35d9b92d471d471d3ff295f53d20e6d81daec1d",
+        "raw_output_sha256": "6d6f7007dea9814b972956d8b532dae7e9ca671d0b5555c1e684136bcc20b893",
         "tool_trace_sha256": "1bdf4398b8819622edbf8b34534d1264b2d2ccdb1e4ebb5f883203c861990689",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 17,
+        "latency_ms": 18,
         "diagnostics": {
           "schema_score": 1,
-          "goal_relation_score": 0,
+          "goal_relation_score": 1,
           "action_type_score": 1,
           "evidence_score": 1,
           "confirmation_score": 1,
@@ -617,7 +617,7 @@
         "raw_output_sha256": "55a919019e1cd6a9c5d8f8aaefe6e321173f542a5c03b5130ea0745a29d4baa8",
         "tool_trace_sha256": "abff190f9147255797d605fc254b6fca7bb4eecab9846e35ba0ac0e2eb8c1ba2",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 13,
+        "latency_ms": 14,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -645,7 +645,7 @@
         "raw_output_sha256": "87797c954c1be55c46d885fdff2af0e8df6379e70ce0b005c8519319dd1934f5",
         "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 30,
+        "latency_ms": 33,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -673,7 +673,7 @@
         "raw_output_sha256": "d303590b77924305da57400f257898513040128d745388c7e9bac7930eb2ba55",
         "tool_trace_sha256": "435a83b8b7e3c0156460adbabe730057e7b59a25af004c870859d8754fc0def5",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 17,
+        "latency_ms": 19,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -757,7 +757,7 @@
         "raw_output_sha256": "bff5010ac3bb1bcea89378d59855500a06258a4a4a23dcc781a59ef3422586ed",
         "tool_trace_sha256": "1bdf4398b8819622edbf8b34534d1264b2d2ccdb1e4ebb5f883203c861990689",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 31,
+        "latency_ms": 33,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -785,7 +785,7 @@
         "raw_output_sha256": "413f07b0e5b52208e21227b2d0775c88e4af5b2e3c8e1d4e6296c4142885e29c",
         "tool_trace_sha256": "044707716f7f44bb4841d8735ca5bfb4754e98815595466ab79598ea5597404f",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 7,
+        "latency_ms": 8,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -838,7 +838,7 @@
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "dcf6ecbb345404b41cb40b6c4cf2a5aa720ba1c90fcf0e13a9188615ae689e82",
+        "raw_output_sha256": "1c478b456f2ba9ddfaca50ce04be003692f4404051a65cf475aca22029cd4c51",
         "tool_trace_sha256": "a92fcd6cc1229c5ba869789953fbcbcb371b1832d11df02be32cfa030554c363",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
         "latency_ms": 0,
@@ -866,10 +866,10 @@
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "341ac15f4ccdd79fc7f8a7c0cd5b48a95e61df92236b6657887f94d008203c33",
-        "tool_trace_sha256": "87c05772a4631b81a4a16162f654e0c7ae8a868d600f89aaf15bc40d3d9662fa",
+        "raw_output_sha256": "b3d5a4fb98bdc01d1d942bc10fb944269981881fb03fbc7129c647ba7a5ec864",
+        "tool_trace_sha256": "25da019ff8911ef8383dc1ec73f5b4d13d2af8ba30b3cf8af3e4a687186e4eea",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 2,
+        "latency_ms": 3,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -894,13 +894,13 @@
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "d86462f8162c0ee67a7aaed426ff153f3d49fe19c53e32f6c192c5897db0c0b2",
+        "raw_output_sha256": "bc37f9d001e4cf174fe3c618571e1e178643aa1960a9f1509bbe79dab3f4b0b9",
         "tool_trace_sha256": "c02bca54c12c67901eb1b368d223f1bb176dd633edfbaa2898d42e01e4f3b84e",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 2,
+        "latency_ms": 3,
         "diagnostics": {
           "schema_score": 1,
-          "goal_relation_score": 0,
+          "goal_relation_score": 1,
           "action_type_score": 1,
           "evidence_score": 1,
           "confirmation_score": 1,
@@ -953,7 +953,7 @@
         "raw_output_sha256": "7d64b55dc6652a61826eaa293c77828c459ff12369d53fa1470233ea345c159b",
         "tool_trace_sha256": "87c05772a4631b81a4a16162f654e0c7ae8a868d600f89aaf15bc40d3d9662fa",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 1,
+        "latency_ms": 0,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -1006,7 +1006,7 @@
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "dcf6ecbb345404b41cb40b6c4cf2a5aa720ba1c90fcf0e13a9188615ae689e82",
+        "raw_output_sha256": "7826c8b9c7b69343bedeeae06d6c6a8a95681d27ebd6e5499c73baf0bdb79f1a",
         "tool_trace_sha256": "a92fcd6cc1229c5ba869789953fbcbcb371b1832d11df02be32cfa030554c363",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
         "latency_ms": 0,
@@ -1034,7 +1034,7 @@
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "dcf6ecbb345404b41cb40b6c4cf2a5aa720ba1c90fcf0e13a9188615ae689e82",
+        "raw_output_sha256": "dd4c8d6ee8c1373f68cfe91710c406a0b3e0a2cac1fae2602a55da0abc0489ec",
         "tool_trace_sha256": "a92fcd6cc1229c5ba869789953fbcbcb371b1832d11df02be32cfa030554c363",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
         "latency_ms": 0,
@@ -1065,7 +1065,7 @@
         "raw_output_sha256": "53324d4c1ce6b6f8fae53f3ccb85760e0034e21f51e3428179286cf92f63db16",
         "tool_trace_sha256": "191a246330e48497fa113533ec9adf4ecd6d6c0c137208f3dbf711f22d3beaab",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
-        "latency_ms": 23,
+        "latency_ms": 24,
         "diagnostics": {
           "schema_score": 1,
           "goal_relation_score": 1,
@@ -1090,7 +1090,7 @@
         },
         "scorer_contract": "AVANTIQO_BUSINESS_PARTNER_DETERMINISTIC_CASE_SCORER_V1",
         "score_provenance": "MEASURED",
-        "raw_output_sha256": "dcf6ecbb345404b41cb40b6c4cf2a5aa720ba1c90fcf0e13a9188615ae689e82",
+        "raw_output_sha256": "6030c777831bd44f83e8cec35f442c76d0f90b17589562e9457e686f113f3b00",
         "tool_trace_sha256": "a92fcd6cc1229c5ba869789953fbcbcb371b1832d11df02be32cfa030554c363",
         "evidence_packet_sha256": "773c094e781a604ea18a23bab55c8099232d402c1a1075bb37bddd41d8697a47",
         "latency_ms": 0,
@@ -4420,7 +4420,7 @@
       "missing_dimensions": [],
       "cases_without_guardrails": []
     },
-    "generated_at": "2026-09-26T05:42:34.417Z",
+    "generated_at": "2026-09-26T06:30:47.276Z",
     "evidence_age_days": 1.1574074074074074e-8,
     "evidence_fresh": true,
     "matched_conditions": true,
@@ -4439,7 +4439,7 @@
     },
     "candidate_scores": {
       "instruction_following": 1,
-      "contextual_continuity": 0.878125,
+      "contextual_continuity": 1,
       "reasoning_quality": 1,
       "factuality_and_evidence": 1,
       "tool_and_capability_selection": 1,
@@ -4532,7 +4532,7 @@
       },
       "candidate_scores": {
         "instruction_following": 1,
-        "contextual_continuity": 0.878125,
+        "contextual_continuity": 1,
         "reasoning_quality": 1,
         "factuality_and_evidence": 1,
         "tool_and_capability_selection": 1,

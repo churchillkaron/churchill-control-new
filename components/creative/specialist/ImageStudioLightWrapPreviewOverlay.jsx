@@ -3,9 +3,9 @@
 import { useId } from "react";
 import { imageStudioLightWrapPreview } from "@/lib/creative/stills/runtime/CreativeImageStudioContactPreviewRuntime.js";
 
-export default function ImageStudioLightWrapPreviewOverlay({style={},scale=1,assetUrl="",preview={},hasMask=false}){
+export default function ImageStudioLightWrapPreviewOverlay({style={},scale=1,assetUrl="",preview={},hasMask=false,hasEdgeAlpha=false}){
   const reactId=useId();
-  const spec=imageStudioLightWrapPreview({style,scale,asset_url:assetUrl,preview,has_mask:hasMask});
+  const spec=imageStudioLightWrapPreview({style,scale,asset_url:assetUrl,preview,has_mask:hasMask,has_edge_alpha:hasEdgeAlpha});
   if(!spec.preview_supported)return null;
   const filterId=`light-wrap-${String(reactId).replace(/[^a-zA-Z0-9_-]/g,"")}`;
   const image=spec.image;

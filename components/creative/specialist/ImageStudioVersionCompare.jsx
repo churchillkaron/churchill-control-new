@@ -7,10 +7,11 @@ import { measureImageStudioText } from "@/lib/creative/stills/runtime/CreativeIm
 import { imageStudioPreviewEffectStyle } from "@/lib/creative/stills/runtime/CreativeImageStudioEffectsRuntime.js";
 import { imageStudioMaskPreviewDescriptor } from "@/lib/creative/stills/runtime/CreativeImageStudioReusableDesignRuntime.js";
 import { imageStudioAdjustmentPreviewDescriptors } from "@/lib/creative/stills/runtime/CreativeImageStudioAdjustmentPreviewRuntime.js";
-import { imageStudioGroundShadowPreview } from "@/lib/creative/stills/runtime/CreativeImageStudioContactPreviewRuntime.js";
+import { imageStudioGroundShadowPreview, imageStudioLightWrapPreview } from "@/lib/creative/stills/runtime/CreativeImageStudioContactPreviewRuntime.js";
 import { imageStudioPerspectiveCssPreview } from "@/lib/creative/stills/runtime/CreativeImageStudioPerspectiveWarpRuntime.js";
 import { imageStudioRetouchPreviewStyle } from "@/lib/creative/stills/runtime/CreativeImageStudioRetouchRuntime.js";
 import ImageStudioTexturePreviewOverlay from "./ImageStudioTexturePreviewOverlay";
+import ImageStudioLightWrapPreviewOverlay from "./ImageStudioLightWrapPreviewOverlay";
 import { useImageStudioFonts } from "./useImageStudioFonts";
 
 const n=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
@@ -35,7 +36,8 @@ function Snapshot({version,assets,workspace}) {
     const url=assetUrl(asset);
     const preview=imageStudioPreviewGeometry(layer,sourceSize(asset,layer.bounds||{}),scale);
     const shadow=imageStudioGroundShadowPreview({style:layer.style||{},rotation:n(layer.transform?.rotation),scale,asset_url:url,preview,mask_style:maskStyle,has_mask:Boolean(mask)});
-    return Boolean(mask)&&!maskPreview.preview_supported||adjustment.some((item)=>!item.preview_supported)||(shadow.shadow?.enabled&&!shadow.preview_supported);
+    const lightWrap=imageStudioLightWrapPreview({style:layer.style||{},scale,asset_url:url,preview,has_mask:Boolean(mask)});
+    return Boolean(mask)&&!maskPreview.preview_supported||adjustment.some((item)=>!item.preview_supported)||(shadow.shadow?.enabled&&!shadow.preview_supported)||lightWrap.reason==="MASKED_LIGHT_WRAP_EXPORT_ONLY";
   });
   return <div className="relative flex min-h-[420px] items-center justify-center overflow-auto rounded-2xl border border-[#DDD8D0] bg-[#EEEAE4] p-8">
     {unsupportedPreview?<div className="absolute right-2 top-2 z-[90] rounded border border-[#D6A66A]/40 bg-white/95 px-2 py-1 text-[7px] font-medium text-[#8A6A42]">Complex effects · deterministic export only</div>:null}
@@ -60,14 +62,16 @@ function Snapshot({version,assets,workspace}) {
         const shadowPreview=imageStudioGroundShadowPreview({style:layer.style||{},rotation,scale,asset_url:url,preview,mask_style:maskStyle,has_mask:Boolean(mask)});
         const perspective=imageStudioPerspectiveCssPreview(layer.style||{},n(b.width,240)*scale,n(b.height,180)*scale);
         const perspectiveStyle=perspective.enabled?{transform:perspective.transform,transformOrigin:perspective.transform_origin}:{transform:"none"};
-        const contentStyle={opacity:effects.opacity,mixBlendMode:effects.mixBlendMode,filter:effects.filter,...maskStyle,...perspectiveStyle};
+        const contentStyle={opacity:effects.opacity,mixBlendMode:effects.mixBlendMode,...maskStyle,...perspectiveStyle};
+        const baseEffectStyle={filter:effects.filter};
         return <div key={layer.id} className="absolute" style={style}>
           {shadowPreview.preview_supported?<div data-compare-contact-shadow={layer.id} className="pointer-events-none absolute inset-0" style={shadowPreview.outer_style}><div className="absolute inset-0" style={shadowPreview.silhouette_style}/></div>:null}
           {url?<div className="relative h-full w-full overflow-hidden" style={{...contentStyle,borderRadius:preview.frame.borderRadius}}>
-            <Image src={url} alt="" width={Math.max(1,Math.round(preview.image.width))} height={Math.max(1,Math.round(preview.image.height))} sizes="400px" style={{position:"absolute",left:preview.image.left,top:preview.image.top,width:preview.image.width,height:preview.image.height,maxWidth:"none"}}/>
+            <div data-compare-base-effect-preview={layer.id} className="absolute inset-0" style={baseEffectStyle}><Image src={url} alt="" width={Math.max(1,Math.round(preview.image.width))} height={Math.max(1,Math.round(preview.image.height))} sizes="400px" style={{position:"absolute",left:preview.image.left,top:preview.image.top,width:preview.image.width,height:preview.image.height,maxWidth:"none"}}/>
+            {(layer.style?.retouch_operations||[]).map((operation,index)=><div key={operation.id||index} data-compare-retouch-preview={operation.id||index} className="pointer-events-none absolute" style={imageStudioRetouchPreviewStyle(operation,n(b.width,240)*scale,n(b.height,180)*scale)}/>)}
+            <ImageStudioLightWrapPreviewOverlay style={layer.style||{}} scale={scale} assetUrl={url} preview={preview} hasMask={Boolean(mask)}/></div>
             {adjustmentPreviews.filter((item)=>item.preview_supported&&item.opacity>0).map((item)=><div key={`compare-adjustment-${item.id}`} data-compare-adjustment-preview={item.id} className="pointer-events-none absolute inset-0" style={{...item.mask_style,opacity:item.opacity,backdropFilter:item.filter,WebkitBackdropFilter:item.filter}}/>)}
             <ImageStudioTexturePreviewOverlay style={layer.style||{}} scale={scale} selected={false}/>
-            {(layer.style?.retouch_operations||[]).map((operation,index)=><div key={operation.id||index} data-compare-retouch-preview={operation.id||index} className="pointer-events-none absolute" style={imageStudioRetouchPreviewStyle(operation,n(b.width,240)*scale,n(b.height,180)*scale)}/>)}
           </div>:null}
         </div>;
       })}

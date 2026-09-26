@@ -41,6 +41,8 @@ test("competitive benchmark measures quality latency and cost", () => {
   assert.match(source, /case_specific_evidence_grounding_complete/);
   assert.match(source, /case_specific_narrative_grounding_complete/);
   assert.match(source, /MIN_NARRATIVE_GROUNDING_SCORE/);
+  assert.match(source, /distinct_evidence_obligations_complete/);
+  assert.match(source, /MIN_EVIDENCE_DISTINCTNESS_SCORE/);
   assert.match(source, /latency_outcome/);
   assert.match(source, /p95_latency_competitive/);
   assert.match(source, /cost_competitive/);

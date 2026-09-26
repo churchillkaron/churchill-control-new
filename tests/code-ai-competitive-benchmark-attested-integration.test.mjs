@@ -27,6 +27,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
     quality_score: qualityScore,
     evidence_grounding_score: 0.9,
     narrative_grounding_score: 0.9,
+    evidence_distinctness_score: 0.9,
     latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
     wall_ms: wallMs + index,
     input_tokens: 100,

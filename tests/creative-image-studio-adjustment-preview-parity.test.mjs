@@ -73,3 +73,13 @@ test("canvas and version compare pass governed adjustment matte URLs and target 
     assert.match(source,/preview_image:preview\.image/);
   }
 });
+
+test("semantic ALPHA adjustment mask previews from the target source alpha",()=>{
+  const mask={id:"alpha-mask",artboard_id:"board",layer_type:"MASK",bounds:{x:0,y:0,width:200,height:100},metadata:{clip_mask_target_id:"img",mask_source_kind:"SEMANTIC",semantic_mask_mode:"ALPHA"}};
+  const adjustment={id:"alpha-adjustment",artboard_id:"board",layer_type:"ADJUSTMENT",visible:true,metadata:{adjustment_target_layer_ids:["img"],adjustment_mask_layer_id:"alpha-mask"},style:{adjustments:{exposure:1}}};
+  const [preview]=imageStudioAdjustmentPreviewDescriptors([target,adjustment,mask],target,{source_url:"https://assets.example/source.png",preview_image:{left:-8,top:-4,width:220,height:110}});
+  assert.equal(preview.preview_supported,true);
+  assert.equal(preview.mask_style.maskMode,"alpha");
+  assert.equal(preview.mask_style.maskPosition,"-8px -4px");
+  assert.deepEqual(preview.failures,[]);
+});

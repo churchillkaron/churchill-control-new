@@ -37,10 +37,10 @@ function Snapshot({version,assets,workspace}) {
     const asset=assetFor(layer.source_asset_id,assets);
     const url=assetUrl(asset);
     const preview=imageStudioPreviewGeometry(layer,sourceSize(asset,layer.bounds||{}),scale);
-    const adjustment=imageStudioAdjustmentPreviewDescriptors(layers,layer,{mask_url_by_layer_id:maskUrlByLayerId,preview_image:preview.image});
+    const adjustment=imageStudioAdjustmentPreviewDescriptors(layers,layer,{mask_url_by_layer_id:maskUrlByLayerId,source_url:url,preview_image:preview.image});
     const maskAsset=mask?.source_asset_id?assetFor(mask.source_asset_id,assets):null;
     const maskAssetUrl=assetUrl(maskAsset)||mask?.metadata?.semantic_matte_preview_url||"";
-    const maskPreview=imageStudioMaskPreviewDescriptor(layer,mask,{mask_url:maskAssetUrl,preview_image:preview.image});
+    const maskPreview=imageStudioMaskPreviewDescriptor(layer,mask,{mask_url:maskAssetUrl,source_url:url,preview_image:preview.image});
     const maskStyle=maskPreview.preview_supported?maskPreview.style:{};
     const shadow=imageStudioGroundShadowPreview({style:layer.style||{},rotation:n(layer.transform?.rotation),scale,asset_url:url,preview,mask_style:maskStyle,has_mask:Boolean(mask)});
     const edge=imageStudioEdgePreview({style:layer.style||{},scale,has_mask:Boolean(mask),has_frame_mask:Number(layer.metadata?.mask_radius||0)>0});
@@ -67,9 +67,9 @@ function Snapshot({version,assets,workspace}) {
         const mask=layer.metadata?.clip_mask_layer_id?layers.find((item)=>item.id===layer.metadata.clip_mask_layer_id):null;
         const maskAsset=mask?.source_asset_id?assetFor(mask.source_asset_id,assets):null;
         const maskAssetUrl=assetUrl(maskAsset)||mask?.metadata?.semantic_matte_preview_url||"";
-        const maskPreview=imageStudioMaskPreviewDescriptor(layer,mask,{mask_url:maskAssetUrl,preview_image:preview.image});
+        const maskPreview=imageStudioMaskPreviewDescriptor(layer,mask,{mask_url:maskAssetUrl,source_url:url,preview_image:preview.image});
         const maskStyle=maskPreview.preview_supported?maskPreview.style:{};
-        const adjustmentPreviews=imageStudioAdjustmentPreviewDescriptors(layers,layer,{mask_url_by_layer_id:maskUrlByLayerId,preview_image:preview.image});
+        const adjustmentPreviews=imageStudioAdjustmentPreviewDescriptors(layers,layer,{mask_url_by_layer_id:maskUrlByLayerId,source_url:url,preview_image:preview.image});
         const shadowPreview=imageStudioGroundShadowPreview({style:layer.style||{},rotation,scale,asset_url:url,preview,mask_style:maskStyle,has_mask:Boolean(mask)});
         const edgePreview=imageStudioEdgePreview({style:layer.style||{},scale,has_mask:Boolean(mask),has_frame_mask:Number(layer.metadata?.mask_radius||0)>0});
         const edgeFilterId=`compare-edge-${String(layer.id||"layer").replace(/[^a-zA-Z0-9_-]/g,"")}`;

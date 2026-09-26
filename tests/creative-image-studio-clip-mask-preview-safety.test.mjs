@@ -150,3 +150,27 @@ test("canvas and version compare resolve governed matte URLs with source crop ge
     assert.match(source,/preview_image:preview\.image/);
   }
 });
+
+test("semantic ALPHA mask previews exactly from governed source alpha and crop geometry",()=>{
+  const preview=imageStudioMaskPreviewDescriptor(
+    target,
+    {id:"a",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_source_kind:"SEMANTIC",semantic_mask_mode:"ALPHA"}},
+    {source_url:"https://assets.example/source.png",preview_image:{left:-12,top:-6,width:240,height:120}},
+  );
+  assert.equal(preview.preview_supported,true);
+  assert.equal(preview.fidelity,"SOURCE_ALPHA_EXACT_GEOMETRY");
+  assert.equal(preview.style.maskMode,"alpha");
+  assert.equal(preview.style.maskSize,"240px 120px");
+  assert.equal(preview.style.maskPosition,"-12px -6px");
+  assert.match(preview.style.maskImage,/assets\.example\/source\.png/);
+});
+
+test("semantic LUMINANCE does not pretend source alpha is an exact preview",()=>{
+  const preview=imageStudioMaskPreviewDescriptor(
+    target,
+    {id:"l",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_source_kind:"SEMANTIC",semantic_mask_mode:"LUMINANCE"}},
+    {source_url:"https://assets.example/source.png",preview_image:{left:0,top:0,width:200,height:100}},
+  );
+  assert.equal(preview.preview_supported,false);
+  assert.equal(preview.reason,"MASK_SOURCE_PREVIEW_COMPLEX");
+});

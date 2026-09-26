@@ -55,7 +55,7 @@ test("full orchestrator wires frontier and executable evidence into competitive 
 
 
 test("full orchestrator forbids stale artifact reuse and emits a hashed run manifest", () => {
-  assert.match(source, /clearEvidenceOutputs/);
+  assert.match(source, /clearRunOutputs/);
   assert.match(source, /verifyFreshArtifact/);
   assert.match(source, /ARTIFACT_PREDATES_RUN/);
   assert.match(source, /manifest_sha256/);
@@ -80,4 +80,13 @@ test("full orchestrator binds the run manifest to clean main source and exact co
   assert.match(source, /ARTIFACT_SOURCE_COMMIT_MISMATCH/);
   assert.match(source, /runner_source_commit: orchestratorSource\.source_commit/);
   assert.match(source, /configuration_sha256: configurationSha256/);
+});
+
+
+test("full orchestrator isolates concurrent live runs in unique evidence directories", () => {
+  assert.match(source, /const runRoot = resolve\(evidenceRoot, orchestratorRunId\)/);
+  assert.match(source, /mkdir\(runRoot, \{ recursive: false \}\)/);
+  assert.match(source, /RUN_DIRECTORY_ALREADY_EXISTS/);
+  assert.match(source, /concurrent_run_isolation_required: true/);
+  assert.match(source, /run_root: runRoot/);
 });

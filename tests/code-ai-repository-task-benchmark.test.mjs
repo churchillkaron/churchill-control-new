@@ -3,18 +3,21 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import {
   assessCodeAIRepositoryTaskBenchmark,
+  codeAIRepositoryVerifierEnvironmentSha256,
   codeAIRepositoryVerifierProtocolSha256,
 } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
 const BENCHMARK_RUN_ID = "11111111-1111-4111-8111-111111111111";
 const VERIFIER_RUNTIME_IDENTITY = Object.freeze({ engine: "node", version: "v24.14.1", platform: "darwin", arch: "arm64" });
 const VERIFIER_RUNTIME_SHA256 = createHash("sha256").update(JSON.stringify(VERIFIER_RUNTIME_IDENTITY), "utf8").digest("hex");
+const VERIFIER_ENVIRONMENT_SHA256 = codeAIRepositoryVerifierEnvironmentSha256();
 
-function baselineDigest({ caseId, baseCommit = "1".repeat(40), hiddenSha = "4".repeat(64), exitCode = 1, passed = false }) {
+function baselineDigest({ caseId, baseCommit = "1".repeat(40), hiddenSha = "4".repeat(64), environmentSha = codeAIRepositoryVerifierEnvironmentSha256(), exitCode = 1, passed = false }) {
   return createHash("sha256").update(JSON.stringify({
     case_id: caseId,
     base_commit: baseCommit.toLowerCase(),
     hidden_acceptance_sha256: hiddenSha.toLowerCase(),
+    verifier_environment_sha256: environmentSha.toLowerCase(),
     exit_code: exitCode,
     passed,
   }), "utf8").digest("hex");
@@ -24,6 +27,7 @@ function proof(overrides = {}) {
   const caseId = overrides.case_id || "case-1";
   return {
     case_id: caseId,
+    repository_origin: `https://github.com/avantiqo-benchmark/${caseId}`,
     allowed_edit_paths: ["invoice-total.mjs"],
     passed: true,
     base_commit: "1".repeat(40),
@@ -43,6 +47,7 @@ function proof(overrides = {}) {
     repository_verification: {
       case_id: caseId,
       benchmark_run_id: overrides.benchmark_run_id || BENCHMARK_RUN_ID,
+      repository_origin: `https://github.com/avantiqo-benchmark/${caseId}`,
       independent: true,
       verifier: "hidden-node-test",
       verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
@@ -50,9 +55,13 @@ function proof(overrides = {}) {
       verifier_runtime_contract: "AVANTIQO_CODE_REPOSITORY_NODE_RUNTIME_V1",
       verifier_runtime_identity: VERIFIER_RUNTIME_IDENTITY,
       verifier_runtime_sha256: VERIFIER_RUNTIME_SHA256,
+      verifier_environment_contract: "AVANTIQO_CODE_REPOSITORY_DETERMINISTIC_ENV_V1",
+      verifier_environment_sha256: VERIFIER_ENVIRONMENT_SHA256,
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: overrides.diff_sha256 || "2".repeat(64),
       candidate_artifact_sha256: overrides.artifact_sha256 || "3".repeat(64),
+      candidate_diff_bytes: overrides.diff_bytes || 512,
+      candidate_artifact_bytes: overrides.artifact_bytes || 1024,
       candidate_tree_sha: overrides.candidate_tree_sha || "a".repeat(40),
       changed_paths: ["invoice-total.mjs"],
       allowed_edit_paths: ["invoice-total.mjs"],
@@ -67,6 +76,9 @@ function proof(overrides = {}) {
       protected_baseline_base_commit: "1".repeat(40),
       protected_baseline_hidden_acceptance_sha256: "4".repeat(64),
       protected_baseline_verifier_runtime_sha256: VERIFIER_RUNTIME_SHA256,
+      verifier_environment_contract: "AVANTIQO_CODE_REPOSITORY_DETERMINISTIC_ENV_V1",
+      verifier_environment_sha256: VERIFIER_ENVIRONMENT_SHA256,
+      protected_baseline_verifier_environment_sha256: VERIFIER_ENVIRONMENT_SHA256,
       protected_baseline_exit_code: 1,
       protected_baseline_passed: false,
       candidate_self_report_authority: false,
@@ -90,6 +102,7 @@ test("candidate pass flag alone cannot certify repository task superiority", () 
 test("synthetic-looking hashes without executed repository evidence cannot certify", () => {
   const synthetic = {
     case_id: "case-2",
+    repository_origin: "https://github.com/avantiqo-benchmark/case-2",
     allowed_edit_paths: ["invoice-total.mjs"],
     passed: true,
     base_commit: "1".repeat(40),
@@ -104,6 +117,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
     repository_verification: {
       case_id: "case-2",
       benchmark_run_id: BENCHMARK_RUN_ID,
+      repository_origin: "https://github.com/avantiqo-benchmark/case-2",
       independent: true,
       verifier: "hidden-node-test",
       verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
@@ -114,6 +128,8 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: "2".repeat(64),
       candidate_artifact_sha256: "3".repeat(64),
+      candidate_diff_bytes: 512,
+      candidate_artifact_bytes: 1024,
       candidate_tree_sha: "a".repeat(40),
       changed_paths: ["invoice-total.mjs"],
       allowed_edit_paths: ["invoice-total.mjs"],
@@ -126,6 +142,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       protected_baseline_base_commit: "1".repeat(40),
       protected_baseline_hidden_acceptance_sha256: "4".repeat(64),
       protected_baseline_verifier_runtime_sha256: VERIFIER_RUNTIME_SHA256,
+      protected_baseline_verifier_environment_sha256: VERIFIER_ENVIRONMENT_SHA256,
       protected_baseline_exit_code: 1,
       protected_baseline_passed: false,
       candidate_self_report_authority: false,
@@ -450,5 +467,57 @@ test("spoofed verifier runtime digest cannot certify", () => {
   const base = proof();
   const result = assessCodeAIRepositoryTaskBenchmark({ benchmark_run_id: BENCHMARK_RUN_ID, runner_source_commit: "1".repeat(40), observations: [{ ...base, repository_verification: { ...base.repository_verification, verifier_runtime_sha256: "e".repeat(64) } }] });
   assert.equal(result.cases[0].gates.verifier_runtime_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("baseline and candidate verification must use the same deterministic environment", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({ benchmark_run_id: BENCHMARK_RUN_ID, runner_source_commit: "1".repeat(40), observations: [{ ...base, repository_verification: { ...base.repository_verification, protected_baseline_verifier_environment_sha256: "f".repeat(64) } }] });
+  assert.equal(result.cases[0].gates.verifier_environment_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("matching fabricated verifier environment hashes cannot certify", () => {
+  const base = proof();
+  const fake = "f".repeat(64);
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        verifier_environment_sha256: fake,
+        protected_baseline_verifier_environment_sha256: fake,
+        protected_baseline_sha256: baselineDigest({ caseId: base.case_id, environmentSha: fake }),
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.verifier_environment_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("repository proof must match canonical case origin", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{ ...base, repository_origin: "https://github.com/avantiqo-benchmark/other-case" }],
+  });
+  assert.equal(result.cases[0].gates.repository_origin_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+test("candidate byte lengths must match the verified diff and artifact evidence", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{ ...base, repository_verification: { ...base.repository_verification, candidate_diff_bytes: base.diff_bytes + 1 } }],
+  });
+  assert.equal(result.cases[0].gates.verifier_candidate_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

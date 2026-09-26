@@ -73,6 +73,7 @@ const { renderCodeAIFrontierBenchmarkPrompt } = await import("../lib/code/runtim
 const { gradeCodeAICompetitiveReferenceCase } = await import("../lib/code/runtime/CodeAICompetitiveReferenceLiveRunnerRuntime.js");
 const { AvantiqoCodeLocalQueueProvider } = await import("../lib/platform/service-runtime/providers/avantiqo-code/AvantiqoCodeLocalQueueProvider.js");
 const { resolveAvantiqoLearningOrganization } = await import("../lib/intelligence/runtime/AvantiqoLearningOrganizationRuntime.js");
+const { certifyCodeAIFrontierLatency } = await import("../lib/code/runtime/CodeAIFrontierLatencyCertificationRuntime.js");
 
 const prompts = selectedCases.map((benchmarkCase) => ({
   case: benchmarkCase,
@@ -203,6 +204,13 @@ for (const entry of prompts) {
 }
 
 const passedCount = observations.filter((item) => item.passed).length;
+const latencyCertification = certifyCodeAIFrontierLatency(observations, {
+  warm_p50_limit_ms: process.env.AVANTIQO_CODE_FRONTIER_WARM_P50_LIMIT_MS,
+  warm_p95_limit_ms: process.env.AVANTIQO_CODE_FRONTIER_WARM_P95_LIMIT_MS,
+  cold_start_limit_ms: process.env.AVANTIQO_CODE_FRONTIER_COLD_START_LIMIT_MS,
+  minimum_warm_samples: process.env.AVANTIQO_CODE_FRONTIER_MINIMUM_WARM_SAMPLES,
+});
+const correctnessPassed = passedCount === observations.length;
 const report = {
   contract: CONTRACT,
   generated_at: new Date().toISOString(),
@@ -228,7 +236,9 @@ const report = {
     completed_runs: observations.length,
     passed_cases: passedCount,
     pass_rate: observations.length ? Number((passedCount / observations.length).toFixed(4)) : 0,
-    passed: passedCount === observations.length,
+    correctness_passed: correctnessPassed,
+    latency_certification: latencyCertification,
+    passed: correctnessPassed && latencyCertification.passed,
     complete_suite: selectedCases.length === allCases.length && observations.length === allCases.length,
   },
   production_deploy_performed: false,

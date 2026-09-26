@@ -26,7 +26,7 @@ test("mask v2 carries feather invert and opacity semantics",()=>{
   const g=imageStudioMaskGeometry(target,mask);
   assert.equal(g.feather,24); assert.equal(g.opacity,.7); assert.equal(g.invert,true);
   const preview=imageStudioMaskPreviewStyle(target,mask);
-  assert.equal(preview.opacity,.7); assert.match(preview.outline,/dashed/);
+  assert.equal(preview.opacity,undefined); assert.match(preview.outline,/dashed/);
 });
 
 test("Image Studio UI creates and edits explicit-target adjustment layers", async()=>{

@@ -7,6 +7,7 @@ import { applyImageStudioStyleDefinition, buildImageStudioComponentDefinition, b
 import { captureImageStudioHistoryState, pushImageStudioHistory, restoreImageStudioHistoryState } from "@/lib/creative/stills/runtime/CreativeImageStudioHistoryRuntime.js";
 import { buildImageStudioRetouchOperation } from "@/lib/creative/stills/runtime/CreativeImageStudioRetouchRuntime.js";
 import { buildImageStudioAdjustmentLayer } from "@/lib/creative/stills/runtime/CreativeImageStudioAdjustmentLayerRuntime.js";
+import { buildImageStudioMaskLayer } from "@/lib/creative/stills/runtime/CreativeImageStudioMaskLayerRuntime.js";
 
 export const useImageStudioWorkspaceStore = create((set) => ({
   ...buildImageStudioWorkspaceState(),
@@ -84,19 +85,44 @@ export const useImageStudioWorkspaceStore = create((set) => ({
     const layer=buildImageStudioAdjustmentLayer({id:`adjustment-${crypto.randomUUID()}`,artboard_id:board.id,target_layer_ids:targets.map((item)=>item.id),sort_order:Math.max(-1,...state.layers.filter((item)=>item.artboard_id===board.id).map((item)=>Number(item.sort_order||0)))+1,name:`Adjustment · ${targets.length} target${targets.length===1?"":"s"}`});
     return {layers:[...state.layers,layer],selection:{...state.selection,layer_ids:[layer.id]},dirty:true,historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[]};
   }),
+  createMaskLayerFromRegion: (mask_shape = "RECT") => set((state) => {
+    if (!state.ui.region || state.selection.layer_ids.length !== 1) return state;
+    const target = state.layers.find((layer) => layer.id === state.selection.layer_ids[0] && layer.artboard_id === state.selection.artboard_id && layer.layer_type === "IMAGE" && !layer.locked);
+    if (!target) return state;
+    const mask = buildImageStudioMaskLayer({
+      id:`mask-${crypto.randomUUID()}`, artboard_id:target.artboard_id, target_layer_id:target.id,
+      region:state.ui.region, mask_shape, sort_order:Number(target.sort_order || 0) + 1,
+    });
+    return {
+      layers:[...state.layers.map((layer)=>layer.id===target.id?{...layer,metadata:{...(layer.metadata||{}),clip_mask_layer_id:mask.id}}:layer),mask],
+      selection:{...state.selection,layer_ids:[mask.id]}, ui:{...state.ui,region:null}, dirty:true,
+      historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[],
+    };
+  }),
   createClippingMask: () => set((state) => {
     const chosen=state.layers.filter((layer)=>state.selection.layer_ids.includes(layer.id)&&layer.artboard_id===state.selection.artboard_id).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)); if(chosen.length!==2)return state; const target=chosen[0],mask=chosen[1];
     return { layers:state.layers.map((layer)=>layer.id===target.id?{...layer,metadata:{...(layer.metadata||{}),clip_mask_layer_id:mask.id}}:layer.id===mask.id?{...layer,metadata:{...(layer.metadata||{}),is_clip_mask:true,clip_mask_target_id:target.id}}:layer), selection:{...state.selection,layer_ids:[target.id]}, dirty:true, historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)), historyFuture:[] };
   }),
   updateSelectedMaskSemantics: (patch = {}) => set((state) => {
     if(state.selection.layer_ids.length!==1)return state;
-    const target=state.layers.find((layer)=>layer.id===state.selection.layer_ids[0]&&layer.metadata?.clip_mask_layer_id);
-    if(!target)return state; const maskId=target.metadata.clip_mask_layer_id;
+    const selected=state.layers.find((layer)=>layer.id===state.selection.layer_ids[0]);
+    const maskId=selected?.layer_type==="MASK" ? selected.id : selected?.metadata?.clip_mask_layer_id;
+    if(!maskId)return state;
     return {layers:state.layers.map((layer)=>layer.id===maskId?{...layer,metadata:{...(layer.metadata||{}),...patch}}:layer),dirty:true,historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[]};
   }),
   releaseClippingMask: () => set((state) => {
-    const target=state.layers.find((layer)=>state.selection.layer_ids.includes(layer.id)&&layer.metadata?.clip_mask_layer_id); if(!target)return state; const maskId=target.metadata.clip_mask_layer_id;
-    return { layers:state.layers.map((layer)=>{ if(layer.id===target.id){const metadata={...(layer.metadata||{})};delete metadata.clip_mask_layer_id;return {...layer,metadata};} if(layer.id===maskId){const metadata={...(layer.metadata||{})};delete metadata.is_clip_mask;delete metadata.clip_mask_target_id;return {...layer,metadata};} return layer;}), dirty:true, historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)), historyFuture:[] };
+    const selected=state.layers.find((layer)=>state.selection.layer_ids.includes(layer.id));
+    const target=selected?.layer_type==="MASK"
+      ? state.layers.find((layer)=>layer.id===selected.metadata?.clip_mask_target_id)
+      : state.layers.find((layer)=>state.selection.layer_ids.includes(layer.id)&&layer.metadata?.clip_mask_layer_id);
+    if(!target)return state;
+    const maskId=target.metadata?.clip_mask_layer_id;
+    const mask=state.layers.find((layer)=>layer.id===maskId);
+    const dedicated=mask?.metadata?.dedicated_mask_layer===true;
+    const layers=dedicated
+      ? state.layers.filter((layer)=>layer.id!==maskId).map((layer)=>layer.id===target.id?{...layer,metadata:Object.fromEntries(Object.entries(layer.metadata||{}).filter(([key])=>key!=="clip_mask_layer_id"))}:layer)
+      : state.layers.map((layer)=>{ if(layer.id===target.id){const metadata={...(layer.metadata||{})};delete metadata.clip_mask_layer_id;return {...layer,metadata};} if(layer.id===maskId){const metadata={...(layer.metadata||{})};delete metadata.is_clip_mask;delete metadata.clip_mask_target_id;return {...layer,metadata};} return layer;});
+    return { layers, selection:{...state.selection,layer_ids:[target.id]}, dirty:true, historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)), historyFuture:[] };
   }),
   setViewport: (viewport) => set((state) => ({ viewport: { ...state.viewport, ...viewport } })),
   requestFitToView: () => set((state) => ({ ui: { ...state.ui, fit_request: Number(state.ui.fit_request || 0) + 1 } })),
@@ -152,7 +178,24 @@ export const useImageStudioWorkspaceStore = create((set) => ({
     ui: { ...state.ui, comment_focus_id: comment.id, comment_point: comment.position || null },
   })),
   nudgeSelected: (dx, dy) => set((state) => { const movable = state.layers.some((layer) => state.selection.layer_ids.includes(layer.id) && !layer.locked); if (!movable) return state; return { layers: state.layers.map((layer) => state.selection.layer_ids.includes(layer.id) && !layer.locked ? { ...layer, bounds: { ...layer.bounds, x: Number(layer.bounds?.x || 0) + dx, y: Number(layer.bounds?.y || 0) + dy } } : layer), dirty: true, historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)), historyFuture: [] }; }),
-  deleteSelected: () => set((state) => { const deletable = state.layers.some((layer) => state.selection.layer_ids.includes(layer.id) && !layer.locked); if (!deletable) return state; return { layers: state.layers.filter((layer) => !state.selection.layer_ids.includes(layer.id) || layer.locked), selection: { ...state.selection, layer_ids: [] }, dirty: true, historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)), historyFuture: [] }; }),
+  deleteSelected: () => set((state) => {
+    const selected=new Set(state.selection.layer_ids);
+    const deletable=state.layers.filter((layer)=>selected.has(layer.id)&&!layer.locked);
+    if(!deletable.length)return state;
+    const deleteIds=new Set(deletable.map((layer)=>layer.id));
+    for(const layer of deletable){
+      if(layer.layer_type==="IMAGE"&&layer.metadata?.clip_mask_layer_id){
+        const mask=state.layers.find((item)=>item.id===layer.metadata.clip_mask_layer_id);
+        if(mask?.metadata?.dedicated_mask_layer===true&&!mask.locked) deleteIds.add(mask.id);
+      }
+    }
+    const layers=state.layers.filter((layer)=>!deleteIds.has(layer.id)).map((layer)=>{
+      const linkedMaskId=layer.metadata?.clip_mask_layer_id;
+      if(linkedMaskId&&deleteIds.has(linkedMaskId)){const metadata={...(layer.metadata||{})};delete metadata.clip_mask_layer_id;return {...layer,metadata};}
+      return layer;
+    });
+    return { layers, selection:{...state.selection,layer_ids:[]}, dirty:true, historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)), historyFuture:[] };
+  }),
   duplicateSelected: () => set((state) => { const copies = state.layers.filter((layer) => state.selection.layer_ids.includes(layer.id)).map((layer) => ({ ...layer, id: crypto.randomUUID(), bounds: { ...layer.bounds, x: Number(layer.bounds?.x || 0) + 16, y: Number(layer.bounds?.y || 0) + 16 }, sort_order: Number(layer.sort_order || 0) + 1 })); if (!copies.length) return state; return { layers: [...state.layers, ...copies], selection: { ...state.selection, layer_ids: copies.map((layer) => layer.id) }, dirty: true, historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)), historyFuture: [] }; }),
   copySelected: () => set((state) => ({ clipboardLayers: state.layers.filter((layer) => state.selection.layer_ids.includes(layer.id)).map((layer) => structuredClone(layer)) })),
   pasteClipboard: () => set((state) => { if (!state.clipboardLayers.length) return state; const selectedBoard = state.selection.artboard_id || state.clipboardLayers[0]?.artboard_id; const copies = state.clipboardLayers.map((layer, index) => ({ ...structuredClone(layer), id: crypto.randomUUID(), artboard_id: selectedBoard, bounds: { ...layer.bounds, x: Number(layer.bounds?.x || 0) + 24, y: Number(layer.bounds?.y || 0) + 24 }, sort_order: state.layers.filter((item) => item.artboard_id === selectedBoard).length + index })); return { layers: [...state.layers, ...copies], selection: { artboard_id: selectedBoard, layer_ids: copies.map((layer) => layer.id) }, dirty: true, historyPast: pushImageStudioHistory(state.historyPast, captureImageStudioHistoryState(state)), historyFuture: [] }; }),

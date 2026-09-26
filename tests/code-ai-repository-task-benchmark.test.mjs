@@ -29,6 +29,11 @@ function proof(overrides = {}) {
     diff_bytes: 512,
     artifact_materialized: true,
     artifact_bytes: 1024,
+    hidden_stdout_sha256: "a".repeat(64),
+    hidden_stdout_bytes: 0,
+    hidden_stderr_sha256: "b".repeat(64),
+    hidden_stderr_bytes: 0,
+    raw_hidden_verifier_output_persisted: false,
     repository_verification: {
       case_id: caseId,
       benchmark_run_id: overrides.benchmark_run_id || BENCHMARK_RUN_ID,
@@ -78,6 +83,11 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
     base_commit: "1".repeat(40),
     diff_sha256: "2".repeat(64),
     artifact_sha256: "3".repeat(64),
+    hidden_stdout_sha256: "a".repeat(64),
+    hidden_stdout_bytes: 0,
+    hidden_stderr_sha256: "b".repeat(64),
+    hidden_stderr_bytes: 0,
+    raw_hidden_verifier_output_persisted: false,
     repository_verification: {
       case_id: "case-2",
       benchmark_run_id: BENCHMARK_RUN_ID,
@@ -380,5 +390,17 @@ test("verifier allowed scope must match signed observation scope", () => {
   });
   assert.equal(result.cases[0].gates.verifier_edit_scope_bound, true);
   assert.equal(result.cases[0].gates.observation_edit_scope_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("raw hidden verifier output cannot certify", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{ ...base, raw_hidden_verifier_output_persisted: true }],
+  });
+  assert.equal(result.cases[0].gates.hidden_verifier_output_redacted, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

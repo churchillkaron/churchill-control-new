@@ -74,3 +74,12 @@ test("hidden acceptance assertion count is derived from generated source", () =>
   assert.match(liveRunner, /hiddenAcceptanceTestCount = hiddenAssertionCount\(hiddenAcceptanceSource\)/);
   assert.doesNotMatch(liveRunner, /case_id\.includes\("multifile"\) \? 5 : 4/);
 });
+
+
+test("live executable verifier never persists raw hidden output", () => {
+  assert.doesNotMatch(liveRunner, /hidden_stdout:\s*hiddenStdout/);
+  assert.doesNotMatch(liveRunner, /hidden_stderr:\s*hiddenStderr/);
+  assert.match(liveRunner, /hidden_stdout_sha256: sha256\(hiddenStdout\)/);
+  assert.match(liveRunner, /hidden_stderr_sha256: sha256\(hiddenStderr\)/);
+  assert.match(liveRunner, /raw_hidden_verifier_output_persisted: false/);
+});

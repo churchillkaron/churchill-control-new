@@ -14,8 +14,8 @@ test("masked adjustment changes only pixels admitted by its independent mask",()
 
 test("adjustment mask authority rejects wrong image target",()=>{
   const adjustment={id:"adj",metadata:{adjustment_target_layer_ids:["img-1"],adjustment_mask_layer_id:"mask"}};
-  const good={id:"mask",metadata:{clip_mask_target_id:"img-1"}};
-  const bad={id:"mask",metadata:{clip_mask_target_id:"img-2"}};
+  const good={id:"mask",layer_type:"MASK",metadata:{clip_mask_target_id:"img-1"}};
+  const bad={id:"mask",layer_type:"MASK",metadata:{clip_mask_target_id:"img-2"}};
   assert.equal(validateImageStudioAdjustmentMask(adjustment,good).ready,true);
   const invalid=validateImageStudioAdjustmentMask(adjustment,bad);
   assert.equal(invalid.ready,false);
@@ -25,7 +25,8 @@ test("adjustment mask authority rejects wrong image target",()=>{
 test("deterministic export resolves independent adjustment masks with semantic and brush support",()=>{
   const source=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js","utf8");
   assert.match(source,/adjustment_mask_layer_id/);
-  assert.match(source,/IMAGE_STUDIO_ADJUSTMENT_MASK_TARGET_MISMATCH/);
+  assert.match(source,/validateImageStudioAdjustmentMask/);
+  assert.match(source,/IMAGE_STUDIO_ADJUSTMENT_MASK_INVALID/);
   assert.match(source,/semanticExternalMatteBuffer/);
   assert.match(source,/applyImageStudioBrushMaskRefinements/);
   assert.match(source,/maskAlphaByAdjustmentId/);

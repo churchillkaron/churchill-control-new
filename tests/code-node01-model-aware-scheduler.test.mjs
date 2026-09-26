@@ -85,6 +85,9 @@ test("GPU deep text yields during the bounded interactive Code priority window w
   assert.match(worker, /CodeTextPriorityWindowPath/);
   assert.match(worker, /function SetCodeTextPriorityWindow\(\[int\]\$Seconds = 300\)/);
   assert.match(worker, /function CodeTextPriorityWindowActive/);
+  assert.match(worker, /Global\\AvantiqoNode01OllamaTextGpu/);
+  assert.match(worker, /WaitOne\(\[TimeSpan\]::Zero\)/);
+  assert.match(worker, /remainingSeconds -le 2\.5/);
   assert.match(worker, /if \(\$Lane -eq 'code'\) \{ SetCodeTextPriorityWindow 300 \}/);
   assert.match(worker, /if \(\$Lane -eq 'code'\) \{ SetCodeTextPriorityWindow 2 \}/);
   assert.match(worker, /\$Lane -eq 'gpu' -and \(CodeTextPriorityWindowActive\)/);

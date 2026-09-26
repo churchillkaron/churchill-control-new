@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
 import {
   localComputeExecutionKey,
 } from "../lib/platform/service-runtime/providers/AvantiqoLocalComputeIdempotencyPolicy.js";
 
 const base = { usage_id: "usage-1", capability: "ai.text.generate" };
+const hierarchical = fs.readFileSync("lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceHierarchicalLocalRuntime.js", "utf8");
 
 test("hierarchical stages receive distinct deterministic local-compute execution keys", () => {
   const chunk1 = localComputeExecutionKey({ ...base, input: { hierarchical_stage: "chunk-1" } });
@@ -29,4 +31,10 @@ test("ordinary non-hierarchical jobs retain the original parent execution key", 
     localComputeExecutionKey({ ...base, input: {} }),
     "local-compute:usage-1:ai.text.generate",
   );
+});
+
+
+test("hierarchical deep child wait outlives bounded Code GPU reservation", () => {
+  assert.match(hierarchical, /const DEFAULT_TIMEOUT_MS = 360000/);
+  assert.match(hierarchical, /Math\.min\(Math\.floor\(value\), 600_000\)/);
 });

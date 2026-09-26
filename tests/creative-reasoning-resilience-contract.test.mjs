@@ -80,3 +80,22 @@ test("structured supervisor recovers a valid balanced JSON object without anothe
   assert.match(source, /if \(typeof parsed === "string"\) parsed = JSON\.parse\(parsed\)/);
   assert.doesNotMatch(source, /firstBrace = source\.indexOf/);
 });
+
+
+test("hierarchical local child timeout permits queue backpressure", async () => {
+  const source = fs.readFileSync(
+    new URL("../lib/platform/service-runtime/providers/avantiqo-intelligence/AvantiqoIntelligenceHierarchicalLocalRuntime.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /Math\.min\(Math\.floor\(value\), 600_000\)/);
+  assert.doesNotMatch(source, /Math\.min\(Math\.floor\(value\), 120_000\)/);
+});
+
+
+test("temporal reasoning explicitly tolerates local queue backpressure", () => {
+  const source = fs.readFileSync(
+    new URL("../lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /hierarchical_child_timeout_ms:\s*600000/);
+});

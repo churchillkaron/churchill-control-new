@@ -4,10 +4,12 @@ import { pathToFileURL } from 'node:url';
 process.env.NEXT_PUBLIC_SUPABASE_URL ||= 'https://audit.invalid';
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'audit-service-role-key';
 register('./scripts/next-alias-loader.mjs', pathToFileURL('./'));
-const [{listOperatorCapabilities},{rankOperatorCapabilities},{understandHumanBusinessPartnerTurn}] = await Promise.all([
+const [{listOperatorCapabilities},{rankOperatorCapabilities},{understandHumanBusinessPartnerTurn},{resolveOperatorMultiReadRequirement},{prioritizeOperatorBusinessReads}] = await Promise.all([
   import('@/lib/operator/runtime/OperatorCapabilityCatalog'),
   import('@/lib/operator/runtime/OperatorCapabilityMatcher'),
   import('@/lib/operator/runtime/OperatorHumanBusinessPartnerUnderstandingRuntime.js'),
+  import('@/lib/operator/runtime/OperatorReasoningRuntime.js'),
+  import('@/lib/operator/runtime/OperatorBusinessReadResolver.js'),
 ]);
 const suite=JSON.parse(fs.readFileSync('benchmarks/business-partner/universal-suite.v2.json','utf8'));
 const catalog=await listOperatorCapabilities();
@@ -28,6 +30,13 @@ for(const c of suite.cases){
   if(['read','multi_read'].includes(c.kind)){
     ranked=rank(c.prompt,reads,['read'],24);const window=c.kind==='multi_read'?12:5;
     for(const key of c.required_capabilities||[]){const idx=ranked.indexOf(key);if(idx<0||idx>=window)problems.push(`read_missing_or_low:${key}:rank=${idx}`);}
+    if(c.kind==='multi_read'){
+      const requirement=resolveOperatorMultiReadRequirement({message:c.prompt,capabilities:catalog});
+      if(!requirement)problems.push('multi_read_requirement_missing');
+      for(const key of c.required_capabilities||[]){if(!requirement?.capability_keys?.includes(key))problems.push(`multi_read_requirement_missing_key:${key}`);}
+      const prioritized=prioritizeOperatorBusinessReads({message:c.prompt,capabilities:catalog,limit:18}).capabilities.map(x=>x.key);
+      if(!prioritized.includes('platform.operator_read_chain.execute'))problems.push('read_chain_not_exposed');
+    }
   } else if(c.kind==='write'){
     ranked=rank(c.prompt,actions,['draft','write','approve'],24);
     for(const key of c.required_capabilities||[]){const idx=ranked.indexOf(key);if(idx<0||idx>=8)problems.push(`action_missing_or_low:${key}:rank=${idx}`);}

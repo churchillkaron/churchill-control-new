@@ -59,22 +59,38 @@ export function extractRepositoryTestFailures(log) {
 
 
 export function extractRepositoryTestSummary(log) {
-  const summary = { tests: null, pass: null, fail: null, cancelled: null, skipped: null, todo: null };
-  for (const rawLine of String(log || "").split(/\r?\n/)) {
-    const line = rawLine.trim();
-    const match = line.match(/^(?:ℹ|#)\s+(tests|pass|fail|cancelled|skipped|todo)\s+(\d+)$/i);
-    if (match) summary[match[1].toLowerCase()] = Number(match[2]);
+  const lines = String(log || "").split(/\r?\n/).map((line) => line.trim());
+  const fields = ["tests", "suites", "pass", "fail", "cancelled", "skipped", "todo", "duration_ms"];
+  const blocks = [];
+  for (let index = 0; index <= lines.length - fields.length; index += 1) {
+    const values = {};
+    let matched = true;
+    for (let offset = 0; offset < fields.length; offset += 1) {
+      const field = fields[offset];
+      const numeric = field === "duration_ms" ? "([0-9]+(?:\\.[0-9]+)?)" : "(\\d+)";
+      const match = lines[index + offset].match(new RegExp(`^(?:ℹ|#)\\s+${field}\\s+${numeric}$`, "i"));
+      if (!match) { matched = false; break; }
+      values[field] = Number(match[1]);
+    }
+    if (matched) blocks.push({ start_line: index + 1, ...values });
   }
-  const complete = Object.values(summary).every((value) => Number.isInteger(value) && value >= 0);
-  const accounted = complete
-    ? summary.pass + summary.fail + summary.cancelled + summary.skipped + summary.todo
-    : null;
+
+  const block = blocks.at(-1) || null;
+  if (!block) {
+    return {
+      tests: null, suites: null, pass: null, fail: null, cancelled: null, skipped: null, todo: null, duration_ms: null,
+      complete: false, consistent: false, canonical_block_count: 0, canonical_start_line: null, accounted: null, executed: null,
+    };
+  }
+  const accounted = block.pass + block.fail + block.cancelled + block.skipped + block.todo;
   return {
-    ...summary,
-    complete,
-    consistent: complete && accounted === summary.tests,
+    ...block,
+    complete: true,
+    consistent: accounted === block.tests,
+    canonical_block_count: blocks.length,
+    canonical_start_line: block.start_line,
     accounted,
-    executed: complete ? summary.pass + summary.fail : null,
+    executed: block.pass + block.fail,
   };
 }
 

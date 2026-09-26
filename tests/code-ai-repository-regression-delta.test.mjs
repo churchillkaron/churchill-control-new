@@ -6,15 +6,17 @@ import {
   extractRepositoryTestSummary,
 } from "../scripts/code-ai-repository-regression-delta.mjs";
 
-function withSummary(body, { tests = 20, pass = 18, fail = 2, cancelled = 0, skipped = 0, todo = 0 } = {}) {
+function withSummary(body, { tests = 20, suites = 0, pass = 18, fail = 2, cancelled = 0, skipped = 0, todo = 0, duration_ms = 10.5 } = {}) {
   return [
     body,
     `ℹ tests ${tests}`,
+    `ℹ suites ${suites}`,
     `ℹ pass ${pass}`,
     `ℹ fail ${fail}`,
     `ℹ cancelled ${cancelled}`,
     `ℹ skipped ${skipped}`,
     `ℹ todo ${todo}`,
+    `ℹ duration_ms ${duration_ms}`,
   ].join("\n");
 }
 
@@ -157,7 +159,7 @@ test("missing Node summary fails inventory closed", () => {
 });
 
 test("internally inconsistent Node summary fails inventory closed", () => {
-  const headLog = ["✖ existing failure", "ℹ tests 20", "ℹ pass 17", "ℹ fail 2", "ℹ cancelled 0", "ℹ skipped 0", "ℹ todo 0"].join("\n");
+  const headLog = withSummary("✖ existing failure", { tests: 20, pass: 17, fail: 2 });
   const baseLog = withSummary("✖ existing failure");
   const result = compareRepositoryRegressionDelta({ headLog, baseLog, headExit: 1, baseExit: 1 });
   assert.equal(result.success, false);
@@ -170,4 +172,40 @@ test("increasing skipped coverage fails inventory gate even when total tests gro
   const result = compareRepositoryRegressionDelta({ headLog, baseLog, headExit: 1, baseExit: 1 });
   assert.equal(result.success, false);
   assert.equal(result.reason, "TEST_NONEXECUTED_COVERAGE_INCREASED");
+});
+
+
+test("scattered summary-looking lines cannot spoof test inventory", () => {
+  const fake = [
+    "ℹ tests 9999",
+    "some test output",
+    "ℹ suites 0",
+    "ℹ pass 9999",
+    "ℹ fail 0",
+    "ℹ cancelled 0",
+    "ℹ skipped 0",
+    "ℹ todo 0",
+    "ℹ duration_ms 1",
+  ].join("\n");
+  const summary = extractRepositoryTestSummary(fake);
+  assert.equal(summary.complete, false);
+  assert.equal(summary.canonical_block_count, 0);
+});
+
+test("last canonical Node reporter block wins over earlier lookalike block", () => {
+  const early = withSummary("test-emitted lookalike", { tests: 999, pass: 999, fail: 0, duration_ms: 1 });
+  const real = withSummary("real reporter", { tests: 100, pass: 98, fail: 2, duration_ms: 250 });
+  const summary = extractRepositoryTestSummary(`${early}\nnoise between blocks\n${real}`);
+  assert.equal(summary.complete, true);
+  assert.equal(summary.canonical_block_count, 2);
+  assert.equal(summary.tests, 100);
+  assert.equal(summary.pass, 98);
+  assert.equal(summary.duration_ms, 250);
+});
+
+test("isolated fake inventory line after canonical summary cannot override it", () => {
+  const log = `${withSummary("", { tests: 100, pass: 98, fail: 2 })}\nℹ tests 1`;
+  const summary = extractRepositoryTestSummary(log);
+  assert.equal(summary.tests, 100);
+  assert.equal(summary.pass, 98);
 });

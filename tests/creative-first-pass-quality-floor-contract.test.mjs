@@ -1,36 +1,32 @@
-import fs from 'node:fs';
-import assert from 'node:assert/strict';
-import test from 'node:test';
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
 
-const read = (path) => fs.readFileSync(path, 'utf8');
-const planner = read('lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js');
-const validator = read('lib/creative/director/validation/CreativeMasterPlanValidator.js');
-const registry = read('lib/creative/director/registry/CreativeMasterPlanContractRegistry.js');
+const planner = fs.readFileSync("lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js", "utf8");
+const validator = fs.readFileSync("lib/creative/director/validation/CreativeMasterPlanValidator.js", "utf8");
+const registry = fs.readFileSync("lib/creative/director/registry/CreativeMasterPlanContractRegistry.js", "utf8");
 
-test('temporal Studio authors the quality floor before generation', () => {
+test("temporal Studio authors the quality floor before generation", () => {
   assert.match(planner, /FIRST-PASS QUALITY FLOOR/);
   assert.match(planner, /Do not rely on downstream reviewers/);
-  assert.match(planner, /first_pass_intent/);
-  assert.match(planner, /story_delta/);
-  assert.match(planner, /visible_event/);
-  assert.match(planner, /edit_reason/);
-  assert.match(planner, /continuity_anchor/);
-  assert.match(planner, /sound_picture_event/);
-  assert.match(planner, /predicted_failure/);
-  assert.match(planner, /Math\.min\(40/);
-  assert.match(planner, /Premium\/high-budget work may require many more purposeful shots/);
+  for (const key of ["story_delta","visible_event","edit_reason","continuity_anchor","sound_picture_event","predicted_failure"]) {
+    assert.match(planner, new RegExp(key));
+    assert.match(validator, new RegExp(key));
+  }
+  assert.match(planner, /Premium\/high-budget work must add purposeful inserts/);
 });
 
-test('first-pass intent is release-blocking master-plan structure', () => {
+test("first-pass intent is a required master-plan contract and survives recovery", () => {
   assert.match(validator, /const firstPassIntent = object\(shot\.first_pass_intent\)/);
-  assert.match(validator, /first_pass_intent\.\$\{field\}/);
-  assert.match(registry, /Mandatory pre-generation self-critique record/);
-  assert.match(registry, /downstream review is a backstop, not the authoring mechanism/);
+  assert.match(registry, /Mandatory pre-generation authoring contract/);
+  assert.match(registry, /downstream review is a backstop/);
+  assert.match(planner, /first_pass_intent: \{/);
+  assert.match(planner, /Prevent generic AI coverage, posing, floating camera, continuity drift/);
 });
 
-test('deterministic recovery keeps first-pass quality semantics', () => {
-  assert.match(planner, /first_pass_intent: object\(shot\.first_pass_intent\)/);
-  assert.match(planner, /This cause-side angle gives the following consequence shot a motivated cut point/);
-  assert.match(planner, /This consequence-side angle completes the causal edit pair/);
-  assert.match(planner, /Reject generic office montage, posed performance, floating camera, identity drift/);
+test("temporal contract repair can recover settled provider results from usage metadata", () => {
+  const source = fs.readFileSync("lib/creative/director/runtime/CreativeTemporalMasterPlanRuntime.js", "utf8");
+  assert.match(source, /current\.usage\?\.metadata\?\.provider_result/);
+  assert.match(source, /current\.metadata\?\.provider_result/);
+  assert.match(source, /current\.billing\?\.usage\?\.metadata\?\.provider_result/);
 });

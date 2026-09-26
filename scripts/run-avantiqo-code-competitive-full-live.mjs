@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, rm, stat, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 
@@ -11,6 +12,9 @@ const dryRun = process.argv.includes("--dry-run");
 const text = (value) => String(value ?? "").trim();
 const approved = (value) => ["YES", "TRUE", "1", "APPROVED", "ON"].includes(text(value).toUpperCase());
 const canonicalProvider = (value) => text(value).toLowerCase() === "gemini" ? "google" : text(value).toLowerCase();
+const sha256 = (value) => createHash("sha256").update(value).digest("hex");
+const orchestratorRunId = dryRun ? "DRY_RUN" : randomUUID();
+const orchestratorStartedAt = dryRun ? null : new Date();
 
 function parseObjectEnv(name, required = true) {
   const raw = text(process.env[name]);
@@ -45,6 +49,7 @@ const paths = {
   owned_frontier: resolve(root, "avantiqo-code-frontier-owned-local.json"),
   owned_repository: resolve(root, "avantiqo-code-executable-repository-owned.json"),
   competitive: resolve(root, "avantiqo-code-competitive-benchmark.json"),
+  manifest: resolve(root, "avantiqo-code-competitive-full-run-manifest.json"),
 };
 const referencePaths = Object.fromEntries(providers.map((provider) => [provider, {
   frontier: resolve(root, `avantiqo-code-competitive-reference-${provider}.json`),
@@ -53,6 +58,7 @@ const referencePaths = Object.fromEntries(providers.map((provider) => [provider,
 
 const plan = {
   contract: CONTRACT,
+  orchestrator_run_id: orchestratorRunId,
   providers,
   models: Object.fromEntries(providers.map((provider) => [provider, text(models[provider])])),
   paths: { ...paths, references: referencePaths },
@@ -63,6 +69,11 @@ const plan = {
     "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_LOCAL_APPROVED",
     "AVANTIQO_CODE_EXECUTABLE_REPOSITORY_REFERENCE_APPROVED",
   ],
+  fresh_artifact_policy: {
+    stale_output_reuse_forbidden: true,
+    generated_at_must_be_within_orchestrator_run: true,
+    manifest_sha256_required: true,
+  },
   external_provider_execution_performed: false,
   production_deploy_performed: false,
 };
@@ -74,6 +85,39 @@ if (dryRun) {
 if (!approved(process.env[APPROVAL])) throw new Error(`${APPROVAL}=YES_REQUIRED`);
 for (const lowerApproval of plan.approvals_required.slice(1)) {
   if (!approved(process.env[lowerApproval])) throw new Error(`${lowerApproval}=YES_REQUIRED`);
+}
+
+async function clearEvidenceOutputs() {
+  const files = [
+    paths.owned_frontier, paths.owned_repository, paths.competitive, paths.manifest,
+    ...providers.flatMap((provider) => [referencePaths[provider].frontier, referencePaths[provider].repository]),
+  ];
+  await Promise.all(files.map((file) => rm(file, { force: true })));
+}
+
+async function verifyFreshArtifact(path, label) {
+  const info = await stat(path).catch(() => null);
+  if (!info?.isFile()) throw new Error(`${CONTRACT}_${label}_ARTIFACT_MISSING`);
+  if (orchestratorStartedAt && info.mtimeMs + 1000 < orchestratorStartedAt.getTime()) {
+    throw new Error(`${CONTRACT}_${label}_ARTIFACT_STALE_MTIME`);
+  }
+  const raw = await readFile(path);
+  let parsed;
+  try { parsed = JSON.parse(raw.toString("utf8")); } catch { throw new Error(`${CONTRACT}_${label}_ARTIFACT_INVALID_JSON`); }
+  const generatedAt = Date.parse(text(parsed?.generated_at || parsed?.measured_at));
+  if (!Number.isFinite(generatedAt)) throw new Error(`${CONTRACT}_${label}_ARTIFACT_TIMESTAMP_REQUIRED`);
+  if (orchestratorStartedAt && generatedAt < orchestratorStartedAt.getTime() - 1000) {
+    throw new Error(`${CONTRACT}_${label}_ARTIFACT_PREDATES_RUN`);
+  }
+  if (generatedAt > Date.now() + 60_000) throw new Error(`${CONTRACT}_${label}_ARTIFACT_FROM_FUTURE`);
+  return {
+    path,
+    sha256: sha256(raw),
+    bytes: raw.length,
+    generated_at: new Date(generatedAt).toISOString(),
+    benchmark_run_id: text(parsed?.benchmark_run_id) || null,
+    contract: text(parsed?.contract) || null,
+  };
 }
 
 function runNode(script, args, env, label) {
@@ -89,10 +133,15 @@ function runNode(script, args, env, label) {
   return result;
 }
 
+await clearEvidenceOutputs();
+const producedArtifacts = [];
+
 runNode("scripts/run-avantiqo-code-frontier-local.mjs", ["--output", paths.owned_frontier], {}, "OWNED_FRONTIER");
+producedArtifacts.push(await verifyFreshArtifact(paths.owned_frontier, "OWNED_FRONTIER"));
 runNode("scripts/run-avantiqo-code-executable-repository-local.mjs", [], {
   AVANTIQO_CODE_EXECUTABLE_REPOSITORY_OUTPUT: paths.owned_repository,
 }, "OWNED_REPOSITORY");
+producedArtifacts.push(await verifyFreshArtifact(paths.owned_repository, "OWNED_REPOSITORY"));
 for (const provider of providers) {
   const model = text(models[provider]);
   const price = pricing[provider];
@@ -106,6 +155,7 @@ for (const provider of providers) {
     ...commonReferenceEnv,
     AVANTIQO_CODE_COMPETITIVE_REFERENCE_OUTPUT: referencePaths[provider].frontier,
   }, `REFERENCE_FRONTIER_${provider.toUpperCase()}`);
+  producedArtifacts.push(await verifyFreshArtifact(referencePaths[provider].frontier, `REFERENCE_FRONTIER_${provider.toUpperCase()}`));
 
   runNode("scripts/run-avantiqo-code-executable-repository-local.mjs", [], {
     AVANTIQO_CODE_EXECUTABLE_REPOSITORY_REFERENCE_PROVIDER: provider,
@@ -114,6 +164,7 @@ for (const provider of providers) {
     AVANTIQO_CODE_EXECUTABLE_REPOSITORY_REFERENCE_OUTPUT_USD_PER_1M: String(price.output_usd_per_1m),
     AVANTIQO_CODE_EXECUTABLE_REPOSITORY_OUTPUT: referencePaths[provider].repository,
   }, `REFERENCE_REPOSITORY_${provider.toUpperCase()}`);
+  producedArtifacts.push(await verifyFreshArtifact(referencePaths[provider].repository, `REFERENCE_REPOSITORY_${provider.toUpperCase()}`));
 }
 const frontierReferences = providers.map((provider) => referencePaths[provider].frontier).join(",");
 const repositoryReferences = providers.map((provider) => referencePaths[provider].repository).join(",");
@@ -126,13 +177,31 @@ runNode("scripts/benchmark-avantiqo-code-competitive.mjs", [], {
   AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_MODELS: JSON.stringify(plan.models),
   AVANTIQO_CODE_COMPETITIVE_OUTPUT: paths.competitive,
 }, "COMPETITIVE_CERTIFICATION");
+producedArtifacts.push(await verifyFreshArtifact(paths.competitive, "COMPETITIVE_CERTIFICATION"));
 
 const report = JSON.parse(await readFile(paths.competitive, "utf8"));
+const manifest = {
+  contract: "AVANTIQO_CODE_COMPETITIVE_FULL_RUN_MANIFEST_V1",
+  orchestrator_run_id: orchestratorRunId,
+  started_at: orchestratorStartedAt?.toISOString() || null,
+  completed_at: new Date().toISOString(),
+  providers,
+  models: plan.models,
+  artifacts: producedArtifacts,
+  competitive_certified: report.competitive_certified === true,
+  production_deploy_performed: false,
+};
+await writeFile(paths.manifest, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+const manifestRaw = await readFile(paths.manifest);
+const manifestSha256 = sha256(manifestRaw);
 console.log(JSON.stringify({
   success: report.competitive_certified === true,
   contract: CONTRACT,
+  orchestrator_run_id: orchestratorRunId,
   providers,
   competitive_report: paths.competitive,
+  manifest: paths.manifest,
+  manifest_sha256: manifestSha256,
   competitive_certified: report.competitive_certified === true,
   repository_task_artifact_certified: report.repository_task_evidence?.certified === true,
   quality_superiority_observed: report.quality_superiority_observed === true,

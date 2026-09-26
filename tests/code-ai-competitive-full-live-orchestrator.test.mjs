@@ -28,6 +28,9 @@ test("full competitive orchestrator dry-run plans evidence without execution", (
   assert.deepEqual(report.providers, ["google", "openai"]);
   assert.match(report.paths.owned_repository, /executable-repository-owned\.json$/);
   assert.match(report.paths.references.openai.repository, /repository-reference-openai\.json$/);
+  assert.match(report.paths.manifest, /full-run-manifest\.json$/);
+  assert.equal(report.fresh_artifact_policy.stale_output_reuse_forbidden, true);
+  assert.equal(report.fresh_artifact_policy.generated_at_must_be_within_orchestrator_run, true);
 });
 
 test("full competitive orchestrator requires an exact model binding for every provider", () => {
@@ -48,4 +51,14 @@ test("full orchestrator wires frontier and executable evidence into competitive 
   assert.match(source, /AVANTIQO_CODE_COMPETITIVE_FULL_BENCHMARK_APPROVED/);
   assert.match(source, /runtime_provider_effect: "NONE"/);
   assert.match(source, /production_deploy_performed: false/);
+});
+
+
+test("full orchestrator forbids stale artifact reuse and emits a hashed run manifest", () => {
+  assert.match(source, /clearEvidenceOutputs/);
+  assert.match(source, /verifyFreshArtifact/);
+  assert.match(source, /ARTIFACT_PREDATES_RUN/);
+  assert.match(source, /manifest_sha256/);
+  assert.match(source, /AVANTIQO_CODE_COMPETITIVE_FULL_RUN_MANIFEST_V1/);
+  assert.match(source, /benchmark_run_id: text\(parsed\?\.benchmark_run_id\)/);
 });

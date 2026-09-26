@@ -14,6 +14,7 @@ const SUITE_CONTRACT = "AVANTIQO_CODE_FRONTIER_ENGINEERING_SUITE_V1";
 const PROMPT_CONTRACT = "AVANTIQO_CODE_FRONTIER_PROMPT_CONTRACT_V1";
 const MIN_CASES = 20;
 const MAX_REFERENCE_AGE_DAYS = 30;
+const MAX_CROSS_EVIDENCE_SKEW_HOURS = 24;
 const MIN_NON_LOSS_RATE = 0.95;
 const MIN_NARRATIVE_GROUNDING_SCORE = 0.5;
 const MIN_QUALITY_WIN_MARGIN = 0.03;
@@ -273,6 +274,19 @@ if (
   throw new Error("AVANTIQO_CODE_COMPETITIVE_OWNED_PROMPT_CONTRACT_MISMATCH");
 }
 const references = await Promise.all(referencePaths.map(async (path) => JSON.parse(await readFile(path, "utf8"))));
+const allRunIds = [text(owned?.benchmark_run_id), ...references.map((reference) => text(reference?.benchmark_run_id))];
+if (allRunIds.some((runId) => !runId) || new Set(allRunIds).size !== allRunIds.length) {
+  throw new Error("AVANTIQO_CODE_COMPETITIVE_UNIQUE_BENCHMARK_RUN_IDS_REQUIRED");
+}
+const ownedMeasuredAt = Date.parse(text(owned?.generated_at));
+if (!Number.isFinite(ownedMeasuredAt)) throw new Error("AVANTIQO_CODE_COMPETITIVE_OWNED_MEASURED_AT_REQUIRED");
+for (const reference of references) {
+  const referenceMeasuredAt = Date.parse(text(reference?.generated_at));
+  const skewMs = Math.abs(referenceMeasuredAt - ownedMeasuredAt);
+  if (!Number.isFinite(referenceMeasuredAt) || skewMs > MAX_CROSS_EVIDENCE_SKEW_HOURS * 60 * 60 * 1000) {
+    throw new Error("AVANTIQO_CODE_COMPETITIVE_CROSS_EVIDENCE_SKEW_EXCEEDED");
+  }
+}
 const requiredProviders = requiredReferenceProviders();
 const requiredModels = requiredReferenceModels(requiredProviders);
 const availableProviders = [...new Set(references.map((reference) => canonicalReferenceProvider(reference?.provider)).filter(Boolean))].sort();
@@ -339,6 +353,8 @@ const report = {
     minimum_references: 2,
     minimum_cases_per_reference: MIN_CASES,
     maximum_reference_age_days: MAX_REFERENCE_AGE_DAYS,
+    maximum_cross_evidence_skew_hours: MAX_CROSS_EVIDENCE_SKEW_HOURS,
+    unique_signed_benchmark_run_ids_required: true,
     minimum_quality_non_loss_rate: MIN_NON_LOSS_RATE,
     minimum_material_quality_win_margin: MIN_QUALITY_WIN_MARGIN,
     deterministic_quality_score_required_for_passed_cases: true,

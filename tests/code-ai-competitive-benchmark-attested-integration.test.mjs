@@ -68,6 +68,9 @@ function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs
   return {
     contract: "AVANTIQO_CODE_COMPETITIVE_REFERENCE_REPORT_V1",
     generator_contract: "AVANTIQO_CODE_COMPETITIVE_REFERENCE_RUNNER_V1",
+    benchmark_run_id: provider === "openai"
+      ? "33333333-3333-4333-8333-333333333333"
+      : "44444444-4444-4444-8444-444444444444",
     generated_at: new Date().toISOString(),
     measurement_mode: "LIVE_REFERENCE_PROVIDER",
     provider_execution_performed: true,
@@ -102,6 +105,7 @@ async function fixture() {
   const outputPath = join(dir, "competitive.json");
   const owned = attestCodeAICompetitiveOwnedReport({
     contract: "AVANTIQO_CODE_FRONTIER_LOCAL_RUNNER_V1",
+    benchmark_run_id: "55555555-5555-4555-8555-555555555555",
     generated_at: new Date().toISOString(),
     measurement_mode: "LIVE_OWNED_LOCAL_NODE",
     model: { provider: "avantiqo-code", product_model: "avantiqo-code-v1" },
@@ -301,4 +305,28 @@ test("wrong model under correct provider cannot satisfy the floor", async () => 
   const run = runBenchmark(paths);
   assert.notEqual(run.status, 0);
   assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_MODEL_MISMATCH:google/);
+});
+
+
+test("reference evidence measured too far from owned evidence is rejected", async () => {
+  const paths = await fixture();
+  const current = JSON.parse(await readFile(paths.refAPath, "utf8"));
+  const unsigned = { ...current, generated_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString() };
+  delete unsigned.attestation;
+  await writeFile(paths.refAPath, JSON.stringify(attestCodeAICompetitiveReferenceReport(unsigned, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_CROSS_EVIDENCE_SKEW_EXCEEDED/);
+});
+
+test("duplicate signed benchmark run ids are rejected", async () => {
+  const paths = await fixture();
+  const refA = JSON.parse(await readFile(paths.refAPath, "utf8"));
+  const refB = JSON.parse(await readFile(paths.refBPath, "utf8"));
+  const unsigned = { ...refB, benchmark_run_id: refA.benchmark_run_id };
+  delete unsigned.attestation;
+  await writeFile(paths.refBPath, JSON.stringify(attestCodeAICompetitiveReferenceReport(unsigned, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_UNIQUE_BENCHMARK_RUN_IDS_REQUIRED/);
 });

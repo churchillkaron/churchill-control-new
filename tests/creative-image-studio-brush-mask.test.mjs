@@ -24,3 +24,33 @@ test("brush stroke SVG maps normalized points into mask region with feathered ha
   assert.match(svg,/opacity="0.7"/);
   assert.match(svg,/feGaussianBlur/);
 });
+
+
+test("editor stores brush refinements on selected MASK layer and exposes controls", async()=>{
+  const fs=await import("node:fs");
+  const store=fs.readFileSync("components/creative/specialist/useImageStudioWorkspaceStore.js","utf8");
+  const inspector=fs.readFileSync("components/creative/specialist/ImageStudioLayerInspector.jsx","utf8");
+  const toolbar=fs.readFileSync("components/creative/specialist/ImageStudioCanvasToolbar.jsx","utf8");
+  const overlay=fs.readFileSync("components/creative/specialist/ImageStudioMaskBrushOverlay.jsx","utf8");
+  assert.match(store,/addMaskBrushStroke/);
+  assert.match(store,/mask_brush_strokes/);
+  assert.match(store,/clearMaskBrushStrokes/);
+  assert.match(inspector,/Precision brush refinement/);
+  assert.match(inspector,/Add brush/);
+  assert.match(inspector,/Subtract brush/);
+  assert.match(inspector,/Hardness %/);
+  assert.match(toolbar,/mask_brush/);
+  assert.match(toolbar,/layer_type==="MASK"/);
+  assert.match(overlay,/workspace\.addMaskBrushStroke/);
+  assert.match(overlay,/touch-none cursor-crosshair/);
+});
+
+test("master export refines base geometric or semantic masks instead of replacing authority", async()=>{
+  const fs=await import("node:fs");
+  const exporter=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js","utf8");
+  assert.match(exporter,/applyImageStudioBrushMaskRefinements/);
+  assert.match(exporter,/normalizeImageStudioBrushStrokes/);
+  assert.match(exporter,/alpha\+\(255-alpha\)\*strength/);
+  assert.match(exporter,/alpha\*\(1-strength\)/);
+  assert.match(exporter,/brush_refinement_contract:"CREATIVE_IMAGE_STUDIO_BRUSH_MASK_V1"/);
+});

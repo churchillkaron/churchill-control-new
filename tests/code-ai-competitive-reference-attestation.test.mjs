@@ -31,6 +31,10 @@ function report(overrides = {}) {
     customer_private_content_included: false,
     raw_customer_content_included: false,
     raw_reasoning_persisted: false,
+    economics: {
+      estimated_supplier_cost_usd: Number((CASES.length * 0.0013).toFixed(8)),
+      cost_measurement_source: "RUNNER_SUM_OF_RECOMPUTED_CASE_COSTS_V1",
+    },
     observations: CASES.map((case_id, index) => ({
       case_id,
       passed: true,
@@ -107,5 +111,15 @@ test("tampered recomputed cost is rejected before signing", () => {
   assert.throws(
     () => attestCodeAICompetitiveReferenceReport(invalid, { env }),
     /CODE_AI_COMPETITIVE_REFERENCE_COST_RECOMPUTATION_MISMATCH/,
+  );
+});
+
+
+test("tampered aggregate supplier cost is rejected before signing", () => {
+  const invalid = report();
+  invalid.economics.estimated_supplier_cost_usd = 0.00001;
+  assert.throws(
+    () => attestCodeAICompetitiveReferenceReport(invalid, { env }),
+    /CODE_AI_COMPETITIVE_REFERENCE_AGGREGATE_COST_RECOMPUTATION_MISMATCH/,
   );
 });

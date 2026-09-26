@@ -303,6 +303,7 @@ for (const benchmarkCase of cases) {
       .join("\n---FILE---\n");
     observations.push({
       case_id: benchmarkCase.case_id,
+      allowed_edit_paths: list(benchmarkCase.allowed_edit_paths).map((value) => text(value, 500)),
       passed: hiddenPassed,
       status: text(result?.status, 120),
       reason: text(result?.reason, 500) || null,

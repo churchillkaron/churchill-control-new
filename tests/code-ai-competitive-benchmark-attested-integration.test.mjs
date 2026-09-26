@@ -24,6 +24,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
   return caseIds.map((case_id, index) => ({
     case_id,
     category: categoryByCase[case_id] || null,
+    allowed_edit_paths: [`benchmark-case-${index}.mjs`],
     passed: true,
     failures: [],
     quality_score: qualityScore,

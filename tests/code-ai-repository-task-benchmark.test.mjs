@@ -19,6 +19,7 @@ function proof(overrides = {}) {
   const caseId = overrides.case_id || "case-1";
   return {
     case_id: caseId,
+    allowed_edit_paths: ["invoice-total.mjs"],
     passed: true,
     base_commit: "1".repeat(40),
     diff_sha256: "2".repeat(64),
@@ -72,6 +73,7 @@ test("candidate pass flag alone cannot certify repository task superiority", () 
 test("synthetic-looking hashes without executed repository evidence cannot certify", () => {
   const synthetic = {
     case_id: "case-2",
+    allowed_edit_paths: ["invoice-total.mjs"],
     passed: true,
     base_commit: "1".repeat(40),
     diff_sha256: "2".repeat(64),
@@ -358,4 +360,25 @@ test("fractional verification test counts cannot certify", () => {
     }],
   });
   assert.equal(baselineFraction.cases[0].gates.protected_baseline_bound, false);
+});
+
+
+test("verifier allowed scope must match signed observation scope", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      allowed_edit_paths: ["invoice-total.mjs"],
+      repository_verification: {
+        ...base.repository_verification,
+        changed_paths: ["invoice-total.mjs", "extra-helper.mjs"],
+        allowed_edit_paths: ["invoice-total.mjs", "extra-helper.mjs"],
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.verifier_edit_scope_bound, true);
+  assert.equal(result.cases[0].gates.observation_edit_scope_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
 });

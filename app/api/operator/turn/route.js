@@ -80,6 +80,7 @@ import { preflightHumanBusinessPartnerTurn } from "@/lib/operator/runtime/Operat
 import { resolvePreSemanticReadIntent } from "@/lib/operator/runtime/OperatorPreSemanticReadRuntime.js";
 import { collectOperatorPresentationArtifacts } from "@/lib/operator/runtime/OperatorPresentationArtifactRuntime";
 import { loadAvantiqoLiveExecution } from "@/lib/platform/runtime/AvantiqoLiveExecutionRuntime";
+import { runBusinessPartnerBrowserBenchmarkTurn } from "@/lib/operator/runtime/BusinessPartnerBrowserBenchmarkRuntime.mjs";
 
 function readValue(source, camelKey, snakeKey) {
   return source?.[camelKey] ?? source?.[snakeKey] ?? null;
@@ -567,6 +568,38 @@ export async function POST(request, internal = {}) {
         null,
       role: access.role || null,
     };
+
+    const browserBenchmarkTurn = await runBusinessPartnerBrowserBenchmarkTurn({
+      organizationId: businessContext.organizationId,
+      partyId,
+      entityId: businessContext.entityId,
+      message,
+    });
+    if (browserBenchmarkTurn) {
+      return Response.json({
+        success: true,
+        state_unchanged: true,
+        decision: {
+          response_text: JSON.stringify(browserBenchmarkTurn.decision),
+          intent: "benchmark",
+          confidence: 1,
+          clarification: { required: false, question: null, options: [] },
+          agreement_state: {},
+          project_state: {},
+        },
+        execution: { status: "not_run", capability: null, result: null },
+        provider_evidence: {
+          contract: browserBenchmarkTurn.contract,
+          synthetic_only: true,
+          business_mutation_performed: false,
+          conversation_persisted: false,
+          authorization_effect: "NONE",
+        },
+        agreement_state: {},
+        project_state: {},
+        authorization_effect: "NONE",
+      });
+    }
 
     const attachmentSetId = conversationAttachmentSetIdFromRequest(request);
     const immediateConversation = boundedConversation(body.conversation).slice(-2);

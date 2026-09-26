@@ -90,17 +90,27 @@ export const useImageStudioWorkspaceStore = create((set) => ({
   createSemanticMaskFromSelected: (mode, options = {}) => set((state) => {
     if (state.selection.layer_ids.length !== 1) return state;
     const target=state.layers.find((layer)=>layer.id===state.selection.layer_ids[0]&&layer.layer_type==="IMAGE"&&!layer.locked);
-    if(!target)return state;
+    if(!target||target.metadata?.clip_mask_layer_id)return state;
     const mask=buildImageStudioMaskLayer({
       id:`mask-${crypto.randomUUID()}`,artboard_id:target.artboard_id,target_layer_id:target.id,
       region:{...(target.bounds||{})},mask_shape:"RECT",sort_order:Number(target.sort_order||0)+1,
     });
-    const semantic={...mask,metadata:{...(mask.metadata||{}),...buildImageStudioSemanticMaskPatch(mode,options)}};
+    let semantic={...mask,metadata:{...(mask.metadata||{}),...buildImageStudioSemanticMaskPatch(mode,options)}};
+    if(options.mask_asset_id){
+      try{semantic=attachImageStudioSemanticMatte(semantic,options);}catch{return state;}
+    }
     return {
       layers:[...state.layers.map((layer)=>layer.id===target.id?{...layer,metadata:{...(layer.metadata||{}),clip_mask_layer_id:semantic.id}}:layer),semantic],
       selection:{...state.selection,layer_ids:[semantic.id]},dirty:true,
       historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[],
     };
+  }),
+  approveSelectedSemanticMask: () => set((state) => {
+    if(state.selection.layer_ids.length!==1)return state;
+    const id=state.selection.layer_ids[0];
+    const mask=state.layers.find((layer)=>layer.id===id&&layer.layer_type==="MASK"&&layer.metadata?.mask_source_kind==="SEMANTIC"&&["SUBJECT","BACKGROUND"].includes(layer.metadata?.semantic_mask_mode));
+    if(!mask||mask.metadata?.semantic_status!=="READY_MATTE")return state;
+    return {layers:state.layers.map((layer)=>layer.id===id?{...layer,metadata:{...(layer.metadata||{}),semantic_review_required:false,semantic_review_approved:true,semantic_reviewed_at:new Date().toISOString()}}:layer),dirty:true,historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[]};
   }),
   attachSemanticMatteToMask: (maskId, evidence = {}) => set((state) => {
     const mask=state.layers.find((layer)=>layer.id===maskId&&layer.layer_type==="MASK");

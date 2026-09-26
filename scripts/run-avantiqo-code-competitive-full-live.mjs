@@ -117,6 +117,10 @@ async function verifyFreshArtifact(path, label) {
     generated_at: new Date(generatedAt).toISOString(),
     benchmark_run_id: text(parsed?.benchmark_run_id) || null,
     contract: text(parsed?.contract) || null,
+    provider: text(parsed?.provider || parsed?.model?.provider) || null,
+    model: text(parsed?.model?.product_model || parsed?.model?.runtime_model || parsed?.model) || null,
+    provider_execution_performed: parsed?.provider_execution_performed === true,
+    stage: label,
   };
 }
 
@@ -179,6 +183,25 @@ runNode("scripts/benchmark-avantiqo-code-competitive.mjs", [], {
 }, "COMPETITIVE_CERTIFICATION");
 producedArtifacts.push(await verifyFreshArtifact(paths.competitive, "COMPETITIVE_CERTIFICATION"));
 
+const requiredReferenceStages = providers.flatMap((provider) => [
+  `REFERENCE_FRONTIER_${provider.toUpperCase()}`,
+  `REFERENCE_REPOSITORY_${provider.toUpperCase()}`,
+]);
+const referenceExecutionArtifacts = producedArtifacts.filter((artifact) => requiredReferenceStages.includes(artifact.stage));
+const externalProviderExecutionPerformed =
+  referenceExecutionArtifacts.length === requiredReferenceStages.length &&
+  referenceExecutionArtifacts.every((artifact) => artifact.provider_execution_performed === true);
+if (!externalProviderExecutionPerformed) {
+  throw new Error(`${CONTRACT}_REFERENCE_PROVIDER_EXECUTION_EVIDENCE_INCOMPLETE`);
+}
+for (const provider of providers) {
+  const expectedModel = text(models[provider]);
+  const providerArtifacts = referenceExecutionArtifacts.filter((artifact) => artifact.provider === provider);
+  if (providerArtifacts.length !== 2 || providerArtifacts.some((artifact) => artifact.model !== expectedModel)) {
+    throw new Error(`${CONTRACT}_REFERENCE_PROVIDER_MODEL_EVIDENCE_MISMATCH:${provider}`);
+  }
+}
+
 const report = JSON.parse(await readFile(paths.competitive, "utf8"));
 const manifest = {
   contract: "AVANTIQO_CODE_COMPETITIVE_FULL_RUN_MANIFEST_V1",
@@ -188,6 +211,7 @@ const manifest = {
   providers,
   models: plan.models,
   artifacts: producedArtifacts,
+  external_provider_execution_performed: externalProviderExecutionPerformed,
   competitive_certified: report.competitive_certified === true,
   production_deploy_performed: false,
 };
@@ -206,7 +230,7 @@ console.log(JSON.stringify({
   repository_task_artifact_certified: report.repository_task_evidence?.certified === true,
   quality_superiority_observed: report.quality_superiority_observed === true,
   superiority_claim_allowed: report.superiority_claim_allowed === true,
-  external_provider_execution_performed: true,
+  external_provider_execution_performed: externalProviderExecutionPerformed,
   runtime_provider_effect: "NONE",
   production_deploy_performed: false,
 }, null, 2));

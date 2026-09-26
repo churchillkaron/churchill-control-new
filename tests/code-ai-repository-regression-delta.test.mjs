@@ -3,7 +3,20 @@ import test from "node:test";
 import {
   compareRepositoryRegressionDelta,
   extractRepositoryTestFailures,
+  extractRepositoryTestSummary,
 } from "../scripts/code-ai-repository-regression-delta.mjs";
+
+function withSummary(body, { tests = 20, pass = 18, fail = 2, cancelled = 0, skipped = 0, todo = 0 } = {}) {
+  return [
+    body,
+    `ℹ tests ${tests}`,
+    `ℹ pass ${pass}`,
+    `ℹ fail ${fail}`,
+    `ℹ cancelled ${cancelled}`,
+    `ℹ skipped ${skipped}`,
+    `ℹ todo ${todo}`,
+  ].join("\n");
+}
 
 test("repository regression delta extracts spec and TAP failures deterministically", () => {
   const failures = extractRepositoryTestFailures([
@@ -21,8 +34,8 @@ test("repository regression delta extracts spec and TAP failures deterministical
 
 test("green PR head passes without requiring a green base", () => {
   const result = compareRepositoryRegressionDelta({
-    headLog: "tests 20\npass 20",
-    baseLog: "✖ unrelated existing failure (2ms)",
+    headLog: withSummary("", { tests: 20, pass: 20, fail: 0 }),
+    baseLog: withSummary("✖ unrelated existing failure (2ms)"),
     headExit: 0,
     baseExit: 1,
   });
@@ -32,8 +45,8 @@ test("green PR head passes without requiring a green base", () => {
 
 test("red head against green base fails closed", () => {
   const result = compareRepositoryRegressionDelta({
-    headLog: "✖ new failure (2ms)",
-    baseLog: "tests 20\npass 20",
+    headLog: withSummary("✖ new failure (2ms)"),
+    baseLog: withSummary("", { tests: 20, pass: 20, fail: 0 }),
     headExit: 1,
     baseExit: 0,
   });
@@ -44,8 +57,8 @@ test("red head against green base fails closed", () => {
 
 test("existing unrelated failures do not fail a Code PR", () => {
   const result = compareRepositoryRegressionDelta({
-    headLog: "✖ existing creative failure (5ms)\n✖ existing music failure (4ms)",
-    baseLog: "✖ existing creative failure (9ms)\n✖ existing music failure (3ms)",
+    headLog: withSummary("✖ existing creative failure (5ms)\n✖ existing music failure (4ms)"),
+    baseLog: withSummary("✖ existing creative failure (9ms)\n✖ existing music failure (3ms)"),
     headExit: 1,
     baseExit: 1,
   });
@@ -56,8 +69,8 @@ test("existing unrelated failures do not fail a Code PR", () => {
 
 test("new failure relative to red base fails the PR", () => {
   const result = compareRepositoryRegressionDelta({
-    headLog: "✖ existing creative failure (5ms)\n✖ new Code regression (4ms)",
-    baseLog: "✖ existing creative failure (9ms)",
+    headLog: withSummary("✖ existing creative failure (5ms)\n✖ new Code regression (4ms)"),
+    baseLog: withSummary("✖ existing creative failure (9ms)"),
     headExit: 1,
     baseExit: 1,
   });
@@ -68,8 +81,8 @@ test("new failure relative to red base fails the PR", () => {
 
 test("unparseable red output fails closed", () => {
   const result = compareRepositoryRegressionDelta({
-    headLog: "process crashed before reporter output",
-    baseLog: "process crashed before reporter output",
+    headLog: withSummary("process crashed before reporter output"),
+    baseLog: withSummary("process crashed before reporter output"),
     headExit: 1,
     baseExit: 1,
   });
@@ -86,22 +99,75 @@ test("workflow keeps push regression absolute and PR regression baseline-aware",
   assert.match(workflow, /code-ai-repository-regression-delta\.mjs/);
   assert.match(workflow, /git worktree add --detach/);
   assert.match(workflow, /Dependency manifests changed; installing exact base dependencies/);
-  assert.match(workflow, /AVANTIQO_CODE_REPOSITORY_REGRESSION_DELTA=PASS/);
+  assert.match(workflow, /code-base-tests\.log/);
+  assert.doesNotMatch(workflow, /base comparison is unnecessary/);
 });
 
 
 test("same-title failure in a different file is detected as new", () => {
-  const baseLog = [
+  const baseLog = withSummary([
     "test at tests/a.test.mjs:10:1",
     "✖ shared title (2ms)",
-  ].join("\n");
-  const headLog = [
+  ].join("\n"));
+  const headLog = withSummary([
     "test at tests/a.test.mjs:10:1",
     "✖ shared title (2ms)",
     "test at tests/b.test.mjs:20:1",
     "✖ shared title (3ms)",
-  ].join("\n");
+  ].join("\n"));
   const result = compareRepositoryRegressionDelta({ headLog, baseLog, headExit: 1, baseExit: 1 });
   assert.equal(result.success, false);
   assert.deepEqual(result.new_failures, ["shared title @ tests/b.test.mjs"]);
+});
+
+
+test("test inventory parser reads Node summary counts", () => {
+  const summary = extractRepositoryTestSummary(withSummary("", { tests: 100, pass: 90, fail: 8, skipped: 1, todo: 1 }));
+  assert.equal(summary.complete, true);
+  assert.equal(summary.tests, 100);
+  assert.equal(summary.executed, 98);
+});
+
+test("green head cannot pass by shrinking executed test inventory", () => {
+  const headLog = withSummary("", { tests: 99, pass: 99, fail: 0 });
+  const baseLog = withSummary("✖ existing failure", { tests: 100, pass: 98, fail: 2 });
+  const result = compareRepositoryRegressionDelta({ headLog, baseLog, headExit: 0, baseExit: 1 });
+  assert.equal(result.success, false);
+  assert.equal(result.reason, "TEST_INVENTORY_SHRANK");
+});
+
+test("turning active tests into skipped coverage fails inventory gate", () => {
+  const headLog = withSummary("✖ existing failure", { tests: 100, pass: 88, fail: 2, skipped: 10 });
+  const baseLog = withSummary("✖ existing failure", { tests: 100, pass: 97, fail: 3 });
+  const result = compareRepositoryRegressionDelta({ headLog, baseLog, headExit: 1, baseExit: 1 });
+  assert.equal(result.success, false);
+  assert.equal(result.reason, "TEST_INVENTORY_SHRANK");
+});
+
+
+test("missing Node summary fails inventory closed", () => {
+  const result = compareRepositoryRegressionDelta({
+    headLog: "process crashed before reporter summary",
+    baseLog: "process crashed before reporter summary",
+    headExit: 1,
+    baseExit: 1,
+  });
+  assert.equal(result.success, false);
+  assert.equal(result.reason, "TEST_INVENTORY_UNPARSEABLE");
+});
+
+test("internally inconsistent Node summary fails inventory closed", () => {
+  const headLog = ["✖ existing failure", "ℹ tests 20", "ℹ pass 17", "ℹ fail 2", "ℹ cancelled 0", "ℹ skipped 0", "ℹ todo 0"].join("\n");
+  const baseLog = withSummary("✖ existing failure");
+  const result = compareRepositoryRegressionDelta({ headLog, baseLog, headExit: 1, baseExit: 1 });
+  assert.equal(result.success, false);
+  assert.equal(result.reason, "TEST_INVENTORY_INCONSISTENT");
+});
+
+test("increasing skipped coverage fails inventory gate even when total tests grow", () => {
+  const headLog = withSummary("✖ existing failure", { tests: 102, pass: 98, fail: 2, skipped: 2 });
+  const baseLog = withSummary("✖ existing failure", { tests: 100, pass: 98, fail: 2 });
+  const result = compareRepositoryRegressionDelta({ headLog, baseLog, headExit: 1, baseExit: 1 });
+  assert.equal(result.success, false);
+  assert.equal(result.reason, "TEST_NONEXECUTED_COVERAGE_INCREASED");
 });

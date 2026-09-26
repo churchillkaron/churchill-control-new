@@ -29,6 +29,10 @@ function proof(overrides = {}) {
       protected_baseline_sha256: "5".repeat(64),
       protected_baseline_executed: true,
       protected_baseline_test_count: 12,
+      protected_baseline_base_commit: "1".repeat(40),
+      protected_baseline_hidden_acceptance_sha256: "4".repeat(64),
+      protected_baseline_exit_code: 1,
+      protected_baseline_passed: false,
       candidate_self_report_authority: false,
     },
     ...overrides,
@@ -65,6 +69,12 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       exit_code: 0,
       hidden_acceptance_sha256: "4".repeat(64),
       protected_baseline_sha256: "5".repeat(64),
+      protected_baseline_executed: true,
+      protected_baseline_test_count: 1,
+      protected_baseline_base_commit: "1".repeat(40),
+      protected_baseline_hidden_acceptance_sha256: "4".repeat(64),
+      protected_baseline_exit_code: 1,
+      protected_baseline_passed: false,
       candidate_self_report_authority: false,
     },
   };
@@ -97,6 +107,7 @@ test("distinct proof identities across cases certify", () => {
       candidate_diff_sha256: "6".repeat(64),
       candidate_artifact_sha256: "7".repeat(64),
       hidden_acceptance_sha256: "8".repeat(64),
+      protected_baseline_hidden_acceptance_sha256: "8".repeat(64),
     },
   };
   const result = assessCodeAIRepositoryTaskBenchmark({ runner_source_commit: "1".repeat(40), observations: [first, second] });
@@ -154,4 +165,35 @@ test("verification proof must bind the exact candidate diff and artifact", () =>
   });
   assert.equal(result.cases[0].gates.verifier_candidate_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("protected baseline must bind the exact base commit and hidden acceptance program", () => {
+  const base = proof();
+  const wrongHidden = assessCodeAIRepositoryTaskBenchmark({
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        protected_baseline_hidden_acceptance_sha256: "9".repeat(64),
+      },
+    }],
+  });
+  assert.equal(wrongHidden.cases[0].gates.protected_baseline_bound, false);
+  assert.equal(wrongHidden.repository_task_artifact_certified, false);
+
+  const passingBaseline = assessCodeAIRepositoryTaskBenchmark({
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        protected_baseline_exit_code: 0,
+        protected_baseline_passed: true,
+      },
+    }],
+  });
+  assert.equal(passingBaseline.cases[0].gates.protected_baseline_bound, false);
+  assert.equal(passingBaseline.repository_task_artifact_certified, false);
 });

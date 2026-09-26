@@ -11,6 +11,8 @@ const {
   verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity,
   verifyCodeAICompetitiveBenchmarkStoredEvidenceRecord,
   codeAICompetitiveBenchmarkMemoryKey,
+  sealCodeAICompetitiveBenchmarkHistoryHead,
+  verifyCodeAICompetitiveBenchmarkHistoryHead,
   validateCodeAICompetitiveBenchmarkStorageCommit,
   quarantineInvalidCodeAICompetitiveBenchmarkStoredEvidence,
 } = await import("../lib/code/runtime/CodeAICompetitiveBenchmarkEvidenceRuntime.js");
@@ -337,6 +339,9 @@ test("competitive benchmark evidence persists globally but remains advisory to c
   assert.match(runtime, /HISTORY_ROW_MEMORY_KEY_MISMATCH/);
   assert.match(runtime, /history_memory_key/);
   assert.match(runtime, /select\("id,memory_key,metadata,updated_at"\)/);
+  assert.match(runtime, /platform_code_competitive_benchmark_history_head/);
+  assert.match(runtime, /HISTORY_HEAD_REQUIRED/);
+  assert.match(runtime, /verifyCodeAICompetitiveBenchmarkHistoryHead/);
   assert.match(runtime, /createHmac/);
   assert.match(runtime, /timingSafeEqual/);
   assert.match(runtime, /STORAGE_SOURCE_COMMIT_MISMATCH/);
@@ -523,4 +528,67 @@ test("sealing refuses a caller-supplied memory key that does not match the evide
     }),
     /CODE_AI_COMPETITIVE_BENCHMARK_MEMORY_KEY_MISMATCH/,
   );
+});
+
+
+test("sealed history head binds the exact latest durable evidence row", () => {
+  const evidence = boundProjection(report());
+  const persistedAt = new Date().toISOString();
+  const memoryKey = codeAICompetitiveBenchmarkMemoryKey(evidence);
+  const sealed = sealCodeAICompetitiveBenchmarkStoredEvidence(evidence, {
+    storage_repository_commit: "1".repeat(40),
+    persisted_at: persistedAt,
+    memory_key: memoryKey,
+    env: ROTATED_HISTORY_ENV,
+  });
+  const head = sealCodeAICompetitiveBenchmarkHistoryHead(sealed, { persisted_at: persistedAt, env: ROTATED_HISTORY_ENV });
+  const verified = verifyCodeAICompetitiveBenchmarkHistoryHead(head, {
+    row_updated_at: persistedAt,
+    evidence_metadata: sealed,
+    evidence_memory_key: memoryKey,
+    env: ROTATED_HISTORY_ENV,
+  });
+  assert.equal(verified.valid, true);
+  assert.equal(verified.evidence_bound, true);
+  assert.equal(verified.row_timestamp_valid, true);
+});
+
+test("deleting the latest evidence and exposing an older valid row is detected by the sealed head", () => {
+  const latestEvidence = boundProjection(report());
+  const persistedAt = new Date().toISOString();
+  const latestKey = codeAICompetitiveBenchmarkMemoryKey(latestEvidence);
+  const latestSealed = sealCodeAICompetitiveBenchmarkStoredEvidence(latestEvidence, {
+    storage_repository_commit: "1".repeat(40), persisted_at: persistedAt, memory_key: latestKey, env: ROTATED_HISTORY_ENV,
+  });
+  const head = sealCodeAICompetitiveBenchmarkHistoryHead(latestSealed, { persisted_at: persistedAt, env: ROTATED_HISTORY_ENV });
+  const olderEvidence = { ...latestEvidence, evidence_fingerprint: "6".repeat(64) };
+  const olderKey = codeAICompetitiveBenchmarkMemoryKey(olderEvidence);
+  const olderSealed = sealCodeAICompetitiveBenchmarkStoredEvidence(olderEvidence, {
+    storage_repository_commit: "1".repeat(40), persisted_at: persistedAt, memory_key: olderKey, env: ROTATED_HISTORY_ENV,
+  });
+  const rollback = verifyCodeAICompetitiveBenchmarkHistoryHead(head, {
+    row_updated_at: persistedAt,
+    evidence_metadata: olderSealed,
+    evidence_memory_key: olderKey,
+    env: ROTATED_HISTORY_ENV,
+  });
+  assert.equal(rollback.valid, false);
+  assert.equal(rollback.evidence_bound, false);
+  assert.equal(rollback.reason, "HISTORY_HEAD_LATEST_ROW_MISMATCH");
+});
+
+test("tampering with the history head fails closed", () => {
+  const evidence = boundProjection(report());
+  const persistedAt = new Date().toISOString();
+  const memoryKey = codeAICompetitiveBenchmarkMemoryKey(evidence);
+  const sealed = sealCodeAICompetitiveBenchmarkStoredEvidence(evidence, {
+    storage_repository_commit: "1".repeat(40), persisted_at: persistedAt, memory_key: memoryKey, env: ROTATED_HISTORY_ENV,
+  });
+  const head = sealCodeAICompetitiveBenchmarkHistoryHead(sealed, { persisted_at: persistedAt, env: ROTATED_HISTORY_ENV });
+  const tampered = { ...head, latest_memory_key: `${memoryKey}-tampered` };
+  const result = verifyCodeAICompetitiveBenchmarkHistoryHead(tampered, {
+    row_updated_at: persistedAt, evidence_metadata: sealed, evidence_memory_key: memoryKey, env: ROTATED_HISTORY_ENV,
+  });
+  assert.equal(result.valid, false);
+  assert.equal(result.reason, "HISTORY_HEAD_INTEGRITY_INVALID");
 });

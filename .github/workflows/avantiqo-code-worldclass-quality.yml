@@ -90,7 +90,47 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Run repository regression suite
-        run: npm test
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            npm test
+            exit 0
+          fi
+
+          set +e
+          npm test > /tmp/code-head-tests.log 2>&1
+          head_rc=$?
+          set -e
+          if [ "${head_rc}" -eq 0 ]; then
+            echo "PR repository suite is green; base comparison is unnecessary."
+            echo "AVANTIQO_CODE_REPOSITORY_REGRESSION_DELTA=PASS"
+            exit 0
+          fi
+
+          test -n "${PR_BASE_SHA}"
+          git fetch --no-tags origin "${PR_BASE_SHA}" --depth=1
+          base_dir="${RUNNER_TEMP}/code-regression-base"
+          rm -rf "${base_dir}"
+          git worktree add --detach "${base_dir}" "${PR_BASE_SHA}"
+          if git diff --quiet "${PR_BASE_SHA}" HEAD -- package.json package-lock.json; then
+            ln -s "${GITHUB_WORKSPACE}/node_modules" "${base_dir}/node_modules"
+          else
+            echo "Dependency manifests changed; installing exact base dependencies for comparison."
+            (cd "${base_dir}" && npm ci --ignore-scripts)
+          fi
+
+          set +e
+          (cd "${base_dir}" && npm test > /tmp/code-base-tests.log 2>&1)
+          base_rc=$?
+          set -e
+
+          node scripts/code-ai-repository-regression-delta.mjs \
+            --head-log /tmp/code-head-tests.log \
+            --base-log /tmp/code-base-tests.log \
+            --head-exit "${head_rc}" \
+            --base-exit "${base_rc}"
 
       - name: Assert regression job remains zero-GPU
         if: always()

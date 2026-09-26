@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { register } from "node:module";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const CONTRACT = "AVANTIQO_CODE_COMPETITIVE_EVIDENCE_PERSIST_LOCAL_V1";
@@ -11,7 +12,11 @@ const reportPath = resolve(
 );
 const backlogPath = resolve(
   process.env.AVANTIQO_CODE_COMPETITIVE_BACKLOG ||
-    "/tmp/avantiqo-code-competitive-backlog.json",
+    resolve(dirname(reportPath), "avantiqo-code-competitive-backlog.json"),
+);
+const manifestPath = resolve(
+  process.env.AVANTIQO_CODE_COMPETITIVE_FULL_RUN_MANIFEST ||
+    resolve(dirname(reportPath), "avantiqo-code-competitive-full-run-manifest.json"),
 );
 function text(value, maximum = 4000) {
   return String(value ?? "").trim().slice(0, maximum);
@@ -57,10 +62,16 @@ function currentMainCommit() {
 
 const localEnvLoaded = await loadLocalEnv();
 const mainCommit = currentMainCommit();
-const [report, backlog] = await Promise.all([
-  readFile(reportPath, "utf8").then(JSON.parse),
-  readFile(backlogPath, "utf8").then(JSON.parse),
+const [reportRaw, backlogRaw, manifestRaw] = await Promise.all([
+  readFile(reportPath),
+  readFile(backlogPath),
+  readFile(manifestPath),
 ]);
+const report = JSON.parse(reportRaw.toString("utf8"));
+const backlog = JSON.parse(backlogRaw.toString("utf8"));
+const fullRunManifest = JSON.parse(manifestRaw.toString("utf8"));
+const sourceReportSha256 = createHash("sha256").update(reportRaw).digest("hex");
+const fullRunManifestSha256 = createHash("sha256").update(manifestRaw).digest("hex");
 
 register("./scripts/next-alias-loader.mjs", pathToFileURL("./"));
 const {
@@ -70,7 +81,11 @@ const {
 const persisted = await persistCodeAICompetitiveBenchmarkEvidence({
   report,
   backlog,
+  full_run_manifest: fullRunManifest,
+  source_report_sha256: sourceReportSha256,
+  full_run_manifest_sha256: fullRunManifestSha256,
   storage_repository_commit: mainCommit,
+  env: process.env,
 });
 
 console.log(JSON.stringify({
@@ -79,6 +94,9 @@ console.log(JSON.stringify({
   local_env_loaded: localEnvLoaded,
   main_commit: mainCommit,
   evidence_contract: persisted?.evidence?.contract || null,
+  full_run_manifest_bound: persisted?.evidence?.full_run_manifest_bound === true,
+  full_run_manifest_sha256: persisted?.evidence?.full_run_manifest_sha256 || null,
+  full_run_attestation_digest: persisted?.evidence?.full_run_attestation_digest || null,
   evidence_current: persisted?.evidence?.evidence_current === true,
   competitive_certified: persisted?.evidence?.competitive_certified === true,
   superiority_claim_allowed: persisted?.evidence?.superiority_claim_allowed === true,

@@ -10,6 +10,7 @@ const {
   sealCodeAICompetitiveBenchmarkStoredEvidence,
   verifyCodeAICompetitiveBenchmarkStoredEvidenceIntegrity,
   validateCodeAICompetitiveBenchmarkStorageCommit,
+  quarantineInvalidCodeAICompetitiveBenchmarkStoredEvidence,
 } = await import("../lib/code/runtime/CodeAICompetitiveBenchmarkEvidenceRuntime.js");
 const {
   attestCodeAICompetitiveFullRunManifest,
@@ -280,6 +281,22 @@ test("history verification fails closed when the server attestation secret is un
   assert.equal(result.reason, "ATTESTATION_SECRET_UNAVAILABLE");
 });
 
+test("integrity-invalid history cannot contribute comparisons or improvement backlog", () => {
+  const evidence = boundProjection(report());
+  const quarantined = quarantineInvalidCodeAICompetitiveBenchmarkStoredEvidence(evidence, {
+    valid: false,
+    legacy_unsealed: false,
+    reason: "ATTESTATION_INVALID",
+  });
+  assert.equal(quarantined.competitive_certified, false);
+  assert.equal(quarantined.superiority_claim_allowed, false);
+  assert.equal(quarantined.evidence_current, false);
+  assert.equal(quarantined.decision_support_allowed, false);
+  assert.deepEqual(quarantined.comparisons, []);
+  assert.deepEqual(quarantined.improvement_backlog, []);
+  assert.equal(quarantined.quarantine_reason, "ATTESTATION_INVALID");
+});
+
 test("competitive benchmark evidence persists globally but remains advisory to current main", async () => {
   const runtime = await readFile("lib/code/runtime/CodeAICompetitiveBenchmarkEvidenceRuntime.js", "utf8");
   const benchmark = await readFile("lib/code/runtime/CodeAIEngineeringPerformanceBenchmarkRuntime.js", "utf8");
@@ -301,6 +318,8 @@ test("competitive benchmark evidence persists globally but remains advisory to c
   assert.match(runtime, /createHmac/);
   assert.match(runtime, /timingSafeEqual/);
   assert.match(runtime, /STORAGE_SOURCE_COMMIT_MISMATCH/);
+  assert.match(runtime, /quarantineInvalidCodeAICompetitiveBenchmarkStoredEvidence/);
+  assert.match(runtime, /decision_support_allowed: false/);
   assert.match(runtime, /CODE_AI_COMPETITIVE_FULL_RUN_REPORT_SHA_MISMATCH/);
   assert.match(benchmark, /loadLatestCodeAICompetitiveBenchmarkEvidence/);
   assert.match(benchmark, /competitive_evidence: competitiveEvidence/);

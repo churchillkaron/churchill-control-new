@@ -71,3 +71,13 @@ test("full orchestrator derives provider execution claims from produced referenc
   assert.match(source, /external_provider_execution_performed: externalProviderExecutionPerformed/);
   assert.doesNotMatch(source, /external_provider_execution_performed: true,\n\s*runtime_provider_effect/);
 });
+
+
+test("full orchestrator binds the run manifest to clean main source and exact configuration", () => {
+  assert.match(source, /CURRENT_MAIN_REQUIRED/);
+  assert.match(source, /CLEAN_REPOSITORY_REQUIRED/);
+  assert.match(source, /configurationSha256/);
+  assert.match(source, /ARTIFACT_SOURCE_COMMIT_MISMATCH/);
+  assert.match(source, /runner_source_commit: orchestratorSource\.source_commit/);
+  assert.match(source, /configuration_sha256: configurationSha256/);
+});

@@ -19,12 +19,14 @@ import { useImageStudioFonts } from "./useImageStudioFonts";
 const n=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
 function assetFor(id,assets){return assets.find((item)=>item.id===id)||null;}
 function assetUrl(asset){return asset?.image_url||asset?.thumbnail_url||asset?.file_url||asset?.url||"";}
+function governedMaskUrls(layers,assets){return Object.fromEntries(layers.filter((layer)=>layer.layer_type==="MASK").map((layer)=>[layer.id,assetUrl(assetFor(layer.source_asset_id,assets))||layer.metadata?.semantic_matte_preview_url||""]).filter(([,url])=>url));}
 function sourceSize(asset,bounds){return{width:n(asset?.width||asset?.metadata?.width||asset?.technical?.width,n(bounds?.width,240)),height:n(asset?.height||asset?.metadata?.height||asset?.technical?.height,n(bounds?.height,180))};}
 
 function Snapshot({version,assets,workspace}) {
   const board=version?.snapshot?.artboard;
   const snapshotLayers=version?.snapshot?.layers;
   const layers=useMemo(()=>Array.isArray(snapshotLayers)?snapshotLayers:[],[snapshotLayers]);
+  const maskUrlByLayerId=useMemo(()=>governedMaskUrls(layers,assets),[layers,assets]);
   const fontWorkspace=useMemo(()=>({...workspace,layers}),[workspace,layers]);
   const fonts=useImageStudioFonts(fontWorkspace);
   if(!board)return <div className="flex min-h-[360px] items-center justify-center text-[10px] text-[#99928A]">No prior snapshot</div>;
@@ -32,10 +34,10 @@ function Snapshot({version,assets,workspace}) {
   const unsupportedPreview=layers.some((layer)=>{
     if(layer.layer_type!=="IMAGE"||layer.visible===false)return false;
     const mask=layer.metadata?.clip_mask_layer_id?layers.find((item)=>item.id===layer.metadata.clip_mask_layer_id):null;
-    const adjustment=imageStudioAdjustmentPreviewDescriptors(layers,layer);
     const asset=assetFor(layer.source_asset_id,assets);
     const url=assetUrl(asset);
     const preview=imageStudioPreviewGeometry(layer,sourceSize(asset,layer.bounds||{}),scale);
+    const adjustment=imageStudioAdjustmentPreviewDescriptors(layers,layer,{mask_url_by_layer_id:maskUrlByLayerId,preview_image:preview.image});
     const maskAsset=mask?.source_asset_id?assetFor(mask.source_asset_id,assets):null;
     const maskAssetUrl=assetUrl(maskAsset)||mask?.metadata?.semantic_matte_preview_url||"";
     const maskPreview=imageStudioMaskPreviewDescriptor(layer,mask,{mask_url:maskAssetUrl,preview_image:preview.image});
@@ -67,7 +69,7 @@ function Snapshot({version,assets,workspace}) {
         const maskAssetUrl=assetUrl(maskAsset)||mask?.metadata?.semantic_matte_preview_url||"";
         const maskPreview=imageStudioMaskPreviewDescriptor(layer,mask,{mask_url:maskAssetUrl,preview_image:preview.image});
         const maskStyle=maskPreview.preview_supported?maskPreview.style:{};
-        const adjustmentPreviews=imageStudioAdjustmentPreviewDescriptors(layers,layer);
+        const adjustmentPreviews=imageStudioAdjustmentPreviewDescriptors(layers,layer,{mask_url_by_layer_id:maskUrlByLayerId,preview_image:preview.image});
         const shadowPreview=imageStudioGroundShadowPreview({style:layer.style||{},rotation,scale,asset_url:url,preview,mask_style:maskStyle,has_mask:Boolean(mask)});
         const edgePreview=imageStudioEdgePreview({style:layer.style||{},scale,has_mask:Boolean(mask),has_frame_mask:Number(layer.metadata?.mask_radius||0)>0});
         const edgeFilterId=`compare-edge-${String(layer.id||"layer").replace(/[^a-zA-Z0-9_-]/g,"")}`;

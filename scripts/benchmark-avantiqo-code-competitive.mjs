@@ -60,6 +60,8 @@ function compareCase(owned, reference) {
   const referenceLatency = finite(reference?.wall_ms);
   const ownedQuality = finite(owned?.quality_score);
   const referenceQuality = finite(reference?.quality_score);
+  const ownedGrounding = finite(owned?.evidence_grounding_score);
+  const referenceGrounding = finite(reference?.evidence_grounding_score);
   const qualityOutcome = ownedPassed !== referencePassed
     ? ownedPassed ? "WIN" : "LOSS"
     : ownedPassed && referencePassed && ownedQuality !== null && referenceQuality !== null
@@ -76,6 +78,8 @@ function compareCase(owned, reference) {
     reference_wall_ms: referenceLatency,
     owned_quality_score: ownedQuality,
     reference_quality_score: referenceQuality,
+    owned_evidence_grounding_score: ownedGrounding,
+    reference_evidence_grounding_score: referenceGrounding,
     quality_outcome: qualityOutcome,
     latency_outcome: latencyOutcome,
     outcome: qualityOutcome,
@@ -104,6 +108,10 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
     (!item.owned_passed || (item.owned_quality_score !== null && item.owned_quality_score > 0 && item.owned_quality_score <= 1)) &&
     (!item.reference_passed || (item.reference_quality_score !== null && item.reference_quality_score > 0 && item.reference_quality_score <= 1)),
   );
+  const evidenceGroundingComplete = comparisons.every((item) =>
+    (!item.owned_passed || (item.owned_evidence_grounding_score !== null && item.owned_evidence_grounding_score > 0 && item.owned_evidence_grounding_score <= 1)) &&
+    (!item.reference_passed || (item.reference_evidence_grounding_score !== null && item.reference_evidence_grounding_score > 0 && item.reference_evidence_grounding_score <= 1)),
+  );
   const ownedP95 = percentile(comparisons.map((item) => item.owned_wall_ms), 0.95);
   const referenceP95 = percentile(comparisons.map((item) => item.reference_wall_ms), 0.95);
   const latencyRatio = ownedP95 !== null && referenceP95 > 0 ? ownedP95 / referenceP95 : null;
@@ -122,6 +130,7 @@ function compareReference(ownedReport, referenceReport, requiredCaseIds) {
     owned_pass_rate_not_worse: ownedPassRate >= referencePassRate,
     owned_quality_non_loss_rate: nonLossRate >= MIN_NON_LOSS_RATE,
     deterministic_quality_scores_complete: qualityScoresComplete,
+    case_specific_evidence_grounding_complete: evidenceGroundingComplete,
     reference_fresh: referenceFresh,
     p95_latency_competitive: latencyRatio !== null && latencyRatio <= MAX_P95_LATENCY_RATIO,
     cost_competitive: costRatio !== null && costRatio <= MAX_COST_RATIO,
@@ -233,6 +242,7 @@ const report = {
     maximum_reference_age_days: MAX_REFERENCE_AGE_DAYS,
     minimum_quality_non_loss_rate: MIN_NON_LOSS_RATE,
     deterministic_quality_score_required_for_passed_cases: true,
+    case_specific_evidence_grounding_required_for_passed_cases: true,
     maximum_p95_latency_ratio: MAX_P95_LATENCY_RATIO,
     maximum_cost_ratio: MAX_COST_RATIO,
     identical_task_ids_required: true,

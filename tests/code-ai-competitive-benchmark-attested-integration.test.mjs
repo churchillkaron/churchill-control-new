@@ -20,6 +20,7 @@ function observations(caseIds, wallMs, { repositoryProof = true } = {}) {
     case_id,
     passed: true,
     quality_score: 0.85,
+    evidence_grounding_score: 0.9,
     wall_ms: wallMs + index,
     supplier_cost_usd: 0.0005,
     ...(repositoryProof ? {

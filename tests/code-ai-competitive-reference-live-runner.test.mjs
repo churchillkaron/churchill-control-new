@@ -127,8 +127,8 @@ test("reference grading exposes deterministic quality depth without raw output p
     solution: "Run only the independent reads concurrently with Promise.all while preserving the existing authorization checks, error propagation, and output ordering. Keep dependent reads sequential and avoid broadening mutation authority or swallowing a failed read.",
     verification: "Measure wall time before and after on the same inputs, assert identical response payloads, preserve individual failure behavior, and run the existing regression suite plus a focused concurrency test that proves both reads begin before either completes.",
     evidence: {
-      proof_a: "The solution names the exact parallelization boundary, preserves existing authorization and error semantics, and avoids unrelated changes.",
-      proof_b: "The verification plan requires semantic equivalence, measured latency improvement, and a focused concurrency assertion rather than a generic test claim.",
+      proof_a: "Proof A names the exact parallelization boundary, preserves existing authorization and error semantics, and avoids unrelated changes.",
+      proof_b: "Proof B requires semantic equivalence, measured latency improvement, and a focused concurrency assertion rather than a generic test claim.",
     },
   }));
   assert.equal(shallow.passed, true);
@@ -157,4 +157,39 @@ test("quality depth resists verbosity padding with repeated language", () => {
   assert.equal(padded.passed, true);
   assert.equal(specific.passed, true);
   assert.ok(specific.quality_score > padded.quality_score);
+});
+
+
+test("quality scoring rewards evidence grounded in the case obligations", () => {
+  const benchmarkCase = {
+    case_id: "grounding-case",
+    category: "security",
+    title: "Bind organization scope and prove cross-organization isolation",
+    required_evidence: ["organization_bound", "negative_test"],
+  };
+  const generic = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify({
+    case_id: "grounding-case",
+    diagnosis: "The implementation has a concrete authorization defect that needs a narrowly scoped correction at the data-access boundary.",
+    solution: "Apply a minimal guarded change that preserves unrelated behavior and keeps the runtime fail closed on invalid requests.",
+    verification: "Exercise the corrected behavior with targeted checks and confirm the previous unsafe behavior is no longer possible.",
+    evidence: {
+      organization_bound: "A concrete control is added at the relevant boundary and checked before returning data.",
+      negative_test: "A focused regression scenario demonstrates that the unsafe path is rejected after the correction.",
+    },
+  }));
+  const grounded = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify({
+    case_id: "grounding-case",
+    diagnosis: "The security failure comes from reading records before the authenticated organization scope is bound into the data predicate.",
+    solution: "Bind organization_id from Business Context into the query and reject any cross-organization caller scope before the read executes.",
+    verification: "Run a same-organization positive case and a cross-organization negative test that must return no records and no fallback data.",
+    evidence: {
+      organization_bound: "The organization_id from authenticated Business Context is required in the query predicate before records can be returned.",
+      negative_test: "The negative test uses a different organization_id and verifies that cross-organization records are rejected with no unscoped fallback.",
+    },
+  }));
+  assert.equal(generic.passed, true);
+  assert.equal(grounded.passed, true);
+  assert.equal(generic.evidence_grounding_score, 0);
+  assert.ok(grounded.evidence_grounding_score > 0);
+  assert.ok(grounded.quality_score > generic.quality_score);
 });

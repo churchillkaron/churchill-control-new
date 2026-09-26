@@ -87,6 +87,63 @@ export const useImageStudioWorkspaceStore = create((set) => ({
     const layer=buildImageStudioAdjustmentLayer({id:`adjustment-${crypto.randomUUID()}`,artboard_id:board.id,target_layer_ids:targets.map((item)=>item.id),sort_order:Math.max(-1,...state.layers.filter((item)=>item.artboard_id===board.id).map((item)=>Number(item.sort_order||0)))+1,name:`Adjustment · ${targets.length} target${targets.length===1?"":"s"}`});
     return {layers:[...state.layers,layer],selection:{...state.selection,layer_ids:[layer.id]},dirty:true,historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[]};
   }),
+  createAdjustmentMaskFromRegion: (mask_shape = "RECT") => set((state) => {
+    if(!state.ui.region||state.selection.layer_ids.length!==1)return state;
+    const adjustment=state.layers.find((layer)=>layer.id===state.selection.layer_ids[0]&&layer.layer_type==="ADJUSTMENT"&&!layer.locked);
+    const targets=adjustment?.metadata?.adjustment_target_layer_ids||[];
+    if(!adjustment||targets.length!==1)return state;
+    const target=state.layers.find((layer)=>layer.id===targets[0]&&layer.layer_type==="IMAGE");
+    if(!target)return state;
+    const existingId=adjustment.metadata?.adjustment_mask_layer_id;
+    const mask=buildImageStudioMaskLayer({
+      id:`mask-${crypto.randomUUID()}`,artboard_id:adjustment.artboard_id,target_layer_id:target.id,
+      region:state.ui.region,mask_shape,sort_order:Number(adjustment.sort_order||0)+1,
+    });
+    const withoutExisting=existingId?state.layers.filter((layer)=>layer.id!==existingId):state.layers;
+    return {
+      layers:[...withoutExisting.map((layer)=>layer.id===adjustment.id?{...layer,metadata:{...(layer.metadata||{}),adjustment_mask_layer_id:mask.id}}:layer),mask],
+      selection:{...state.selection,layer_ids:[mask.id]},ui:{...state.ui,region:null},dirty:true,
+      historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[],
+    };
+  }),
+  clearAdjustmentMask: () => set((state) => {
+    if(state.selection.layer_ids.length!==1)return state;
+    const selected=state.layers.find((layer)=>layer.id===state.selection.layer_ids[0]);
+    const adjustment=selected?.layer_type==="ADJUSTMENT"
+      ? selected
+      : state.layers.find((layer)=>layer.layer_type==="ADJUSTMENT"&&layer.metadata?.adjustment_mask_layer_id===selected?.id);
+    const maskId=adjustment?.metadata?.adjustment_mask_layer_id;
+    if(!adjustment||!maskId)return state;
+    return {
+      layers:state.layers.filter((layer)=>layer.id!==maskId).map((layer)=>{
+        if(layer.id!==adjustment.id)return layer;
+        const metadata={...(layer.metadata||{})};delete metadata.adjustment_mask_layer_id;return {...layer,metadata};
+      }),
+      selection:{...state.selection,layer_ids:[adjustment.id]},dirty:true,
+      historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[],
+    };
+  }),
+  createAdjustmentSemanticMaskFromSelected: (mode, options = {}) => set((state) => {
+    if(state.selection.layer_ids.length!==1)return state;
+    const adjustment=state.layers.find((layer)=>layer.id===state.selection.layer_ids[0]&&layer.layer_type==="ADJUSTMENT"&&!layer.locked);
+    const targets=adjustment?.metadata?.adjustment_target_layer_ids||[];
+    if(!adjustment||targets.length!==1)return state;
+    const target=state.layers.find((layer)=>layer.id===targets[0]&&layer.layer_type==="IMAGE");
+    if(!target)return state;
+    const existingId=adjustment.metadata?.adjustment_mask_layer_id;
+    const baseMask=buildImageStudioMaskLayer({
+      id:`mask-${crypto.randomUUID()}`,artboard_id:adjustment.artboard_id,target_layer_id:target.id,
+      region:{...(target.bounds||{})},mask_shape:"RECT",sort_order:Number(adjustment.sort_order||0)+1,
+    });
+    let mask={...baseMask,metadata:{...(baseMask.metadata||{}),...buildImageStudioSemanticMaskPatch(mode,options),adjustment_mask_owner_id:adjustment.id}};
+    if(options.mask_asset_id){try{mask=attachImageStudioSemanticMatte(mask,options);}catch{return state;}}
+    const withoutExisting=existingId?state.layers.filter((layer)=>layer.id!==existingId):state.layers;
+    return {
+      layers:[...withoutExisting.map((layer)=>layer.id===adjustment.id?{...layer,metadata:{...(layer.metadata||{}),adjustment_mask_layer_id:mask.id}}:layer),mask],
+      selection:{...state.selection,layer_ids:[mask.id]},dirty:true,
+      historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[],
+    };
+  }),
   createSemanticMaskFromSelected: (mode, options = {}) => set((state) => {
     if (state.selection.layer_ids.length !== 1) return state;
     const target=state.layers.find((layer)=>layer.id===state.selection.layer_ids[0]&&layer.layer_type==="IMAGE"&&!layer.locked);

@@ -574,6 +574,7 @@ export async function POST(request, internal = {}) {
       partyId,
       entityId: businessContext.entityId,
       message,
+      conversation: boundedConversation(body.conversation),
     });
     if (browserBenchmarkTurn) {
       return Response.json({

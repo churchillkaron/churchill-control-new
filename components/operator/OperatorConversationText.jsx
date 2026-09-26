@@ -6,6 +6,19 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
+
+function formattedJson(value) {
+  const source = text(value);
+  if (!source || (!source.startsWith("{") && !source.startsWith("["))) return null;
+  try {
+    const parsed = JSON.parse(source);
+    if (!parsed || typeof parsed !== "object") return null;
+    return JSON.stringify(parsed, null, 2);
+  } catch {
+    return null;
+  }
+}
+
 function inlineParts(value, tone = "dark") {
   const source = String(value ?? "");
   const parts = source.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
@@ -50,6 +63,26 @@ function blockLines(block, blockIndex, tone = "dark") {
 export default function OperatorConversationText({ content, compact = false, tone = "dark" }) {
   const source = text(content);
   if (!source) return null;
+  const json = formattedJson(source);
+  if (json) {
+    return (
+      <pre
+        data-avantiqo-conversation-text="true"
+        data-avantiqo-conversation-json="true"
+        className={
+          compact
+            ? tone === "light"
+              ? "max-w-full whitespace-pre-wrap break-all rounded-xl bg-black/[0.035] px-3 py-2 font-mono text-[12px] leading-5 text-[#3F3B36]"
+              : "max-w-full whitespace-pre-wrap break-all rounded-xl bg-white/[0.05] px-3 py-2 font-mono text-[12px] leading-5 text-white/85"
+            : tone === "light"
+              ? "max-w-full whitespace-pre-wrap break-all rounded-xl bg-black/[0.035] px-3 py-3 font-mono text-[13px] leading-5 text-[#3F3B36]"
+              : "max-w-full whitespace-pre-wrap break-all rounded-xl bg-white/[0.05] px-3 py-3 font-mono text-[13px] leading-5 text-white/85"
+        }
+      >
+        {json}
+      </pre>
+    );
+  }
   const blocks = source.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
 
   return (

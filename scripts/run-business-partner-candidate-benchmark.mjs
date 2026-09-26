@@ -40,7 +40,7 @@ function runtimeOrganizationId() {
   return value;
 }
 function affirmative(message) {
-  return /^(?:yes|yes do it|do it|go ahead|continue|confirmed|confirm|approved|approve)[.! ]*$/i.test(text(message, 300));
+  return /^(?:yes(?:,)?(?: do it)?|do it|go ahead|continue|confirmed|confirm|approved|approve)[.! ]*$/i.test(text(message, 300));
 }
 
 function baseAgreementState(evidencePacket, caseContext) {

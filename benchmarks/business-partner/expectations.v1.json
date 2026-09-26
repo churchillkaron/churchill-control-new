@@ -3,7 +3,7 @@
   "version": 1,
   "cases": {
     "continuity-01": {"goal_relation":["revise"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":true,"clarification_required":false,"would_execute_now":false,"finality":["pending_confirmation"],"capability_contains":["CorrectCustomerInvoice"]},
-    "continuity-02": {"goal_relation":["continue"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["execute_then_verify","completed_after_verification"]},
+    "continuity-02": {"goal_relation":["continue"],"action_type":["write"],"capability_contains":"finance.accounts_receivable.CorrectCustomerInvoice","needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["execute_then_verify","completed_after_verification"]},
     "continuity-03": {"goal_relation":["continue","revise"],"action_type":["write"],"needs_current_evidence":true,"confirmation_required":true,"clarification_required":false,"would_execute_now":false,"finality":["pending_confirmation"],"capability_contains":["invoice"]},
 
     "finance-read-01": {"goal_relation":["new"],"action_type":["read"],"needs_current_evidence":true,"confirmation_required":false,"clarification_required":false,"would_execute_now":true,"finality":["answer"],"capability_contains":["invoice"]},

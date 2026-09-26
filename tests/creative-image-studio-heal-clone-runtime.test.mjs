@@ -39,11 +39,13 @@ test("workspace captures explicit source region before clone or heal", async()=>
   assert.match(inspector,/Heal Region/);
 });
 
-test("canvas distinguishes source authority and clone-heal destination without fake tonal preview", async()=>{
+test("canvas delegates clone-heal destination preview to the shared retouch runtime", async()=>{
   const fs=await import("node:fs");
   const canvas=fs.readFileSync("components/creative/specialist/ImageStudioCanvasSurface.jsx","utf8");
+  const runtime=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioRetouchRuntime.js","utf8");
   assert.match(canvas,/retouch_source_region/);
   assert.match(canvas,/>Source</);
-  assert.match(canvas,/kind==="CLONE"\|\|kind==="HEAL"/);
-  assert.match(canvas,/border:"1px dashed rgba/);
+  assert.match(canvas,/imageStudioRetouchPreviewStyle\(operation/);
+  assert.match(runtime,/kind==="CLONE"\|\|kind==="HEAL"/);
+  assert.match(runtime,/border:"1px dashed rgba/);
 });

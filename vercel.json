@@ -191,6 +191,10 @@
       "schedule": "0,30 * * * *"
     },
     {
+      "path": "/api/internal/operator/autonomous-watch/process",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/internal/markets/autopilot/process",
       "schedule": "4-59/15 * * * *"
     },

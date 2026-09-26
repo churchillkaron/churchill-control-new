@@ -8,7 +8,9 @@ import {
   CODE_AI_REPOSITORY_VERIFIER_CONTRACT,
   CODE_AI_REPOSITORY_VERIFIER_RUNTIME_CONTRACT,
   CODE_AI_REPOSITORY_VERIFIER_INVOCATION_CONTRACT,
+  CODE_AI_REPOSITORY_VERIFIER_RESOURCE_CONTRACT,
   codeAIRepositoryVerifierInvocationSha256,
+  codeAIRepositoryVerifierResourceSha256,
   codeAIRepositoryVerifierProtocolSha256,
 } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
@@ -41,10 +43,27 @@ const verifierRuntimeSha256 = sha256(JSON.stringify(verifierRuntimeIdentity));
 const VERIFIER_ENVIRONMENT_CONTRACT = "AVANTIQO_CODE_REPOSITORY_DETERMINISTIC_ENV_V1";
 const HIDDEN_VERIFIER_ENV = Object.freeze({ NODE_ENV: "test", TZ: "UTC", LANG: "C", LC_ALL: "C" });
 const verifierEnvironmentSha256 = sha256(JSON.stringify(HIDDEN_VERIFIER_ENV));
+const HIDDEN_VERIFIER_RESOURCE_POLICY = Object.freeze({
+  timeout_ms: 5000,
+  kill_signal: "SIGKILL",
+  max_buffer_bytes: 1048576,
+  stdin: "NONE",
+});
 const sleep = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
 
 function run(command, args, cwd, env = process.env) {
   return spawnSync(command, args, { cwd, encoding: "utf8", env });
+}
+function runHiddenVerifier(hiddenPath, cwd) {
+  return spawnSync(process.execPath, [hiddenPath], {
+    cwd,
+    encoding: "utf8",
+    env: HIDDEN_VERIFIER_ENV,
+    timeout: HIDDEN_VERIFIER_RESOURCE_POLICY.timeout_ms,
+    killSignal: HIDDEN_VERIFIER_RESOURCE_POLICY.kill_signal,
+    maxBuffer: HIDDEN_VERIFIER_RESOURCE_POLICY.max_buffer_bytes,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
 }
 function must(command, args, cwd) {
   const result = run(command, args, cwd);
@@ -53,6 +72,11 @@ function must(command, args, cwd) {
   }
   return result;
 }
+const runnerSourceCommit = text(must("git", ["rev-parse", "HEAD"], process.cwd()).stdout, 80).toLowerCase();
+if (!/^[a-f0-9]{40}$/i.test(runnerSourceCommit)) throw new Error(`${CONTRACT}_RUNNER_SOURCE_COMMIT_INVALID`);
+const runnerSourceStatus = text(must("git", ["status", "--porcelain", "--untracked-files=no"], process.cwd()).stdout, 12000);
+if (runnerSourceStatus) throw new Error(`${CONTRACT}_RUNNER_SOURCE_DIRTY`);
+
 function hiddenAssertionCount(source) {
   const count = (String(source || "").match(/\bassert\.[A-Za-z]+\s*\(/g) || []).length;
   if (count <= 0) throw new Error(`${CONTRACT}_HIDDEN_ASSERTION_COUNT_REQUIRED`);
@@ -162,7 +186,7 @@ async function seedRepository(benchmarkCase) {
   const hiddenAcceptanceSha256 = sha256(hiddenAcceptanceSource);
   const hiddenAcceptanceTestCount = hiddenAssertionCount(hiddenAcceptanceSource);
   await writeFile(hiddenPath, hiddenAcceptanceSource, "utf8");
-  const baseline = run(process.execPath, [hiddenPath], verifier, HIDDEN_VERIFIER_ENV);
+  const baseline = runHiddenVerifier(hiddenPath, verifier);
   if (baseline.status === 0) throw new Error(`${CONTRACT}_BASELINE_MUST_FAIL:${benchmarkCase.case_id}`);
   const baselineExitCode = Number(baseline.status);
   const protectedBaselineSha256 = sha256(JSON.stringify({
@@ -171,6 +195,7 @@ async function seedRepository(benchmarkCase) {
     hidden_acceptance_sha256: hiddenAcceptanceSha256,
     verifier_environment_sha256: verifierEnvironmentSha256,
     verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
+    verifier_resource_sha256: codeAIRepositoryVerifierResourceSha256(),
     exit_code: baselineExitCode,
     passed: false,
   }));
@@ -315,7 +340,7 @@ for (const benchmarkCase of cases) {
         must("git", ["add", "-A"], fixture.verifier);
         run("git", ["reset", "--", "hidden-acceptance.mjs"], fixture.verifier);
         candidateTreeSha = text(must("git", ["write-tree"], fixture.verifier).stdout, 80);
-        const hidden = run(process.execPath, [fixture.hiddenPath], fixture.verifier, HIDDEN_VERIFIER_ENV);
+        const hidden = runHiddenVerifier(fixture.hiddenPath, fixture.verifier);
         hiddenExitCode = hidden.status;
         hiddenStdout = text(hidden.stdout, 1200);
         hiddenStderr = text(hidden.stderr, 1200);
@@ -351,6 +376,8 @@ for (const benchmarkCase of cases) {
       repository_verification: {
         case_id: benchmarkCase.case_id,
         benchmark_run_id: benchmarkRunId,
+        runner_source_commit: runnerSourceCommit,
+        runner_source_clean: true,
         repository_origin: fixture.origin,
         suite_sha256: suiteSha256,
         independent: true,
@@ -364,6 +391,8 @@ for (const benchmarkCase of cases) {
         verifier_environment_sha256: verifierEnvironmentSha256,
         verifier_invocation_contract: CODE_AI_REPOSITORY_VERIFIER_INVOCATION_CONTRACT,
         verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
+        verifier_resource_contract: CODE_AI_REPOSITORY_VERIFIER_RESOURCE_CONTRACT,
+        verifier_resource_sha256: codeAIRepositoryVerifierResourceSha256(),
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: sha256(patch),
         candidate_artifact_sha256: sha256(artifact),
@@ -385,6 +414,7 @@ for (const benchmarkCase of cases) {
         protected_baseline_verifier_runtime_sha256: verifierRuntimeSha256,
         protected_baseline_verifier_environment_sha256: verifierEnvironmentSha256,
         protected_baseline_verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
+        protected_baseline_verifier_resource_sha256: codeAIRepositoryVerifierResourceSha256(),
         protected_baseline_exit_code: fixture.baselineExitCode,
         protected_baseline_passed: false,
         candidate_self_report_authority: false,
@@ -418,7 +448,8 @@ console.log(JSON.stringify({
   pass_rate: observations.length ? passed / observations.length : 0,
   worker_attestation: workerAttestation,
   benchmark_run_id: benchmarkRunId,
-  runner_source_commit: observations[0]?.base_commit || null,
+  runner_source_commit: runnerSourceCommit,
+  runner_source_clean: true,
   observations,
   local_compute_only: true,
   commit_performed: false,

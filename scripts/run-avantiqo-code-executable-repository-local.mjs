@@ -289,6 +289,7 @@ for (const benchmarkCase of cases) {
       artifact_materialized: artifact.length > 0,
       artifact_bytes: Buffer.byteLength(artifact, "utf8"),
       repository_verification: {
+        case_id: benchmarkCase.case_id,
         independent: true,
         verifier: "avantiqo-hidden-node-assert",
         evidence_source: "INDEPENDENT_RUNNER",

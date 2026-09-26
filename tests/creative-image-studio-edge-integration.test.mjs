@@ -60,3 +60,52 @@ test("edge morphology uses separable linear-time passes for large masters",()=>{
   assert.match(source,/extremaLine/);
   assert.match(source,/blurLine/);
 });
+
+test("matte expansion propagates interior RGB into newly revealed alpha",()=>{
+  const raw=Buffer.from([
+    0,0,0,0, 210,80,40,255, 0,0,0,0,
+  ]);
+  const out=applyImageStudioEdgeIntegration(raw,3,1,4,{edge_integration:{matte_choke_px:-1}});
+  assert.deepEqual([...out.bytes.slice(0,3)],[210,80,40]);
+  assert.deepEqual([...out.bytes.slice(8,11)],[210,80,40]);
+  assert.equal(out.propagated_pixel_count,2);
+  assert.equal(out.edge_color_propagation,true);
+});
+
+test("edge softening does not introduce black RGB under new translucent pixels",()=>{
+  const raw=Buffer.from([
+    180,120,60,255, 0,0,0,0,
+  ]);
+  const out=applyImageStudioEdgeIntegration(raw,2,1,4,{edge_integration:{edge_soften_px:1}});
+  assert.ok(out.bytes[7]>0&&out.bytes[7]<255);
+  assert.deepEqual([...out.bytes.slice(4,7)],[180,120,60]);
+  assert.equal(out.propagated_pixel_count,1);
+});
+
+test("edge color propagation never paints pixels that remain fully transparent",()=>{
+  const raw=Buffer.from([
+    200,50,20,255, 0,0,0,0, 7,8,9,0,
+  ]);
+  const out=applyImageStudioEdgeIntegration(raw,3,1,4,{edge_integration:{edge_soften_px:1}});
+  assert.deepEqual([...out.bytes.slice(8,12)],[7,8,9,0]);
+});
+
+test("edge color propagation uses linear-time flood storage instead of radius-squared sampling",()=>{
+  const source=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioEdgeIntegrationRuntime.js","utf8");
+  assert.match(source,/new Int32Array\(pixelCount\)/);
+  assert.match(source,/while\(head<tail\)/);
+  assert.match(source,/propagated_pixel_count/);
+});
+
+test("decontamination prefers the nearest equally opaque interior color",()=>{
+  const raw=Buffer.from([
+    240,30,30,255,
+    0,0,0,0,
+    20,220,20,100,
+    30,30,240,255,
+    0,0,0,0,
+  ]);
+  const out=applyImageStudioEdgeIntegration(raw,5,1,4,{edge_integration:{decontaminate_strength:1}});
+  const edge=[...out.bytes.slice(8,11)];
+  assert.ok(edge[2]>edge[0],`expected nearer blue interior to dominate, got ${edge.join(",")}`);
+});

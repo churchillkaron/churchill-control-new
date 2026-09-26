@@ -124,18 +124,29 @@ function projectProtocolDecision({
   const route = text(understanding?.route, 80).toLowerCase();
   const mutation = understanding?.requires_mutation === true;
   const productChange = mutation && text(understanding?.execution_domain, 80) === "product_engineering";
+  const recovery = understanding?.deterministic_recovery_continuation === true;
+  const verification = understanding?.deterministic_verification_request === true;
+  const evidenceFailure = understanding?.deterministic_evidence_failure === true;
   const actionType = productChange
     ? "product_change"
-    : mutation
-      ? "write"
-      : route === "evidence"
-        ? "read"
-        : "conversation";
+    : recovery
+      ? "recover"
+      : verification
+        ? "verify"
+        : mutation
+          ? "write"
+          : route === "evidence"
+            ? "read"
+            : "conversation";
 
+  const registeredReadKey = text(understanding?.registered_read_capability_key, 300);
   const capability = actionType === "write"
     ? bestCapability(message, "write", understanding)
     : actionType === "read"
-      ? bestCapability(message, "read", understanding)
+      ? (
+          listOperatorFastReads().find((candidate) => candidate.key === registeredReadKey) ||
+          bestCapability(message, "read", understanding)
+        )
       : null;
 
   const pending = object(caseContext?.pending_execution);
@@ -147,25 +158,33 @@ function projectProtocolDecision({
   const clarificationRequired = understanding?.clarification_required === true;
   const confirmationRequired =
     actionType === "write" &&
+    !clarificationRequired &&
     !confirmedPending &&
-    capability?.requires_confirmation === true;
+    (
+      understanding?.requires_confirmation_override === true ||
+      capability?.requires_confirmation === true
+    );
 
   const needsCurrentEvidence =
-    actionType === "read" ||
-    actionType === "write" ||
+    ["read", "write", "verify", "recover"].includes(actionType) ||
     understanding?.needs_current_evidence === true;
 
   const hasCoreOwnerAuthority =
     evidencePacket?.current_context?.avantiqo_core_owner_authority === true;
   const wouldExecuteNow =
     !clarificationRequired &&
-    (actionType === "read" ||
-      actionType === "conversation" ||
+    !evidenceFailure &&
+    (
+      ["read", "conversation", "verify", "recover"].includes(actionType) ||
       (actionType === "write" && (confirmedPending || confirmationRequired === false)) ||
-      (actionType === "product_change" && hasCoreOwnerAuthority));
+      (actionType === "product_change" && hasCoreOwnerAuthority)
+    );
 
   let finality = "answer";
   if (clarificationRequired) finality = "clarify";
+  else if (evidenceFailure) finality = "blocked";
+  else if (actionType === "recover") finality = "recover";
+  else if (actionType === "verify") finality = "verified";
   else if (actionType === "product_change" && !hasCoreOwnerAuthority) finality = "blocked";
   else if (actionType === "write" && confirmationRequired) finality = "pending_confirmation";
   else if (actionType === "write") finality = "execute_then_verify";
@@ -174,14 +193,23 @@ function projectProtocolDecision({
   if (clarificationRequired) {
     response = text(understanding?.clarification_question, 900) ||
       "I need one focused clarification before I can safely continue.";
+  } else if (evidenceFailure) {
+    response = "The authoritative current-state read failed, so I would not guess or present stale data as current. I would keep the mission open until fresh evidence is available.";
+  } else if (actionType === "recover") {
+    response = "I would continue from the durable verified progress, avoid replaying completed work, and recover the original mission safely before claiming completion.";
+  } else if (actionType === "verify") {
+    response = "I would independently re-read the authoritative business state and only report the change as complete if that fresh verification confirms the business effect.";
   } else if (actionType === "product_change" && !hasCoreOwnerAuthority) {
     response = "This is a core product change, but the supplied role has no Avantiqo core-owner authority. I would not execute or deploy it.";
   } else if (actionType === "write" && confirmationRequired) {
-    response = "I resolved the governed action and would use fresh evidence before mutation. Confirmation is required, so nothing has been changed yet.";
+    response = "I resolved the exact governed write from the current request and fresh evidence. Required confirmation still applies, so no mutation has been executed yet.";
   } else if (actionType === "write") {
-    response = "I resolved the governed action as already authorized for this step. I would execute it and then independently verify the business effect before claiming completion.";
+    response = "The governed write is authorized for this step. I would execute it once and independently verify the business effect before reporting completion.";
   } else if (actionType === "read") {
-    response = "I resolved this as a current-data read. I would use fresh registered evidence and return the result without changing business state.";
+    const key = text(capability?.key || registeredReadKey, 300);
+    response = key
+      ? "I would read fresh authoritative data through " + key + " and return the current result without changing business state."
+      : "I would use the fresh internal evidence required by this question and return the result without changing business state.";
   } else {
     response = "I would answer from the supplied context without changing business state.";
   }

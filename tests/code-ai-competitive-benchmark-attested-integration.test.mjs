@@ -30,6 +30,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
     evidence_distinctness_score: 0.9,
     response_template_fingerprint_sha256: sha256(`template:${case_id}`),
     response_template_simhash64: sha256(`simhash:${case_id}`).slice(0, 16),
+    evidence_key_count: 2,
     latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
     wall_ms: wallMs + index,
     input_tokens: 100,
@@ -90,6 +91,7 @@ function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs
     customer_private_content_included: false,
     raw_customer_content_included: false,
     raw_reasoning_persisted: false,
+    raw_model_output_persisted: false,
     economics: {
       estimated_supplier_cost_usd: Number((caseIds.length * 0.0005).toFixed(8)),
       cost_measurement_source: "RUNNER_SUM_OF_RECOMPUTED_CASE_COSTS_V1",
@@ -129,6 +131,7 @@ async function fixture() {
     external_provider_execution_performed: false,
     raw_model_output_persisted: false,
     raw_reasoning_persisted: false,
+    raw_model_output_persisted: false,
     summary: { passed: true, complete_suite: true },
     economics: {
       estimated_supplier_cost_usd: Number((caseIds.length * 0.0005).toFixed(8)),

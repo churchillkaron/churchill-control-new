@@ -31,6 +31,7 @@ function report(overrides = {}) {
     customer_private_content_included: false,
     raw_customer_content_included: false,
     raw_reasoning_persisted: false,
+    raw_model_output_persisted: false,
     economics: {
       estimated_supplier_cost_usd: Number((CASES.length * 0.0013).toFixed(8)),
       cost_measurement_source: "RUNNER_SUM_OF_RECOMPUTED_CASE_COSTS_V1",
@@ -38,6 +39,13 @@ function report(overrides = {}) {
     observations: CASES.map((case_id, index) => ({
       case_id,
       passed: true,
+      quality_score: 0.85,
+      evidence_grounding_score: 0.9,
+      narrative_grounding_score: 0.9,
+      evidence_distinctness_score: 0.9,
+      response_template_fingerprint_sha256: (index === 0 ? "1" : "2").repeat(64),
+      response_template_simhash64: (index === 0 ? "3" : "4").repeat(16),
+      evidence_key_count: 2,
       latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
       wall_ms: 100 + index,
       input_tokens: 100,
@@ -121,5 +129,22 @@ test("tampered aggregate supplier cost is rejected before signing", () => {
   assert.throws(
     () => attestCodeAICompetitiveReferenceReport(invalid, { env }),
     /CODE_AI_COMPETITIVE_REFERENCE_AGGREGATE_COST_RECOMPUTATION_MISMATCH/,
+  );
+});
+
+
+test("reference attestation rejects missing deterministic quality evidence before signing", () => {
+  const invalid = report();
+  delete invalid.observations[0].response_template_simhash64;
+  assert.throws(
+    () => attestCodeAICompetitiveReferenceReport(invalid, { env }),
+    /CODE_AI_COMPETITIVE_REFERENCE_QUALITY_EVIDENCE_REQUIRED/,
+  );
+});
+
+test("reference attestation forbids persisted raw model output", () => {
+  assert.throws(
+    () => attestCodeAICompetitiveReferenceReport(report({ raw_model_output_persisted: true }), { env }),
+    /CODE_AI_COMPETITIVE_REFERENCE_RAW_OUTPUT_FORBIDDEN/,
   );
 });

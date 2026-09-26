@@ -34,6 +34,12 @@ function report() {
       case_id,
       passed: true,
       quality_score: 0.85,
+      evidence_grounding_score: 0.9,
+      narrative_grounding_score: 0.9,
+      evidence_distinctness_score: 0.9,
+      response_template_fingerprint_sha256: (index + 1).toString(16).padStart(2, "0").repeat(32),
+      response_template_simhash64: (index + 40).toString(16).padStart(2, "0").repeat(8),
+      evidence_key_count: 2,
       wall_ms: 100 + index,
       latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
       inference_elapsed_ms: 1000,
@@ -100,5 +106,15 @@ test("owned attestation rejects understated recomputed local cost", () => {
   assert.throws(
     () => attestCodeAICompetitiveOwnedReport(invalid, { env }),
     /CODE_AI_COMPETITIVE_OWNED_COST_RECOMPUTATION_MISMATCH/,
+  );
+});
+
+
+test("owned attestation rejects malformed quality evidence before signing", () => {
+  const invalid = report();
+  invalid.observations[0].evidence_grounding_score = 1.5;
+  assert.throws(
+    () => attestCodeAICompetitiveOwnedReport(invalid, { env }),
+    /CODE_AI_COMPETITIVE_OWNED_QUALITY_EVIDENCE_REQUIRED/,
   );
 });

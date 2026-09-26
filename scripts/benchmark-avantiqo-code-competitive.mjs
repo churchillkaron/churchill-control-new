@@ -523,6 +523,17 @@ if (separateRepositoryEvidenceRequested) {
       throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_REFERENCE_ATTESTATION_INVALID");
     }
   }
+  const repositoryRunIds = [
+    text(ownedRepositoryReport?.benchmark_run_id),
+    ...referenceRepositoryReports.map((report) => text(report?.benchmark_run_id)),
+  ];
+  if (repositoryRunIds.some((runId) => !runId) || new Set(repositoryRunIds).size !== repositoryRunIds.length) {
+    throw new Error("AVANTIQO_CODE_COMPETITIVE_UNIQUE_REPOSITORY_RUN_IDS_REQUIRED");
+  }
+  const frontierRunIdSet = new Set(allRunIds);
+  if (repositoryRunIds.some((runId) => frontierRunIdSet.has(runId))) {
+    throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_FRONTIER_RUN_ID_COLLISION");
+  }
   const validateRepositoryReport = (report, { expectedProvider = null, expectedModel = null, ownedEvidence = false } = {}) => {
     if (text(report?.suite_contract) !== REPOSITORY_SUITE_CONTRACT || text(report?.suite_sha256).toLowerCase() !== repositorySuiteSha256.toLowerCase()) {
       throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_SUITE_MISMATCH");
@@ -641,6 +652,8 @@ const report = {
     cryptographic_repository_owned_attestation_required: true,
     repository_evidence_freshness_required: true,
     repository_frontier_time_coherence_required: true,
+    unique_signed_repository_run_ids_required: true,
+    repository_run_ids_must_be_distinct_from_frontier_runs: true,
     speed_alone_cannot_establish_quality_superiority: true,
     quality_superiority_requires_reference_quality_win: true,
     minimum_superiority_quality_win_rate_per_reference: MIN_SUPERIORITY_WIN_RATE,

@@ -124,6 +124,9 @@ jobs:
       - name: Certify Business Partner developer resources
         run: node scripts/business-partner-developer-resource-certification.mjs
 
+      - name: Run expanded Code contract suite
+        run: npm run test:code-worldclass
+
       - name: Run Code autonomy and world-class quality gates
         run: npm run audit:code-ai-autonomy
 

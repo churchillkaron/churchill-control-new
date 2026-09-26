@@ -191,6 +191,7 @@ for (const entry of prompts) {
     quality_score: Number(grade.quality_score || 0),
     evidence_grounding_score: Number(grade.evidence_grounding_score || 0),
     narrative_grounding_score: Number(grade.narrative_grounding_score || 0),
+    evidence_distinctness_score: Number(grade.evidence_distinctness_score || 0),
     evidence_key_count: Number(grade.evidence_key_count || 0),
     wall_ms: wallMs,
     latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",

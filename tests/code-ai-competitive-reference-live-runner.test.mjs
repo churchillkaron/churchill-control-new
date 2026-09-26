@@ -243,3 +243,37 @@ test("narrative grounding penalizes generic diagnosis solution and verification"
   assert.ok(grounded.narrative_grounding_score >= 0.5);
   assert.ok(grounded.quality_score > generic.quality_score);
 });
+
+
+test("evidence obligations must be independently substantiated rather than duplicated", () => {
+  const benchmarkCase = {
+    case_id: "distinct-evidence-case",
+    category: "security",
+    title: "Bind organization scope and verify negative access behavior",
+    required_evidence: ["organization_bound", "negative_test", "no_role_broadening"],
+  };
+  const duplicated = "Organization scope is bound in the query and the negative test confirms access is rejected without broadening the role.";
+  const duplicateGrade = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify({
+    case_id: "distinct-evidence-case",
+    diagnosis: "The security defect allows access without binding organization scope to the authenticated business context.",
+    solution: "Bind organization_id in the data predicate and keep role authority unchanged while rejecting mismatched organization access.",
+    verification: "Use a negative cross-organization test and confirm the authorized same-organization path remains unchanged.",
+    evidence: { organization_bound: duplicated, negative_test: duplicated, no_role_broadening: duplicated },
+  }));
+  const distinctGrade = gradeCodeAICompetitiveReferenceCase(benchmarkCase, JSON.stringify({
+    case_id: "distinct-evidence-case",
+    diagnosis: "The security defect allows access without binding organization scope to the authenticated business context.",
+    solution: "Bind organization_id in the data predicate and keep role authority unchanged while rejecting mismatched organization access.",
+    verification: "Use a negative cross-organization test and confirm the authorized same-organization path remains unchanged.",
+    evidence: {
+      organization_bound: "The query predicate requires organization_id resolved from authenticated Business Context before any record is returned.",
+      negative_test: "A request using a different organization_id is rejected and returns no cross-organization records or fallback data.",
+      no_role_broadening: "The existing role check is preserved exactly; the patch adds scope binding without granting any new permission or role capability.",
+    },
+  }));
+  assert.equal(duplicateGrade.passed, true);
+  assert.equal(distinctGrade.passed, true);
+  assert.equal(duplicateGrade.evidence_distinctness_score, 0);
+  assert.ok(distinctGrade.evidence_distinctness_score >= 0.25);
+  assert.ok(distinctGrade.quality_score > duplicateGrade.quality_score);
+});

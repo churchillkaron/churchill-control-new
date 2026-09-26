@@ -232,6 +232,19 @@ export default function CodeMissionHistoryPanel({
             <span>{competitiveEvidence.superiority_claim_allowed ? "superiority evidence active" : "no superiority claim"}</span>
             <span>{Array.isArray(competitiveEvidence.comparisons) ? competitiveEvidence.comparisons.length : 0} references</span>
           </div>
+          <div
+            data-avantiqo-code-competitive-history-integrity={competitiveEvidence?.history_integrity?.valid === true ? "verified" : "advisory"}
+            className="mt-1 flex items-center gap-1.5"
+          >
+            <ShieldCheck size={10} />
+            <span>
+              {competitiveEvidence?.history_integrity?.valid === true
+                ? "Durable history integrity verified"
+                : competitiveEvidence?.history_integrity?.legacy_unsealed === true
+                  ? "Legacy history is unsealed — advisory only"
+                  : "History integrity is not verified — advisory only"}
+            </span>
+          </div>
           {competitiveEvidence?.improvement_backlog?.[0] ? (
             <div className="mt-1">
               Next competitive gap: {competitiveEvidence.improvement_backlog[0].title || competitiveEvidence.improvement_backlog[0].case_id}

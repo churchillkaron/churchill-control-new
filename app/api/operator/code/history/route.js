@@ -32,7 +32,14 @@ function contextFor(access, organizationId) {
 async function loadCompetitiveEvidence() {
   try {
     const loaded = await loadLatestCodeAICompetitiveBenchmarkEvidence();
-    return loaded?.found === true ? loaded.evidence : null;
+    if (loaded?.found !== true || !loaded?.evidence) return null;
+    return {
+      ...loaded.evidence,
+      history_integrity: {
+        valid: loaded?.history_integrity?.valid === true,
+        legacy_unsealed: loaded?.history_integrity?.legacy_unsealed === true,
+      },
+    };
   } catch (error) {
     console.error(JSON.stringify({
       event: "AVANTIQO_CODE_HISTORY_COMPETITIVE_EVIDENCE_LOAD_FAILED",

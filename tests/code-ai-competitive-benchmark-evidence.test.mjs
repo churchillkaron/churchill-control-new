@@ -325,6 +325,8 @@ test("shared Code history API and UI expose competitive evidence without making 
   assert.match(route, /loadLatestCodeAICompetitiveBenchmarkEvidence/);
   assert.match(route, /Promise\.all\(\[/);
   assert.match(route, /competitive_evidence: competitiveEvidence/);
+  assert.match(route, /history_integrity:/);
+  assert.match(route, /legacy_unsealed/);
   assert.match(route, /history_load_blocked: false/);
   assert.match(panel, /setCompetitiveEvidence/);
   assert.match(panel, /data-avantiqo-code-competitive-evidence="true"/);
@@ -332,4 +334,7 @@ test("shared Code history API and UI expose competitive evidence without making 
   assert.match(panel, /benchmark certified/);
   assert.match(panel, /no superiority claim/);
   assert.match(panel, /Next competitive gap:/);
+  assert.match(panel, /data-avantiqo-code-competitive-history-integrity/);
+  assert.match(panel, /Durable history integrity verified/);
+  assert.match(panel, /Legacy history is unsealed — advisory only/);
 });

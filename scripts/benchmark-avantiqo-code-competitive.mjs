@@ -15,6 +15,7 @@ const MIN_CASES = 20;
 const MAX_REFERENCE_AGE_DAYS = 30;
 const MIN_NON_LOSS_RATE = 0.95;
 const MIN_NARRATIVE_GROUNDING_SCORE = 0.5;
+const MIN_QUALITY_WIN_MARGIN = 0.03;
 const MAX_P95_LATENCY_RATIO = 1.25;
 const MAX_COST_RATIO = 1.25;
 
@@ -65,10 +66,17 @@ function compareCase(owned, reference) {
   const referenceGrounding = finite(reference?.evidence_grounding_score);
   const ownedNarrativeGrounding = finite(owned?.narrative_grounding_score);
   const referenceNarrativeGrounding = finite(reference?.narrative_grounding_score);
+  const qualityDelta = ownedQuality !== null && referenceQuality !== null
+    ? Number((ownedQuality - referenceQuality).toFixed(4))
+    : null;
   const qualityOutcome = ownedPassed !== referencePassed
     ? ownedPassed ? "WIN" : "LOSS"
-    : ownedPassed && referencePassed && ownedQuality !== null && referenceQuality !== null
-      ? ownedQuality === referenceQuality ? "TIE" : ownedQuality > referenceQuality ? "WIN" : "LOSS"
+    : ownedPassed && referencePassed && qualityDelta !== null
+      ? qualityDelta >= MIN_QUALITY_WIN_MARGIN
+        ? "WIN"
+        : qualityDelta <= -MIN_QUALITY_WIN_MARGIN
+          ? "LOSS"
+          : "TIE"
       : "TIE";
   const latencyOutcome = ownedLatency !== null && referenceLatency !== null
     ? referenceLatency === ownedLatency ? "TIE" : ownedLatency < referenceLatency ? "WIN" : "LOSS"
@@ -81,6 +89,7 @@ function compareCase(owned, reference) {
     reference_wall_ms: referenceLatency,
     owned_quality_score: ownedQuality,
     reference_quality_score: referenceQuality,
+    quality_score_delta: qualityDelta,
     owned_evidence_grounding_score: ownedGrounding,
     reference_evidence_grounding_score: referenceGrounding,
     owned_narrative_grounding_score: ownedNarrativeGrounding,
@@ -251,6 +260,7 @@ const report = {
     minimum_cases_per_reference: MIN_CASES,
     maximum_reference_age_days: MAX_REFERENCE_AGE_DAYS,
     minimum_quality_non_loss_rate: MIN_NON_LOSS_RATE,
+    minimum_material_quality_win_margin: MIN_QUALITY_WIN_MARGIN,
     deterministic_quality_score_required_for_passed_cases: true,
     case_specific_evidence_grounding_required_for_passed_cases: true,
     case_specific_narrative_grounding_required_for_passed_cases: true,

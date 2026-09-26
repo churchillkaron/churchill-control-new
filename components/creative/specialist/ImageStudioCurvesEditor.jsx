@@ -40,7 +40,9 @@ export default function ImageStudioCurvesEditor({curves,onChange,onBegin,onEnd})
   const move=(event)=>{
     if(drag.current==null||!svgRef.current)return;
     const index=drag.current,point=pointFromEvent(event,svgRef.current);
-    const minX=index<=0?0:points[index-1].x+.005,maxX=index>=points.length-1?1:points[index+1].x-.005;\n    const x=index===0?0:index===points.length-1?1:clamp(point.x,minX,maxX);\n    const next=points.map((item,i)=>i===index?{x,y:point.y}:item);
+    const minX=index<=0?0:points[index-1].x+.005,maxX=index>=points.length-1?1:points[index+1].x-.005;
+    const x=index===0?0:index===points.length-1?1:clamp(point.x,minX,maxX);
+    const next=points.map((item,i)=>i===index?{x,y:point.y}:item);
     commit(next);
   };
   const end=()=>{if(drag.current==null)return;drag.current=null;onEnd?.();};

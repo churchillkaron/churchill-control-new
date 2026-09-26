@@ -266,7 +266,7 @@ export default function ImageStudioWorkspace({ runtime }) {
 
         <ImageStudioVisualBiblePanel bible={operating.visual_bible} />
         <ImageStudioFinishingPanel chain={operating.finishing_chain} />
-        <ImageStudioLayerInspector workspace={workspace} />
+        <ImageStudioLayerInspector workspace={workspace} persistence={persistence} assets={images} />
         <ImageStudioLayerPanel workspace={workspace} />
         <ImageStudioReferencePanel workspace={workspace} persistence={persistence} assets={images} />
         <ImageStudioCommentsPanel workspace={workspace} persistence={persistence} />

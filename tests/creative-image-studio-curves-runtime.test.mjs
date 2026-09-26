@@ -26,3 +26,28 @@ test("curve point editing is non-destructive and bounded",()=>{
   curves=removeImageStudioCurvePoint(curves,"MASTER",1);
   assert.equal(curves.MASTER.length,2);
 });
+
+
+test("Image Studio exposes an interactive master and RGB curve graph", async()=>{
+  const fs=await import("node:fs");
+  const editor=fs.readFileSync("components/creative/specialist/ImageStudioCurvesEditor.jsx","utf8");
+  const inspector=fs.readFileSync("components/creative/specialist/ImageStudioLayerInspector.jsx","utf8");
+  assert.match(editor,/MASTER/);
+  assert.match(editor,/RED/);
+  assert.match(editor,/GREEN/);
+  assert.match(editor,/BLUE/);
+  assert.match(editor,/Click graph to add/);
+  assert.match(editor,/onPointerMove/);
+  assert.match(editor,/onDoubleClick/);
+  assert.match(inspector,/ImageStudioCurvesEditor/);
+  assert.match(inspector,/onBegin=\{workspace\.beginHistoryTransaction\}/);
+  assert.match(inspector,/onEnd=\{workspace\.endHistoryTransaction\}/);
+});
+
+test("deterministic export activates non-identity curves", async()=>{
+  const fs=await import("node:fs");
+  const exporter=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js","utf8");
+  assert.match(exporter,/imageStudioCurvesAreIdentity/);
+  assert.match(exporter,/!imageStudioCurvesAreIdentity\(adjustment\.curves\)/);
+  assert.match(exporter,/rgb_channel_curves: true/);
+});

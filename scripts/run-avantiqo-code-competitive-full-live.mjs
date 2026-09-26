@@ -25,6 +25,22 @@ function parseObjectEnv(name, required = true) {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(`${CONTRACT}_${name}_INVALID`);
   return parsed;
 }
+
+function runGit(args) {
+  const result = spawnSync("git", args, { cwd: process.cwd(), encoding: "utf8" });
+  if (result.status !== 0) throw new Error(`${CONTRACT}_GIT_PROVENANCE_FAILED:${args.join("_")}`);
+  return text(result.stdout);
+}
+
+function sourceProvenance() {
+  const sourceCommit = runGit(["rev-parse", "HEAD"]).toLowerCase();
+  const ref = runGit(["branch", "--show-current"]);
+  const clean = runGit(["status", "--porcelain"]).length === 0;
+  if (!/^[0-9a-f]{40}$/.test(sourceCommit)) throw new Error(`${CONTRACT}_SOURCE_COMMIT_INVALID`);
+  if (ref !== "main") throw new Error(`${CONTRACT}_CURRENT_MAIN_REQUIRED`);
+  if (!clean) throw new Error(`${CONTRACT}_CLEAN_REPOSITORY_REQUIRED`);
+  return { source_commit: sourceCommit, ref, clean };
+}
 const configuredProviders = text(process.env.AVANTIQO_CODE_COMPETITIVE_REQUIRED_PROVIDERS)
   .split(",")
   .map(canonicalProvider)
@@ -44,6 +60,16 @@ for (const provider of providers) {
   }
 }
 
+const canonicalConfiguration = {
+  providers,
+  models: Object.fromEntries(providers.map((provider) => [provider, text(models[provider])])),
+  pricing: Object.fromEntries(providers.map((provider) => [provider, {
+    input_usd_per_1m: Number(pricing?.[provider]?.input_usd_per_1m || 0),
+    output_usd_per_1m: Number(pricing?.[provider]?.output_usd_per_1m || 0),
+  }])),
+};
+const configurationSha256 = sha256(JSON.stringify(canonicalConfiguration));
+
 const root = text(process.env.AVANTIQO_CODE_COMPETITIVE_EVIDENCE_DIR) || "/tmp";
 const paths = {
   owned_frontier: resolve(root, "avantiqo-code-frontier-owned-local.json"),
@@ -61,6 +87,7 @@ const plan = {
   orchestrator_run_id: orchestratorRunId,
   providers,
   models: Object.fromEntries(providers.map((provider) => [provider, text(models[provider])])),
+  configuration_sha256: configurationSha256,
   paths: { ...paths, references: referencePaths },
   approvals_required: [
     APPROVAL,
@@ -86,6 +113,7 @@ if (!approved(process.env[APPROVAL])) throw new Error(`${APPROVAL}=YES_REQUIRED`
 for (const lowerApproval of plan.approvals_required.slice(1)) {
   if (!approved(process.env[lowerApproval])) throw new Error(`${lowerApproval}=YES_REQUIRED`);
 }
+const orchestratorSource = sourceProvenance();
 
 async function clearEvidenceOutputs() {
   const files = [
@@ -117,6 +145,7 @@ async function verifyFreshArtifact(path, label) {
     generated_at: new Date(generatedAt).toISOString(),
     benchmark_run_id: text(parsed?.benchmark_run_id) || null,
     contract: text(parsed?.contract) || null,
+    runner_source_commit: text(parsed?.runner_source_commit).toLowerCase() || null,
     provider: text(parsed?.provider || parsed?.model?.provider) || null,
     model: text(parsed?.model?.product_model || parsed?.model?.runtime_model || parsed?.model) || null,
     provider_execution_performed: parsed?.provider_execution_performed === true,
@@ -201,12 +230,20 @@ for (const provider of providers) {
     throw new Error(`${CONTRACT}_REFERENCE_PROVIDER_MODEL_EVIDENCE_MISMATCH:${provider}`);
   }
 }
+const sourceBoundArtifacts = producedArtifacts.filter((artifact) => artifact.stage !== "COMPETITIVE_CERTIFICATION");
+if (sourceBoundArtifacts.some((artifact) => artifact.runner_source_commit !== orchestratorSource.source_commit)) {
+  throw new Error(`${CONTRACT}_ARTIFACT_SOURCE_COMMIT_MISMATCH`);
+}
 
 const report = JSON.parse(await readFile(paths.competitive, "utf8"));
 const manifest = {
   contract: "AVANTIQO_CODE_COMPETITIVE_FULL_RUN_MANIFEST_V1",
   orchestrator_run_id: orchestratorRunId,
   started_at: orchestratorStartedAt?.toISOString() || null,
+  runner_source_commit: orchestratorSource.source_commit,
+  runner_ref: orchestratorSource.ref,
+  runner_repository_clean: orchestratorSource.clean,
+  configuration_sha256: configurationSha256,
   completed_at: new Date().toISOString(),
   providers,
   models: plan.models,

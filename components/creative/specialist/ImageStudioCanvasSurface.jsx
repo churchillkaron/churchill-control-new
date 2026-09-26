@@ -53,7 +53,8 @@ export default function ImageStudioCanvasSurface({workspace,assets=[]}){
  const layers=useMemo(()=>workspace.layers.filter(x=>x.artboard_id===board?.id).sort((a,b)=>a.sort_order-b.sort_order),[workspace.layers,board?.id]);
  const selectedLayers=useMemo(()=>layers.filter(layer=>workspace.selection.layer_ids.includes(layer.id)),[layers,workspace.selection.layer_ids]);
  const shell=useRef(null); const workspaceCanvasRef=useRef(null); const drag=useRef(null); const marquee=useRef(null); const [guide,setGuide]=useState(null); const [regionDraft,setRegionDraft]=useState(null); const [marqueeDraft,setMarqueeDraft]=useState(null);
- useEffect(()=>{if(!board||!workspace.ui.fit_request||!shell.current)return;const box=shell.current.getBoundingClientRect();workspace.setViewport({zoom:fitImageStudioZoom(board,{width:box.width,height:box.height})});},[workspace.ui.fit_request,board?.id,board?.width,board?.height]);
+ const fitRequest=workspace.ui.fit_request; const setViewport=workspace.setViewport;
+ useEffect(()=>{if(!board||!fitRequest||!shell.current)return;const box=shell.current.getBoundingClientRect();setViewport({zoom:fitImageStudioZoom(board,{width:box.width,height:box.height})});},[fitRequest,board,setViewport]);
  if(!board)return <div className="flex min-h-[420px] items-center justify-center text-xs text-[#918B83]">Create or save an artboard to start composing.</div>;
  const scale=clampImageStudioZoom(workspace.viewport.zoom); const w=board.width*scale,h=board.height*scale; const safe=buildSafeZone(board);
  const selectedBox=selectionBounds(selectedLayers);

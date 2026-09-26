@@ -44,3 +44,24 @@ test("workspace and inspector manage independent adjustment mask lifecycle",()=>
   assert.match(inspector,/Remove mask/);
   assert.match(inspector,/without hiding the base image/);
 });
+
+
+test("adjustment masks support governed semantic selection creation",()=>{
+  const store=fs.readFileSync("components/creative/specialist/useImageStudioWorkspaceStore.js","utf8");
+  const inspector=fs.readFileSync("components/creative/specialist/ImageStudioLayerInspector.jsx","utf8");
+  assert.match(store,/createAdjustmentSemanticMaskFromSelected/);
+  assert.match(store,/buildImageStudioSemanticMaskPatch/);
+  assert.match(store,/attachImageStudioSemanticMatte/);
+  assert.match(inspector,/Subject only/);
+  assert.match(inspector,/Background only/);
+  assert.match(inspector,/Luminance/);
+  assert.match(inspector,/Color range/);
+  assert.match(inspector,/createAdjustmentSemanticMaskFromSelected/);
+});
+
+test("owned subject/background mask request resolves the adjustment target image rather than the adjustment pseudo-layer",()=>{
+  const inspector=fs.readFileSync("components/creative/specialist/ImageStudioLayerInspector.jsx","utf8");
+  assert.match(inspector,/semanticTargetLayer=layer\.layer_type==="IMAGE"\?layer:adjustmentTargetLayer/);
+  assert.match(inspector,/target_layer_id:semanticTargetLayer\?\.id/);
+  assert.match(inspector,/source_asset_id:semanticTargetLayer\?\.source_asset_id/);
+});

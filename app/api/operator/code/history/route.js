@@ -20,6 +20,21 @@ function truthy(value) {
   return ["1", "true", "yes", "on"].includes(text(value, 20).toLowerCase());
 }
 
+
+function publicHistoryIntegrityReason(value) {
+  const reason = text(value, 160).toUpperCase();
+  if (!reason) return null;
+  if (reason === "LEGACY_UNSEALED_HISTORY") return "LEGACY_UNSEALED";
+  if (reason.includes("SECRET_UNAVAILABLE") || reason.includes("KEY_UNKNOWN") || reason.includes("KEYRING")) {
+    return "ATTESTATION_UNAVAILABLE";
+  }
+  if (reason.includes("HISTORY_HEAD")) return "HISTORY_HEAD_INVALID";
+  if (reason.includes("ROW_") || reason.includes("MEMORY_KEY") || reason.includes("REPLAY")) {
+    return "HISTORY_RECORD_INVALID";
+  }
+  return "HISTORY_INTEGRITY_INVALID";
+}
+
 function contextFor(access, organizationId) {
   return {
     organizationId,
@@ -32,7 +47,17 @@ function contextFor(access, organizationId) {
 async function loadCompetitiveEvidence() {
   try {
     const loaded = await loadLatestCodeAICompetitiveBenchmarkEvidence();
-    return loaded?.found === true ? loaded.evidence : null;
+    if (loaded?.found !== true || !loaded?.evidence) return null;
+    return {
+      ...loaded.evidence,
+      history_integrity: {
+        valid: loaded?.history_integrity?.valid === true,
+        legacy_unsealed: loaded?.history_integrity?.legacy_unsealed === true,
+        quarantined: loaded?.evidence?.history_integrity_valid === false,
+        reason: publicHistoryIntegrityReason(loaded?.history_integrity?.reason),
+        history_head_valid: loaded?.history_integrity?.history_head_valid === true,
+      },
+    };
   } catch (error) {
     console.error(JSON.stringify({
       event: "AVANTIQO_CODE_HISTORY_COMPETITIVE_EVIDENCE_LOAD_FAILED",

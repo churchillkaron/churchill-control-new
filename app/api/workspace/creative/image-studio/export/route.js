@@ -18,9 +18,31 @@ import { CreativeStillReleaseCertificationRuntime } from "@/lib/creative/stills/
 const BUCKET = "creative-assets";
 const clean = (value) => String(value ?? "").trim();
 
+function imageStudioRenderEvidence(rendered={}){
+  return {
+    format:rendered.format||null,
+    mime_type:rendered.mime_type||null,
+    file_extension:rendered.file_extension||null,
+    width:rendered.width||null,
+    height:rendered.height||null,
+    source_orientation:rendered.source_orientation||null,
+    color_management:rendered.color_management||null,
+    typography:rendered.typography||null,
+    effects:rendered.effects||null,
+    adjustments:rendered.adjustments||null,
+    retouch:rendered.retouch||null,
+    edge_integration:rendered.edge_integration||null,
+    contact_realism:rendered.contact_realism||null,
+    texture_integration:rendered.texture_integration||null,
+    adjustment_layers:rendered.adjustment_layers||null,
+    masks:rendered.masks||null,
+  };
+}
+
 async function persistMaster({ organizationId, projectId, artboard, rendered, preflight }) {
   const exportId = crypto.randomUUID();
   const checksum = crypto.createHash("sha256").update(rendered.bytes).digest("hex");
+  const renderEvidence=imageStudioRenderEvidence(rendered);
   const filename = `image-studio-${artboard.id}-${exportId}.${rendered.file_extension}`;
   const storagePath = `${organizationId}/image-studio/${projectId}/${artboard.id}/${filename}`;
   const storageReference = `storage://${BUCKET}/${storagePath}`;
@@ -61,6 +83,7 @@ async function persistMaster({ organizationId, projectId, artboard, rendered, pr
       height: rendered.height,
       artboard_id: artboard.id,
       deterministic_export_contract: rendered.contract,
+      render_evidence: renderEvidence,
       quality_preflight: preflight,
       publication_ready: preflight.release_ready === true,
       verified: preflight.release_ready === true,
@@ -96,7 +119,7 @@ async function persistMaster({ organizationId, projectId, artboard, rendered, pr
     asset_id: asset.id,
     export_type: rendered.format,
     status: "COMPLETED",
-    settings: { width: rendered.width, height: rendered.height, mime_type: rendered.mime_type },
+    settings: { width: rendered.width, height: rendered.height, mime_type: rendered.mime_type, format:rendered.format, color_space:rendered.color_management?.output_color_space||null, density_dpi:rendered.color_management?.output_density_dpi||null },
     evidence: {
       contract: rendered.contract,
       deterministic: true,
@@ -115,6 +138,7 @@ async function persistMaster({ organizationId, projectId, artboard, rendered, pr
         channels: stillRelease.channels || [],
       },
       quality_preflight: preflight,
+      render_evidence: renderEvidence,
     },
     completed_at: new Date().toISOString(),
   });

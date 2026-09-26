@@ -1,8 +1,12 @@
-import { readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
+import {
+  attestCodeAICompetitiveFullRunManifest,
+  verifyCodeAICompetitiveFullRunManifest,
+} from "../lib/code/runtime/CodeAICompetitiveFullRunAttestationRuntime.js";
 
 loadAvantiqoEnv();
 
@@ -70,16 +74,17 @@ const canonicalConfiguration = {
 };
 const configurationSha256 = sha256(JSON.stringify(canonicalConfiguration));
 
-const root = text(process.env.AVANTIQO_CODE_COMPETITIVE_EVIDENCE_DIR) || "/tmp";
+const evidenceRoot = resolve(text(process.env.AVANTIQO_CODE_COMPETITIVE_EVIDENCE_DIR) || "/tmp");
+const runRoot = resolve(evidenceRoot, orchestratorRunId);
 const paths = {
-  owned_frontier: resolve(root, "avantiqo-code-frontier-owned-local.json"),
-  owned_repository: resolve(root, "avantiqo-code-executable-repository-owned.json"),
-  competitive: resolve(root, "avantiqo-code-competitive-benchmark.json"),
-  manifest: resolve(root, "avantiqo-code-competitive-full-run-manifest.json"),
+  owned_frontier: resolve(runRoot, "avantiqo-code-frontier-owned-local.json"),
+  owned_repository: resolve(runRoot, "avantiqo-code-executable-repository-owned.json"),
+  competitive: resolve(runRoot, "avantiqo-code-competitive-benchmark.json"),
+  manifest: resolve(runRoot, "avantiqo-code-competitive-full-run-manifest.json"),
 };
 const referencePaths = Object.fromEntries(providers.map((provider) => [provider, {
-  frontier: resolve(root, `avantiqo-code-competitive-reference-${provider}.json`),
-  repository: resolve(root, `avantiqo-code-executable-repository-reference-${provider}.json`),
+  frontier: resolve(runRoot, `avantiqo-code-competitive-reference-${provider}.json`),
+  repository: resolve(runRoot, `avantiqo-code-executable-repository-reference-${provider}.json`),
 }]));
 
 const plan = {
@@ -88,6 +93,8 @@ const plan = {
   providers,
   models: Object.fromEntries(providers.map((provider) => [provider, text(models[provider])])),
   configuration_sha256: configurationSha256,
+  evidence_root: evidenceRoot,
+  run_root: runRoot,
   paths: { ...paths, references: referencePaths },
   approvals_required: [
     APPROVAL,
@@ -100,6 +107,7 @@ const plan = {
     stale_output_reuse_forbidden: true,
     generated_at_must_be_within_orchestrator_run: true,
     manifest_sha256_required: true,
+    concurrent_run_isolation_required: true,
   },
   external_provider_execution_performed: false,
   production_deploy_performed: false,
@@ -115,7 +123,17 @@ for (const lowerApproval of plan.approvals_required.slice(1)) {
 }
 const orchestratorSource = sourceProvenance();
 
-async function clearEvidenceOutputs() {
+async function prepareRunDirectory() {
+  await mkdir(evidenceRoot, { recursive: true });
+  try {
+    await mkdir(runRoot, { recursive: false });
+  } catch (error) {
+    if (error?.code === "EEXIST") throw new Error(`${CONTRACT}_RUN_DIRECTORY_ALREADY_EXISTS`);
+    throw error;
+  }
+}
+
+async function clearRunOutputs() {
   const files = [
     paths.owned_frontier, paths.owned_repository, paths.competitive, paths.manifest,
     ...providers.flatMap((provider) => [referencePaths[provider].frontier, referencePaths[provider].repository]),
@@ -166,7 +184,8 @@ function runNode(script, args, env, label) {
   return result;
 }
 
-await clearEvidenceOutputs();
+await prepareRunDirectory();
+await clearRunOutputs();
 const producedArtifacts = [];
 
 runNode("scripts/run-avantiqo-code-frontier-local.mjs", ["--output", paths.owned_frontier], {}, "OWNED_FRONTIER");
@@ -236,13 +255,23 @@ if (sourceBoundArtifacts.some((artifact) => artifact.runner_source_commit !== or
 }
 
 const report = JSON.parse(await readFile(paths.competitive, "utf8"));
-const manifest = {
+const finalSource = sourceProvenance();
+if (
+  finalSource.source_commit !== orchestratorSource.source_commit ||
+  finalSource.ref !== orchestratorSource.ref ||
+  finalSource.clean !== orchestratorSource.clean
+) {
+  throw new Error(`${CONTRACT}_SOURCE_CHANGED_DURING_RUN`);
+}
+const manifestCore = {
   contract: "AVANTIQO_CODE_COMPETITIVE_FULL_RUN_MANIFEST_V1",
   orchestrator_run_id: orchestratorRunId,
+  run_root: runRoot,
   started_at: orchestratorStartedAt?.toISOString() || null,
   runner_source_commit: orchestratorSource.source_commit,
   runner_ref: orchestratorSource.ref,
   runner_repository_clean: orchestratorSource.clean,
+  source_stable_for_entire_run: true,
   configuration_sha256: configurationSha256,
   completed_at: new Date().toISOString(),
   providers,
@@ -252,6 +281,8 @@ const manifest = {
   competitive_certified: report.competitive_certified === true,
   production_deploy_performed: false,
 };
+const manifest = attestCodeAICompetitiveFullRunManifest(manifestCore, { env: process.env });
+verifyCodeAICompetitiveFullRunManifest(manifest, { env: process.env });
 await writeFile(paths.manifest, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 const manifestRaw = await readFile(paths.manifest);
 const manifestSha256 = sha256(manifestRaw);
@@ -263,6 +294,8 @@ console.log(JSON.stringify({
   competitive_report: paths.competitive,
   manifest: paths.manifest,
   manifest_sha256: manifestSha256,
+  manifest_attestation_contract: manifest.full_run_attestation?.contract || null,
+  manifest_attestation_digest: manifest.full_run_attestation?.digest || null,
   competitive_certified: report.competitive_certified === true,
   repository_task_artifact_certified: report.repository_task_evidence?.certified === true,
   quality_superiority_observed: report.quality_superiority_observed === true,

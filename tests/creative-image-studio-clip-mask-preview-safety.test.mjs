@@ -14,22 +14,30 @@ test("simple geometric clip mask remains exact in canvas preview",()=>{
   assert.match(preview.style.clipPath,/ellipse/);
 });
 
-test("feather invert and partial-opacity masks fail conservative instead of fading whole image",()=>{
+test("zero-feather invert and partial-opacity geometric masks keep exact alpha preview",()=>{
   for(const metadata of [
-    {mask_shape:"RECT",mask_feather:12,mask_opacity:1},
     {mask_shape:"RECT",mask_feather:0,mask_opacity:1,mask_invert:true},
-    {mask_shape:"RECT",mask_feather:0,mask_opacity:.5},
+    {mask_shape:"ELLIPSE",mask_feather:0,mask_opacity:.5},
   ]){
     const preview=imageStudioMaskPreviewDescriptor(target,{id:"m",bounds:{x:20,y:10,width:100,height:60},metadata});
-    assert.equal(preview.preview_supported,false);
-    assert.deepEqual(preview.style,{});
-    assert.equal(preview.reason,"MASK_SEMANTICS_PREVIEW_COMPLEX");
+    assert.equal(preview.preview_supported,true);
+    assert.equal(preview.fidelity,"EXACT_GEOMETRIC_ALPHA_SCOPE");
+    assert.match(preview.style.maskImage,/^url\("data:image\/svg\+xml,/);
+    assert.equal(preview.style.WebkitMaskImage,preview.style.maskImage);
+    assert.equal(preview.style.maskSize,"100% 100%");
   }
+});
+
+test("feathered geometric masks stay export-authoritative",()=>{
+  const preview=imageStudioMaskPreviewDescriptor(target,{id:"m",bounds:{x:20,y:10,width:100,height:60},metadata:{mask_shape:"RECT",mask_feather:12,mask_opacity:.5,mask_invert:true}});
+  assert.equal(preview.preview_supported,false);
+  assert.deepEqual(preview.style,{});
+  assert.equal(preview.reason,"MASK_FEATHER_PREVIEW_COMPLEX");
 });
 
 test("semantic raster and brush-refined masks never masquerade as exact geometry",()=>{
   const semantic=imageStudioMaskPreviewDescriptor(target,{id:"s",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_source_kind:"SEMANTIC",mask_shape:"RECT"}});
-  const raster=imageStudioMaskPreviewDescriptor(target,{id:"r",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_source_kind:"RASTER",mask_shape:"RECT"}});
+  const raster=imageStudioMaskPreviewDescriptor(target,{id:"r",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_source_kind:"RASTER_MATTE",mask_shape:"RECT",mask_provenance:{matte_storage_reference:"storage://creative/matte.png"}}});
   const brush=imageStudioMaskPreviewDescriptor(target,{id:"b",bounds:{x:0,y:0,width:200,height:100},metadata:{mask_shape:"RECT",mask_brush_strokes:[{mode:"ADD",points:[{x:.5,y:.5}]}]}});
   assert.equal(semantic.preview_supported,false);
   assert.equal(semantic.reason,"MASK_SOURCE_PREVIEW_COMPLEX");

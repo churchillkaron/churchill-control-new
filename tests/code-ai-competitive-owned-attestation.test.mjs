@@ -16,6 +16,7 @@ const PROMPT_SHA = "b".repeat(64);
 function report() {
   const observations = CASES.map((case_id, index) => ({
       case_id,
+      category: "repository",
       passed: true,
       failures: [],
       quality_score: 0.85,
@@ -212,5 +213,22 @@ test("owned failure evidence must be bounded machine codes", () => {
   assert.throws(
     () => attestCodeAICompetitiveOwnedReport(invalid, { env }),
     /CODE_AI_COMPETITIVE_OWNED_CASE_FAILURES_INVALID/,
+  );
+});
+
+
+test("owned attestation rejects ambiguous case identity before signing", () => {
+  const invalidCase = report();
+  invalidCase.observations[0].case_id = ` ${invalidCase.observations[0].case_id}`;
+  assert.throws(
+    () => attestCodeAICompetitiveOwnedReport(invalidCase, { env }),
+    /CODE_AI_COMPETITIVE_OWNED_CASE_ID_INVALID/,
+  );
+
+  const invalidCategory = report();
+  invalidCategory.observations[0].category = "repository data";
+  assert.throws(
+    () => attestCodeAICompetitiveOwnedReport(invalidCategory, { env }),
+    /CODE_AI_COMPETITIVE_OWNED_CATEGORY_INVALID/,
   );
 });

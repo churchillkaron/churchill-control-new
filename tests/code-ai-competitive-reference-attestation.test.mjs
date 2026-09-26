@@ -46,6 +46,7 @@ function report(overrides = {}) {
     },
     observations: CASES.map((case_id, index) => ({
       case_id,
+      category: "repository",
       passed: true,
       failures: [],
       quality_score: 0.85,
@@ -216,5 +217,22 @@ test("reference failure evidence must be bounded machine codes", () => {
   assert.throws(
     () => attestCodeAICompetitiveReferenceReport(invalid, { env }),
     /CODE_AI_COMPETITIVE_REFERENCE_CASE_FAILURES_INVALID/,
+  );
+});
+
+
+test("reference attestation rejects ambiguous case identity before signing", () => {
+  const invalidCase = report();
+  invalidCase.observations[0].case_id += "\nsecret";
+  assert.throws(
+    () => attestCodeAICompetitiveReferenceReport(invalidCase, { env }),
+    /CODE_AI_COMPETITIVE_REFERENCE_CASE_ID_INVALID/,
+  );
+
+  const invalidCategory = report();
+  invalidCategory.observations[0].category = "security/context";
+  assert.throws(
+    () => attestCodeAICompetitiveReferenceReport(invalidCategory, { env }),
+    /CODE_AI_COMPETITIVE_REFERENCE_CATEGORY_INVALID/,
   );
 });

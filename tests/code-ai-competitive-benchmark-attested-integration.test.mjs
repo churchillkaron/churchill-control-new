@@ -68,7 +68,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
         hidden_acceptance_test_count: 4,
         protected_baseline_sha256: "5".repeat(64),
         protected_baseline_executed: true,
-        protected_baseline_test_count: 12,
+        protected_baseline_test_count: 4,
         candidate_self_report_authority: false,
       },
     } : {}),

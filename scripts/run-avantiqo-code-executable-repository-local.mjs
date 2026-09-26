@@ -36,6 +36,12 @@ function must(command, args, cwd) {
   }
   return result;
 }
+function hiddenAssertionCount(source) {
+  const count = (String(source || "").match(/\bassert\.[A-Za-z]+\s*\(/g) || []).length;
+  if (count <= 0) throw new Error(`${CONTRACT}_HIDDEN_ASSERTION_COUNT_REQUIRED`);
+  return count;
+}
+
 function hiddenSource(caseSet) {
   if (caseSet === "INVOICE_TOTAL_V1") {
     return `import assert from "node:assert/strict";
@@ -137,6 +143,7 @@ async function seedRepository(benchmarkCase) {
   const hiddenPath = join(verifier, "hidden-acceptance.mjs");
   const hiddenAcceptanceSource = hiddenSource(benchmarkCase?.hidden_acceptance?.case_set);
   const hiddenAcceptanceSha256 = sha256(hiddenAcceptanceSource);
+  const hiddenAcceptanceTestCount = hiddenAssertionCount(hiddenAcceptanceSource);
   await writeFile(hiddenPath, hiddenAcceptanceSource, "utf8");
   const baseline = run(process.execPath, [hiddenPath], verifier);
   if (baseline.status === 0) throw new Error(`${CONTRACT}_BASELINE_MUST_FAIL:${benchmarkCase.case_id}`);
@@ -150,7 +157,7 @@ async function seedRepository(benchmarkCase) {
   }));
   return {
     root, repo, verifier, origin, baseCommit, hiddenPath,
-    hiddenAcceptanceSha256, baselineExitCode, protectedBaselineSha256,
+    hiddenAcceptanceSha256, hiddenAcceptanceTestCount, baselineExitCode, protectedBaselineSha256,
   };
 }
 
@@ -315,10 +322,10 @@ for (const benchmarkCase of cases) {
         exit_code: hiddenExitCode,
         hidden_acceptance_sha256: fixture.hiddenAcceptanceSha256,
         hidden_acceptance_executed: hiddenExitCode !== null,
-        hidden_acceptance_test_count: benchmarkCase.case_id.includes("multifile") ? 5 : 4,
+        hidden_acceptance_test_count: fixture.hiddenAcceptanceTestCount,
         protected_baseline_sha256: fixture.protectedBaselineSha256,
         protected_baseline_executed: true,
-        protected_baseline_test_count: 1,
+        protected_baseline_test_count: fixture.hiddenAcceptanceTestCount,
         protected_baseline_base_commit: fixture.baseCommit,
         protected_baseline_hidden_acceptance_sha256: fixture.hiddenAcceptanceSha256,
         protected_baseline_exit_code: fixture.baselineExitCode,

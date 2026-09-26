@@ -29,5 +29,5 @@ test("governed single mutation cannot fall through to generic reasoner when sema
   const failClosed = core.indexOf("const semanticMutationFailClosed");
   const generic = core.indexOf("await reasonAboutOperatorTurn({", failClosed);
   assert.ok(failClosed >= 0 && generic > failClosed);
-  assert.match(core, /deterministicPreparation \|\| semanticPreparation \|\| semanticMutationFailClosed \|\| await reasonAboutOperatorTurn/);
+  assert.match(core, /semanticPreparation \|\| semanticMutationFailClosed \|\| await reasonAboutOperatorTurn/);
 });

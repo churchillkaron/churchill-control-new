@@ -57,7 +57,7 @@ assert.match(syntheticSource, /execution:\s*null/);
 assert.match(syntheticSource, /navigation:\s*null/);
 
 const localGateIndex = syntheticSource.indexOf("isForecastAccountabilityQuestion(effectiveOptions.message)");
-const cognitiveBriefIndex = syntheticSource.indexOf("await ownedCognitiveBrief(effectiveOptions)");
+const cognitiveBriefIndex = syntheticSource.indexOf("await ownedCognitiveBrief(calibratedOptions)");
 assert.ok(localGateIndex >= 0, "Forecast accountability gate must exist");
 assert.ok(cognitiveBriefIndex >= 0, "Owned cognitive brief call must exist");
 assert.ok(

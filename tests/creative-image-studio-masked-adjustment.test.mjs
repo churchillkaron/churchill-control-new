@@ -28,6 +28,9 @@ test("deterministic export resolves independent adjustment masks with semantic a
   assert.match(source,/validateImageStudioAdjustmentMask/);
   assert.match(source,/IMAGE_STUDIO_ADJUSTMENT_MASK_INVALID/);
   assert.match(source,/semanticExternalMatteBuffer/);
+  assert.match(source,/adjustmentMaskLayer\.metadata\?\.mask_source_kind==="RASTER_MATTE"/);
+  assert.match(source,/IMAGE_STUDIO_ADJUSTMENT_SMART_MASK_STORAGE_REFERENCE_REQUIRED/);
+  assert.match(source,/buildImageStudioRasterMaskBuffer\(matteInput,geometry,maskGeometry\)/);
   assert.match(source,/applyImageStudioBrushMaskRefinements/);
   assert.match(source,/maskAlphaByAdjustmentId/);
   assert.match(source,/CREATIVE_IMAGE_STUDIO_ADJUSTMENT_LAYER_V2/);

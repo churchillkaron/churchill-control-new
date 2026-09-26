@@ -27,13 +27,14 @@ test("simple geometric adjustment mask keeps exact target scope in canvas previe
   assert.match(preview.mask_style.clipPath,/ellipse/);
 });
 
-test("complex masks fail conservative instead of applying adjustment globally",()=>{
+test("feathered geometric adjustment masks keep local preview scope",()=>{
   const mask={id:"m",artboard_id:"board",layer_type:"MASK",bounds:{x:20,y:10,width:140,height:80},metadata:{clip_mask_target_id:"img",mask_shape:"RECT",mask_feather:24}};
   const adjustment={id:"a",artboard_id:"board",layer_type:"ADJUSTMENT",visible:true,metadata:{adjustment_target_layer_ids:["img"],adjustment_mask_layer_id:"m"},style:{adjustments:{exposure:1}}};
   const [preview]=imageStudioAdjustmentPreviewDescriptors([target,adjustment,mask],target);
-  assert.equal(preview.preview_supported,false);
-  assert.equal(preview.fidelity,"EXPORT_ONLY");
-  assert.deepEqual(preview.failures,["ADJUSTMENT_MASK_PREVIEW_COMPLEX"]);
+  assert.equal(preview.preview_supported,true);
+  assert.equal(preview.fidelity,"APPROXIMATE_COLOR_EXACT_SCOPE");
+  assert.deepEqual(preview.failures,[]);
+  assert.match(preview.mask_style.maskImage,/feGaussianBlur/);
 });
 
 test("canvas consumes sequential adjustment preview descriptors with explicit export-only fallback",()=>{

@@ -28,11 +28,19 @@ test("zero-feather invert and partial-opacity geometric masks keep exact alpha p
   }
 });
 
-test("feathered geometric masks stay export-authoritative",()=>{
-  const preview=imageStudioMaskPreviewDescriptor(target,{id:"m",bounds:{x:20,y:10,width:100,height:60},metadata:{mask_shape:"RECT",mask_feather:12,mask_opacity:.5,mask_invert:true}});
-  assert.equal(preview.preview_supported,false);
-  assert.deepEqual(preview.style,{});
-  assert.equal(preview.reason,"MASK_FEATHER_PREVIEW_COMPLEX");
+test("feathered geometric masks preview through the shared SVG alpha contract",()=>{
+  for(const metadata of [
+    {mask_shape:"RECT",mask_feather:12,mask_opacity:1,mask_invert:false},
+    {mask_shape:"ELLIPSE",mask_feather:8,mask_opacity:.5,mask_invert:true},
+  ]){
+    const preview=imageStudioMaskPreviewDescriptor(target,{id:"m",bounds:{x:20,y:10,width:100,height:60},metadata});
+    assert.equal(preview.preview_supported,true);
+    assert.equal(preview.fidelity,"APPROXIMATE_RASTER_EXACT_GEOMETRY");
+    assert.equal(preview.reason,null);
+    assert.match(preview.style.maskImage,/feGaussianBlur/);
+    assert.match(preview.style.maskImage,/stdDeviation/);
+    assert.equal(preview.style.WebkitMaskImage,preview.style.maskImage);
+  }
 });
 
 test("semantic raster and brush-refined masks never masquerade as exact geometry",()=>{

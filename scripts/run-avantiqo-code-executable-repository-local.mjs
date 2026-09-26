@@ -7,6 +7,8 @@ import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
 import {
   CODE_AI_REPOSITORY_VERIFIER_CONTRACT,
   CODE_AI_REPOSITORY_VERIFIER_RUNTIME_CONTRACT,
+  CODE_AI_REPOSITORY_VERIFIER_INVOCATION_CONTRACT,
+  codeAIRepositoryVerifierInvocationSha256,
   codeAIRepositoryVerifierProtocolSha256,
 } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
@@ -168,6 +170,7 @@ async function seedRepository(benchmarkCase) {
     base_commit: baseCommit,
     hidden_acceptance_sha256: hiddenAcceptanceSha256,
     verifier_environment_sha256: verifierEnvironmentSha256,
+    verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
     exit_code: baselineExitCode,
     passed: false,
   }));
@@ -359,6 +362,8 @@ for (const benchmarkCase of cases) {
         verifier_runtime_sha256: verifierRuntimeSha256,
         verifier_environment_contract: VERIFIER_ENVIRONMENT_CONTRACT,
         verifier_environment_sha256: verifierEnvironmentSha256,
+        verifier_invocation_contract: CODE_AI_REPOSITORY_VERIFIER_INVOCATION_CONTRACT,
+        verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: sha256(patch),
         candidate_artifact_sha256: sha256(artifact),
@@ -379,6 +384,7 @@ for (const benchmarkCase of cases) {
         protected_baseline_hidden_acceptance_sha256: fixture.hiddenAcceptanceSha256,
         protected_baseline_verifier_runtime_sha256: verifierRuntimeSha256,
         protected_baseline_verifier_environment_sha256: verifierEnvironmentSha256,
+        protected_baseline_verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
         protected_baseline_exit_code: fixture.baselineExitCode,
         protected_baseline_passed: false,
         candidate_self_report_authority: false,

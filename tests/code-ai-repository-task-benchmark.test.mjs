@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   assessCodeAIRepositoryTaskBenchmark as assessRepositoryTaskBenchmarkRaw,
   codeAIRepositoryVerifierEnvironmentSha256,
+  codeAIRepositoryVerifierInvocationSha256,
   codeAIRepositoryVerifierProtocolSha256,
 } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
@@ -14,12 +15,13 @@ const VERIFIER_RUNTIME_IDENTITY = Object.freeze({ engine: "node", version: "v24.
 const VERIFIER_RUNTIME_SHA256 = createHash("sha256").update(JSON.stringify(VERIFIER_RUNTIME_IDENTITY), "utf8").digest("hex");
 const VERIFIER_ENVIRONMENT_SHA256 = codeAIRepositoryVerifierEnvironmentSha256();
 
-function baselineDigest({ caseId, baseCommit = "1".repeat(40), hiddenSha = "4".repeat(64), environmentSha = codeAIRepositoryVerifierEnvironmentSha256(), exitCode = 1, passed = false }) {
+function baselineDigest({ caseId, baseCommit = "1".repeat(40), hiddenSha = "4".repeat(64), environmentSha = codeAIRepositoryVerifierEnvironmentSha256(), invocationSha = codeAIRepositoryVerifierInvocationSha256(), exitCode = 1, passed = false }) {
   return createHash("sha256").update(JSON.stringify({
     case_id: caseId,
     base_commit: baseCommit.toLowerCase(),
     hidden_acceptance_sha256: hiddenSha.toLowerCase(),
     verifier_environment_sha256: environmentSha.toLowerCase(),
+    verifier_invocation_sha256: invocationSha.toLowerCase(),
     exit_code: exitCode,
     passed,
   }), "utf8").digest("hex");
@@ -60,6 +62,8 @@ function proof(overrides = {}) {
       verifier_runtime_sha256: VERIFIER_RUNTIME_SHA256,
       verifier_environment_contract: "AVANTIQO_CODE_REPOSITORY_DETERMINISTIC_ENV_V1",
       verifier_environment_sha256: VERIFIER_ENVIRONMENT_SHA256,
+      verifier_invocation_contract: "AVANTIQO_CODE_REPOSITORY_NODE_INVOCATION_V1",
+      verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: overrides.diff_sha256 || "2".repeat(64),
       candidate_artifact_sha256: overrides.artifact_sha256 || "3".repeat(64),
@@ -81,7 +85,10 @@ function proof(overrides = {}) {
       protected_baseline_verifier_runtime_sha256: VERIFIER_RUNTIME_SHA256,
       verifier_environment_contract: "AVANTIQO_CODE_REPOSITORY_DETERMINISTIC_ENV_V1",
       verifier_environment_sha256: VERIFIER_ENVIRONMENT_SHA256,
+      verifier_invocation_contract: "AVANTIQO_CODE_REPOSITORY_NODE_INVOCATION_V1",
+      verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
       protected_baseline_verifier_environment_sha256: VERIFIER_ENVIRONMENT_SHA256,
+      protected_baseline_verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
       protected_baseline_exit_code: 1,
       protected_baseline_passed: false,
       candidate_self_report_authority: false,
@@ -147,6 +154,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       protected_baseline_hidden_acceptance_sha256: "4".repeat(64),
       protected_baseline_verifier_runtime_sha256: VERIFIER_RUNTIME_SHA256,
       protected_baseline_verifier_environment_sha256: VERIFIER_ENVIRONMENT_SHA256,
+      protected_baseline_verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
       protected_baseline_exit_code: 1,
       protected_baseline_passed: false,
       candidate_self_report_authority: false,
@@ -535,5 +543,26 @@ test("repository verification must match the exact suite digest", () => {
     observations: [{ ...base, repository_verification: { ...base.repository_verification, suite_sha256: "8".repeat(64) } }],
   });
   assert.equal(result.cases[0].gates.verification_suite_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("matching fabricated verifier invocation hashes cannot certify", () => {
+  const base = proof();
+  const fake = "d".repeat(64);
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        verifier_invocation_sha256: fake,
+        protected_baseline_verifier_invocation_sha256: fake,
+        protected_baseline_sha256: baselineDigest({ caseId: base.case_id, invocationSha: fake }),
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.verifier_invocation_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

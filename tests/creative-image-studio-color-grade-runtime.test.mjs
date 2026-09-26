@@ -32,3 +32,32 @@ test("selective color targets hue family rather than all pixels equally",()=>{
   assert.equal(out.bytes[4],0);
   assert.equal(out.bytes[5],255);
 });
+
+
+test("Image Studio exposes professional color balance mixer and selective color controls", async()=>{
+  const fs=await import("node:fs");
+  const editor=fs.readFileSync("components/creative/specialist/ImageStudioColorGradeEditor.jsx","utf8");
+  const inspector=fs.readFileSync("components/creative/specialist/ImageStudioLayerInspector.jsx","utf8");
+  assert.match(editor,/Professional color grade/);
+  assert.match(editor,/Balance/);
+  assert.match(editor,/Mixer/);
+  assert.match(editor,/Selective/);
+  assert.match(editor,/Cyan ↔ Red/);
+  assert.match(editor,/Preserve luminosity/);
+  assert.match(editor,/WHITES/);
+  assert.match(editor,/BLACKS/);
+  assert.match(inspector,/ImageStudioColorGradeEditor/);
+});
+
+test("deterministic export declares and activates Color Grade V1", async()=>{
+  const fs=await import("node:fs");
+  const exporter=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js","utf8");
+  const adjustment=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioAdjustmentRuntime.js","utf8");
+  assert.match(exporter,/imageStudioColorGradeIsIdentity/);
+  assert.match(exporter,/CREATIVE_IMAGE_STUDIO_COLOR_GRADE_V1/);
+  assert.match(exporter,/color_balance: true/);
+  assert.match(exporter,/channel_mixer: true/);
+  assert.match(exporter,/selective_color: true/);
+  assert.match(adjustment,/applyImageStudioColorGrade/);
+  assert.match(adjustment,/CREATIVE_IMAGE_STUDIO_ADJUSTMENT_V3/);
+});

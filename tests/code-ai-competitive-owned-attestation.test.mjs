@@ -35,7 +35,18 @@ function report() {
       quality_score: 0.85,
       wall_ms: 100 + index,
       latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
+      inference_elapsed_ms: 1000,
+      owned_compute_usd_per_hour: 1.8,
+      owned_compute_rate_source: "OPERATOR_APPROVED_LOCAL_COMPUTE_RATE_V1",
+      cost_measurement_source: "RUNNER_RECOMPUTED_FROM_WORKER_ELAPSED_V1",
+      supplier_cost_usd: 0.0005,
     })),
+    economics: {
+      estimated_supplier_cost_usd: 0.01,
+      cost_measurement_source: "RUNNER_RECOMPUTED_FROM_WORKER_ELAPSED_V1",
+      owned_compute_usd_per_hour: 1.8,
+      owned_compute_rate_source: "OPERATOR_APPROVED_LOCAL_COMPUTE_RATE_V1",
+    },
     summary: { passed: true, complete_suite: true },
   };
 }
@@ -78,5 +89,15 @@ test("owned attestation rejects unproven latency source", () => {
   assert.throws(
     () => attestCodeAICompetitiveOwnedReport(invalid, { env }),
     /CODE_AI_COMPETITIVE_OWNED_RUNNER_LATENCY_MEASUREMENT_REQUIRED/,
+  );
+});
+
+
+test("owned attestation rejects understated recomputed local cost", () => {
+  const invalid = report();
+  invalid.observations[0].supplier_cost_usd = 0.00001;
+  assert.throws(
+    () => attestCodeAICompetitiveOwnedReport(invalid, { env }),
+    /CODE_AI_COMPETITIVE_OWNED_COST_RECOMPUTATION_MISMATCH/,
   );
 });

@@ -118,8 +118,20 @@ async function fixture() {
     raw_model_output_persisted: false,
     raw_reasoning_persisted: false,
     summary: { passed: true, complete_suite: true },
-    economics: { estimated_supplier_cost_usd: 0.01 },
-    observations: observations(caseIds, 50),
+    economics: {
+      estimated_supplier_cost_usd: Number((caseIds.length * 0.0005).toFixed(8)),
+      cost_measurement_source: "RUNNER_RECOMPUTED_FROM_WORKER_ELAPSED_V1",
+      owned_compute_usd_per_hour: 1.8,
+      owned_compute_rate_source: "OPERATOR_APPROVED_LOCAL_COMPUTE_RATE_V1",
+    },
+    observations: observations(caseIds, 50).map((item) => ({
+      ...item,
+      inference_elapsed_ms: 1000,
+      owned_compute_usd_per_hour: 1.8,
+      owned_compute_rate_source: "OPERATOR_APPROVED_LOCAL_COMPUTE_RATE_V1",
+      cost_measurement_source: "RUNNER_RECOMPUTED_FROM_WORKER_ELAPSED_V1",
+      supplier_cost_usd: 0.0005,
+    })),
   }, { env });
   await writeFile(ownedPath, JSON.stringify(owned));
   const refA = attestCodeAICompetitiveReferenceReport(referenceReport({

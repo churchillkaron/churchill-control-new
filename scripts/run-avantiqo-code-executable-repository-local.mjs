@@ -4,6 +4,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { loadAvantiqoEnv } from "./load-avantiqo-env.mjs";
+import {
+  CODE_AI_REPOSITORY_VERIFIER_CONTRACT,
+  codeAIRepositoryVerifierProtocolSha256,
+} from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
 loadAvantiqoEnv();
 
@@ -314,7 +318,8 @@ for (const benchmarkCase of cases) {
         benchmark_run_id: benchmarkRunId,
         independent: true,
         verifier: "avantiqo-hidden-node-assert",
-        verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
+        verifier_contract: CODE_AI_REPOSITORY_VERIFIER_CONTRACT,
+        verifier_protocol_sha256: codeAIRepositoryVerifierProtocolSha256(),
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: sha256(patch),
         candidate_artifact_sha256: sha256(artifact),

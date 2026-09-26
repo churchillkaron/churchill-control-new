@@ -1,8 +1,27 @@
+import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assessCodeAIRepositoryTaskBenchmark } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
+import {
+  assessCodeAIRepositoryTaskBenchmark,
+  codeAIRepositoryVerifierProtocolSha256,
+} from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
 const BENCHMARK_RUN_ID = "11111111-1111-4111-8111-111111111111";
+
+function baselineSha({
+  caseId = "case-1",
+  baseCommit = "1".repeat(40),
+  hiddenAcceptanceSha = "4".repeat(64),
+  exitCode = 1,
+} = {}) {
+  return createHash("sha256").update(JSON.stringify({
+    case_id: caseId,
+    base_commit: baseCommit,
+    hidden_acceptance_sha256: hiddenAcceptanceSha,
+    exit_code: exitCode,
+    passed: false,
+  }), "utf8").digest("hex");
+}
 
 function proof(overrides = {}) {
   return {
@@ -22,6 +41,7 @@ function proof(overrides = {}) {
       independent: true,
       verifier: "hidden-node-test",
       verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
+      verifier_protocol_sha256: codeAIRepositoryVerifierProtocolSha256(),
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: overrides.diff_sha256 || "2".repeat(64),
       candidate_artifact_sha256: overrides.artifact_sha256 || "3".repeat(64),
@@ -30,7 +50,7 @@ function proof(overrides = {}) {
       hidden_acceptance_sha256: "4".repeat(64),
       hidden_acceptance_executed: true,
       hidden_acceptance_test_count: 4,
-      protected_baseline_sha256: "5".repeat(64),
+      protected_baseline_sha256: baselineSha({ caseId: overrides.case_id || "case-1" }),
       protected_baseline_executed: true,
       protected_baseline_test_count: 4,
       protected_baseline_base_commit: "1".repeat(40),
@@ -68,6 +88,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       independent: true,
       verifier: "hidden-node-test",
       verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
+      verifier_protocol_sha256: codeAIRepositoryVerifierProtocolSha256(),
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: "2".repeat(64),
       candidate_artifact_sha256: "3".repeat(64),
@@ -114,6 +135,7 @@ test("distinct proof identities across cases certify", () => {
       candidate_artifact_sha256: "7".repeat(64),
       hidden_acceptance_sha256: "8".repeat(64),
       protected_baseline_hidden_acceptance_sha256: "8".repeat(64),
+      protected_baseline_sha256: baselineSha({ caseId: "case-2", hiddenAcceptanceSha: "8".repeat(64) }),
     },
   };
   const result = assessCodeAIRepositoryTaskBenchmark({ benchmark_run_id: BENCHMARK_RUN_ID, runner_source_commit: "1".repeat(40), observations: [first, second] });
@@ -261,5 +283,41 @@ test("protected baseline and post-fix verification must execute the same hidden 
     }],
   });
   assert.equal(result.cases[0].gates.protected_baseline_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("tampered protected baseline digest cannot certify", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        protected_baseline_sha256: "f".repeat(64),
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.protected_baseline_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("spoofed verifier protocol cannot certify", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        verifier_protocol_sha256: "e".repeat(64),
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.independent_verifier, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

@@ -92,6 +92,14 @@ function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs
     raw_customer_content_included: false,
     raw_reasoning_persisted: false,
     raw_model_output_persisted: false,
+    summary: {
+      requested_cases: caseIds.length,
+      completed_runs: caseIds.length,
+      passed_cases: caseIds.length,
+      pass_rate: 1,
+      passed: true,
+      complete_suite: true,
+    },
     economics: {
       estimated_supplier_cost_usd: Number((caseIds.length * 0.0005).toFixed(8)),
       cost_measurement_source: "RUNNER_SUM_OF_RECOMPUTED_CASE_COSTS_V1",
@@ -132,7 +140,16 @@ async function fixture() {
     raw_model_output_persisted: false,
     raw_reasoning_persisted: false,
     raw_model_output_persisted: false,
-    summary: { passed: true, complete_suite: true },
+    summary: {
+      requested_cases: caseIds.length,
+      completed_runs: caseIds.length,
+      passed_cases: caseIds.length,
+      pass_rate: 1,
+      correctness_passed: true,
+      latency_certification: { passed: true },
+      passed: true,
+      complete_suite: true,
+    },
     economics: {
       estimated_supplier_cost_usd: Number((caseIds.length * 0.0005).toFixed(8)),
       cost_measurement_source: "RUNNER_RECOMPUTED_FROM_WORKER_ELAPSED_V1",

@@ -54,7 +54,16 @@ function report() {
       owned_compute_usd_per_hour: 1.8,
       owned_compute_rate_source: "OPERATOR_APPROVED_LOCAL_COMPUTE_RATE_V1",
     },
-    summary: { passed: true, complete_suite: true },
+    summary: {
+      requested_cases: CASES.length,
+      completed_runs: CASES.length,
+      passed_cases: CASES.length,
+      pass_rate: 1,
+      correctness_passed: true,
+      latency_certification: { passed: true },
+      passed: true,
+      complete_suite: true,
+    },
   };
 }
 
@@ -116,5 +125,15 @@ test("owned attestation rejects malformed quality evidence before signing", () =
   assert.throws(
     () => attestCodeAICompetitiveOwnedReport(invalid, { env }),
     /CODE_AI_COMPETITIVE_OWNED_QUALITY_EVIDENCE_REQUIRED/,
+  );
+});
+
+
+test("owned attestation rejects a contradictory signed summary", () => {
+  const invalid = report();
+  invalid.summary.passed = false;
+  assert.throws(
+    () => attestCodeAICompetitiveOwnedReport(invalid, { env }),
+    /CODE_AI_COMPETITIVE_OWNED_SUMMARY_MISMATCH/,
   );
 });

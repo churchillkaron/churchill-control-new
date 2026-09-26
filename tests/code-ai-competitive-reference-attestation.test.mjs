@@ -36,6 +36,14 @@ function report(overrides = {}) {
       estimated_supplier_cost_usd: Number((CASES.length * 0.0013).toFixed(8)),
       cost_measurement_source: "RUNNER_SUM_OF_RECOMPUTED_CASE_COSTS_V1",
     },
+    summary: {
+      requested_cases: CASES.length,
+      completed_runs: CASES.length,
+      passed_cases: CASES.length,
+      pass_rate: 1,
+      passed: true,
+      complete_suite: true,
+    },
     observations: CASES.map((case_id, index) => ({
       case_id,
       passed: true,
@@ -146,5 +154,15 @@ test("reference attestation forbids persisted raw model output", () => {
   assert.throws(
     () => attestCodeAICompetitiveReferenceReport(report({ raw_model_output_persisted: true }), { env }),
     /CODE_AI_COMPETITIVE_REFERENCE_RAW_OUTPUT_FORBIDDEN/,
+  );
+});
+
+
+test("reference attestation rejects summary counters that disagree with observations", () => {
+  const invalid = report();
+  invalid.summary.passed_cases = 1;
+  assert.throws(
+    () => attestCodeAICompetitiveReferenceReport(invalid, { env }),
+    /CODE_AI_COMPETITIVE_REFERENCE_SUMMARY_MISMATCH/,
   );
 });

@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { verifyCodeAICompetitiveReferenceReport } from "../lib/code/runtime/CodeAICompetitiveReferenceAttestationRuntime.js";
 import { verifyCodeAICompetitiveOwnedReport } from "../lib/code/runtime/CodeAICompetitiveOwnedAttestationRuntime.js";
 import { assessCodeAIRepositoryTaskBenchmark } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
+import { verifyCodeAIRepositoryReferenceReport } from "../lib/code/runtime/CodeAIRepositoryReferenceAttestationRuntime.js";
 
 const CONTRACT = "AVANTIQO_CODE_COMPETITIVE_BENCHMARK_V1";
 const DEFAULT_OWNED = "/tmp/avantiqo-code-certification-benchmark.json";
@@ -511,6 +512,11 @@ if (separateRepositoryEvidenceRequested) {
       }
     }
     if (!ownedEvidence) {
+      try {
+        verifyCodeAIRepositoryReferenceReport(report, { env: process.env });
+      } catch {
+        throw new Error("AVANTIQO_CODE_COMPETITIVE_REPOSITORY_REFERENCE_ATTESTATION_INVALID");
+      }
       const provider = canonicalReferenceProvider(report?.provider || report?.model?.provider);
       const model = text(report?.model?.product_model || report?.model);
       if (provider !== expectedProvider || model !== expectedModel) {
@@ -600,6 +606,7 @@ const report = {
     hidden_acceptance_evidence_required_for_superiority: true,
     separate_executable_repository_evidence_supported: true,
     canonical_executable_repository_suite_required: true,
+    cryptographic_repository_reference_attestation_required: true,
     speed_alone_cannot_establish_quality_superiority: true,
     quality_superiority_requires_reference_quality_win: true,
     minimum_superiority_quality_win_rate_per_reference: MIN_SUPERIORITY_WIN_RATE,

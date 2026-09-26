@@ -90,3 +90,10 @@ test("full orchestrator isolates concurrent live runs in unique evidence directo
   assert.match(source, /concurrent_run_isolation_required: true/);
   assert.match(source, /run_root: runRoot/);
 });
+
+
+test("full orchestrator fails closed if source changes during the run", () => {
+  assert.match(source, /const finalSource = sourceProvenance\(\)/);
+  assert.match(source, /SOURCE_CHANGED_DURING_RUN/);
+  assert.match(source, /source_stable_for_entire_run: true/);
+});

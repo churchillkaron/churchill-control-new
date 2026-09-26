@@ -251,6 +251,14 @@ if (sourceBoundArtifacts.some((artifact) => artifact.runner_source_commit !== or
 }
 
 const report = JSON.parse(await readFile(paths.competitive, "utf8"));
+const finalSource = sourceProvenance();
+if (
+  finalSource.source_commit !== orchestratorSource.source_commit ||
+  finalSource.ref !== orchestratorSource.ref ||
+  finalSource.clean !== orchestratorSource.clean
+) {
+  throw new Error(`${CONTRACT}_SOURCE_CHANGED_DURING_RUN`);
+}
 const manifest = {
   contract: "AVANTIQO_CODE_COMPETITIVE_FULL_RUN_MANIFEST_V1",
   orchestrator_run_id: orchestratorRunId,
@@ -259,6 +267,7 @@ const manifest = {
   runner_source_commit: orchestratorSource.source_commit,
   runner_ref: orchestratorSource.ref,
   runner_repository_clean: orchestratorSource.clean,
+  source_stable_for_entire_run: true,
   configuration_sha256: configurationSha256,
   completed_at: new Date().toISOString(),
   providers,

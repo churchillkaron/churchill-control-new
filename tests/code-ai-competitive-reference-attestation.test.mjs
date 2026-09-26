@@ -33,6 +33,7 @@ function report(overrides = {}) {
     observations: CASES.map((case_id, index) => ({
       case_id,
       passed: true,
+      latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",
       wall_ms: 100 + index,
       supplier_cost_usd: 0.001,
     })),

@@ -58,3 +58,17 @@ test("deterministic export applies semantic masks and declares supported modes",
   assert.match(exporter,/IMAGE_STUDIO_SEMANTIC_MASK_NOT_READY/);
   assert.match(exporter,/semantic_modes:\["LUMINANCE","COLOR_RANGE","ALPHA","SUBJECT","BACKGROUND"\]/);
 });
+
+test("deterministic semantic selections are derived from the cropped governed source before finishing",async()=>{
+  const fs=await import("node:fs");
+  const exporter=fs.readFileSync("lib/creative/stills/runtime/CreativeImageStudioExportRuntime.js","utf8");
+  const snapshot=exporter.indexOf("const semanticSourcePrepared=Buffer.from(prepared)");
+  const frameMask=exporter.indexOf("if (maskRadius > 0)",snapshot);
+  const retouch=exporter.indexOf("const retouchOperations=",frameMask);
+  const effects=exporter.indexOf("const effected = await applyImageStudioEffects",retouch);
+  const adjustmentMasks=exporter.indexOf("const maskAlphaByAdjustmentId={}",effects);
+  assert.ok(snapshot>=0&&snapshot<frameMask&&frameMask<retouch&&retouch<effects&&effects<adjustmentMasks);
+  assert.match(exporter,/semanticAlphaMaskFromBuffer\(semanticSourcePrepared,width,height,clipMaskLayer\.metadata\|\|\{\}\)/);
+  assert.match(exporter,/semanticAlphaMaskFromBuffer\(semanticSourcePrepared,width,height,adjustmentMaskLayer\.metadata\|\|\{\}\)/);
+  assert.doesNotMatch(exporter,/semanticAlphaMaskFromBuffer\(prepared,width,height,(?:clipMaskLayer|adjustmentMaskLayer)/);
+});

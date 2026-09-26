@@ -273,12 +273,22 @@ for (const benchmarkCase of cases) {
     let hiddenExitCode = null;
     let hiddenStdout = "";
     let hiddenStderr = "";
+    let verifierChangedPaths = [];
     if (patch.trim()) {
       const patchPath = join(fixture.root, "candidate.patch");
       await writeFile(patchPath, patch, "utf8");
       const applied = run("git", ["apply", "--check", patchPath], fixture.verifier);
       if (applied.status === 0) {
         must("git", ["apply", patchPath], fixture.verifier);
+        const trackedChangedPaths = text(run("git", ["diff", "--name-only", "HEAD"], fixture.verifier).stdout, 12000)
+          .split(/\r?\n/)
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const untrackedChangedPaths = text(run("git", ["ls-files", "--others", "--exclude-standard"], fixture.verifier).stdout, 12000)
+          .split(/\r?\n/)
+          .map((value) => value.trim())
+          .filter((value) => Boolean(value) && value !== "hidden-acceptance.mjs");
+        verifierChangedPaths = [...new Set([...trackedChangedPaths, ...untrackedChangedPaths])].sort();
         const hidden = run(process.execPath, [fixture.hiddenPath], fixture.verifier);
         hiddenExitCode = hidden.status;
         hiddenStdout = text(hidden.stdout, 1200);
@@ -293,6 +303,7 @@ for (const benchmarkCase of cases) {
       .join("\n---FILE---\n");
     observations.push({
       case_id: benchmarkCase.case_id,
+      allowed_edit_paths: list(benchmarkCase.allowed_edit_paths).map((value) => text(value, 500)),
       passed: hiddenPassed,
       status: text(result?.status, 120),
       reason: text(result?.reason, 500) || null,
@@ -318,6 +329,8 @@ for (const benchmarkCase of cases) {
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: sha256(patch),
         candidate_artifact_sha256: sha256(artifact),
+        changed_paths: verifierChangedPaths,
+        allowed_edit_paths: list(benchmarkCase.allowed_edit_paths).map((value) => text(value, 500)),
         passed: hiddenPassed,
         exit_code: hiddenExitCode,
         hidden_acceptance_sha256: fixture.hiddenAcceptanceSha256,
@@ -332,8 +345,11 @@ for (const benchmarkCase of cases) {
         protected_baseline_passed: false,
         candidate_self_report_authority: false,
       },
-      hidden_stdout: hiddenStdout,
-      hidden_stderr: hiddenStderr,
+      hidden_stdout_sha256: sha256(hiddenStdout),
+      hidden_stdout_bytes: Buffer.byteLength(hiddenStdout, "utf8"),
+      hidden_stderr_sha256: sha256(hiddenStderr),
+      hidden_stderr_bytes: Buffer.byteLength(hiddenStderr, "utf8"),
+      raw_hidden_verifier_output_persisted: false,
       commit_performed: false,
       production_deploy_performed: false,
       raw_reasoning_persisted: false,

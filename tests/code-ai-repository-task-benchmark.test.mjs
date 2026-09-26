@@ -1,12 +1,25 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import { assessCodeAIRepositoryTaskBenchmark } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
 const BENCHMARK_RUN_ID = "11111111-1111-4111-8111-111111111111";
 
+function baselineDigest({ caseId, baseCommit = "1".repeat(40), hiddenSha = "4".repeat(64), exitCode = 1, passed = false }) {
+  return createHash("sha256").update(JSON.stringify({
+    case_id: caseId,
+    base_commit: baseCommit.toLowerCase(),
+    hidden_acceptance_sha256: hiddenSha.toLowerCase(),
+    exit_code: exitCode,
+    passed,
+  }), "utf8").digest("hex");
+}
+
 function proof(overrides = {}) {
+  const caseId = overrides.case_id || "case-1";
   return {
-    case_id: "case-1",
+    case_id: caseId,
+    allowed_edit_paths: ["invoice-total.mjs"],
     passed: true,
     base_commit: "1".repeat(40),
     diff_sha256: "2".repeat(64),
@@ -16,8 +29,13 @@ function proof(overrides = {}) {
     diff_bytes: 512,
     artifact_materialized: true,
     artifact_bytes: 1024,
+    hidden_stdout_sha256: "a".repeat(64),
+    hidden_stdout_bytes: 0,
+    hidden_stderr_sha256: "b".repeat(64),
+    hidden_stderr_bytes: 0,
+    raw_hidden_verifier_output_persisted: false,
     repository_verification: {
-      case_id: overrides.case_id || "case-1",
+      case_id: caseId,
       benchmark_run_id: overrides.benchmark_run_id || BENCHMARK_RUN_ID,
       independent: true,
       verifier: "hidden-node-test",
@@ -25,12 +43,14 @@ function proof(overrides = {}) {
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: overrides.diff_sha256 || "2".repeat(64),
       candidate_artifact_sha256: overrides.artifact_sha256 || "3".repeat(64),
+      changed_paths: ["invoice-total.mjs"],
+      allowed_edit_paths: ["invoice-total.mjs"],
       passed: true,
       exit_code: 0,
       hidden_acceptance_sha256: "4".repeat(64),
       hidden_acceptance_executed: true,
       hidden_acceptance_test_count: 4,
-      protected_baseline_sha256: "5".repeat(64),
+      protected_baseline_sha256: baselineDigest({ caseId }),
       protected_baseline_executed: true,
       protected_baseline_test_count: 4,
       protected_baseline_base_commit: "1".repeat(40),
@@ -58,10 +78,16 @@ test("candidate pass flag alone cannot certify repository task superiority", () 
 test("synthetic-looking hashes without executed repository evidence cannot certify", () => {
   const synthetic = {
     case_id: "case-2",
+    allowed_edit_paths: ["invoice-total.mjs"],
     passed: true,
     base_commit: "1".repeat(40),
     diff_sha256: "2".repeat(64),
     artifact_sha256: "3".repeat(64),
+    hidden_stdout_sha256: "a".repeat(64),
+    hidden_stdout_bytes: 0,
+    hidden_stderr_sha256: "b".repeat(64),
+    hidden_stderr_bytes: 0,
+    raw_hidden_verifier_output_persisted: false,
     repository_verification: {
       case_id: "case-2",
       benchmark_run_id: BENCHMARK_RUN_ID,
@@ -71,10 +97,12 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       evidence_source: "INDEPENDENT_RUNNER",
       candidate_diff_sha256: "2".repeat(64),
       candidate_artifact_sha256: "3".repeat(64),
+      changed_paths: ["invoice-total.mjs"],
+      allowed_edit_paths: ["invoice-total.mjs"],
       passed: true,
       exit_code: 0,
       hidden_acceptance_sha256: "4".repeat(64),
-      protected_baseline_sha256: "5".repeat(64),
+      protected_baseline_sha256: baselineDigest({ caseId: "case-2" }),
       protected_baseline_executed: true,
       protected_baseline_test_count: 1,
       protected_baseline_base_commit: "1".repeat(40),
@@ -114,6 +142,7 @@ test("distinct proof identities across cases certify", () => {
       candidate_artifact_sha256: "7".repeat(64),
       hidden_acceptance_sha256: "8".repeat(64),
       protected_baseline_hidden_acceptance_sha256: "8".repeat(64),
+      protected_baseline_sha256: baselineDigest({ caseId: "case-2", hiddenSha: "8".repeat(64) }),
     },
   };
   const result = assessCodeAIRepositoryTaskBenchmark({ benchmark_run_id: BENCHMARK_RUN_ID, runner_source_commit: "1".repeat(40), observations: [first, second] });
@@ -228,7 +257,6 @@ test("repository verification must match the exact benchmark run id", () => {
   assert.equal(result.repository_task_artifact_certified, false);
 });
 
-
 test("repository verifier must use the canonical verifier contract", () => {
   const base = proof();
   const result = assessCodeAIRepositoryTaskBenchmark({
@@ -246,6 +274,24 @@ test("repository verifier must use the canonical verifier contract", () => {
   assert.equal(result.repository_task_artifact_certified, false);
 });
 
+test("arbitrary protected baseline digest cannot certify", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        protected_baseline_sha256: "f".repeat(64),
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.protected_baseline_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
 
 test("protected baseline and post-fix verification must execute the same hidden test count", () => {
   const base = proof();
@@ -261,5 +307,100 @@ test("protected baseline and post-fix verification must execute the same hidden 
     }],
   });
   assert.equal(result.cases[0].gates.protected_baseline_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+test("out-of-scope changed path cannot certify repository proof", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        changed_paths: ["invoice-total.mjs", "hidden-acceptance.mjs"],
+        allowed_edit_paths: ["invoice-total.mjs"],
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.verifier_edit_scope_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+
+test("widened allowed scope cannot hide missing verifier mutations", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: {
+        ...base.repository_verification,
+        changed_paths: ["invoice-total.mjs"],
+        allowed_edit_paths: ["invoice-total.mjs", "extra-helper.mjs"],
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.verifier_edit_scope_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("fractional verification test counts cannot certify", () => {
+  const base = proof();
+  const hiddenFraction = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: { ...base.repository_verification, hidden_acceptance_test_count: 0.5 },
+    }],
+  });
+  assert.equal(hiddenFraction.cases[0].gates.hidden_acceptance_bound, false);
+
+  const baselineFraction = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      repository_verification: { ...base.repository_verification, protected_baseline_test_count: 0.5 },
+    }],
+  });
+  assert.equal(baselineFraction.cases[0].gates.protected_baseline_bound, false);
+});
+
+
+test("verifier allowed scope must match signed observation scope", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{
+      ...base,
+      allowed_edit_paths: ["invoice-total.mjs"],
+      repository_verification: {
+        ...base.repository_verification,
+        changed_paths: ["invoice-total.mjs", "extra-helper.mjs"],
+        allowed_edit_paths: ["invoice-total.mjs", "extra-helper.mjs"],
+      },
+    }],
+  });
+  assert.equal(result.cases[0].gates.verifier_edit_scope_bound, true);
+  assert.equal(result.cases[0].gates.observation_edit_scope_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("raw hidden verifier output cannot certify", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{ ...base, raw_hidden_verifier_output_persisted: true }],
+  });
+  assert.equal(result.cases[0].gates.hidden_verifier_output_redacted, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

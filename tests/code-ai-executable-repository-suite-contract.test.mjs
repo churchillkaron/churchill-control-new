@@ -58,3 +58,28 @@ test("live executable benchmark requires exact fresh Node01 Code worker attestat
   assert.match(liveRunner, /const workerAttestation = await assertCodeWorkerAttested\(\)/);
   assert.match(liveRunner, /worker_attestation: workerAttestation/);
 });
+
+
+test("live executable verifier includes untracked candidate files in edit scope evidence", () => {
+  assert.match(liveRunner, /ls-files/);
+  assert.match(liveRunner, /--others/);
+  assert.match(liveRunner, /--exclude-standard/);
+  assert.match(liveRunner, /value !== "hidden-acceptance\.mjs"/);
+  assert.match(liveRunner, /verifierChangedPaths = \[\.\.\.new Set/);
+});
+
+
+test("hidden acceptance assertion count is derived from generated source", () => {
+  assert.match(liveRunner, /function hiddenAssertionCount/);
+  assert.match(liveRunner, /hiddenAcceptanceTestCount = hiddenAssertionCount\(hiddenAcceptanceSource\)/);
+  assert.doesNotMatch(liveRunner, /case_id\.includes\("multifile"\) \? 5 : 4/);
+});
+
+
+test("live executable verifier never persists raw hidden output", () => {
+  assert.doesNotMatch(liveRunner, /hidden_stdout:\s*hiddenStdout/);
+  assert.doesNotMatch(liveRunner, /hidden_stderr:\s*hiddenStderr/);
+  assert.match(liveRunner, /hidden_stdout_sha256: sha256\(hiddenStdout\)/);
+  assert.match(liveRunner, /hidden_stderr_sha256: sha256\(hiddenStderr\)/);
+  assert.match(liveRunner, /raw_hidden_verifier_output_persisted: false/);
+});

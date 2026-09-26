@@ -28,3 +28,33 @@ test("text export dimensions are resolved before layer compositing so text can r
   const loop=source.indexOf("for (const layer of visible)");
   assert.ok(width>=0&&width<loop);
 });
+
+test("text canvas preview applies the same effect filter contract as image preview",()=>{
+  const canvas=fs.readFileSync("components/creative/specialist/ImageStudioCanvasSurface.jsx","utf8");
+  assert.match(canvas,/filter:\["IMAGE","TEXT"\]\.includes\(layer\.layer_type\)\?effects\.filter:undefined/);
+  assert.match(canvas,/opacity:effects\.opacity/);
+  assert.match(canvas,/mixBlendMode:effects\.mixBlendMode/);
+});
+
+test("text inspector exposes the same non-destructive effect controls as images",()=>{
+  const inspector=fs.readFileSync("components/creative/specialist/ImageStudioLayerInspector.jsx","utf8");
+  assert.match(inspector,/\["IMAGE","TEXT"\]\.includes\(layer\.layer_type\).*Non-destructive effects/s);
+  assert.match(inspector,/Opacity %/);
+  assert.match(inspector,/Blend/);
+  assert.match(inspector,/Brightness %/);
+  assert.match(inspector,/Contrast %/);
+  assert.match(inspector,/Saturation %/);
+  assert.match(inspector,/Hue °/);
+  assert.match(inspector,/Grayscale %/);
+  assert.match(inspector,/Blur px/);
+});
+
+test("text inspector exposes tonal adjustments already honored by deterministic export",()=>{
+  const inspector=fs.readFileSync("components/creative/specialist/ImageStudioLayerInspector.jsx","utf8");
+  assert.match(inspector,/\["IMAGE","TEXT","ADJUSTMENT"\]\.includes\(layer\.layer_type\).*Professional tonal adjustments/s);
+  assert.match(inspector,/Exposure EV/);
+  assert.match(inspector,/Temperature/);
+  assert.match(inspector,/Levels/);
+  assert.match(inspector,/ImageStudioCurvesEditor/);
+  assert.match(inspector,/ImageStudioColorGradeEditor/);
+});

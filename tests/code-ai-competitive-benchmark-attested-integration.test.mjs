@@ -154,6 +154,7 @@ function runBenchmark(paths) {
       ...env,
       AVANTIQO_CODE_COMPETITIVE_OWNED: paths.ownedPath,
       AVANTIQO_CODE_COMPETITIVE_REFERENCES: `${paths.refAPath},${paths.refBPath}`,
+      AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_MODELS: JSON.stringify({ openai: "model-a", google: "model-b" }),
       AVANTIQO_CODE_COMPETITIVE_OUTPUT: paths.outputPath,
     },
   });
@@ -288,4 +289,16 @@ test("duplicate vendor references cannot satisfy the provider floor", async () =
   const run = runBenchmark(paths);
   assert.notEqual(run.status, 0);
   assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_PROVIDERS_MISSING:google/);
+});
+
+
+test("wrong model under correct provider cannot satisfy the floor", async () => {
+  const paths = await fixture();
+  const current = JSON.parse(await readFile(paths.refBPath, "utf8"));
+  const unsigned = { ...current, model: { product_model: "weaker-model" } };
+  delete unsigned.attestation;
+  await writeFile(paths.refBPath, JSON.stringify(attestCodeAICompetitiveReferenceReport(unsigned, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_REQUIRED_REFERENCE_MODEL_MISMATCH:google/);
 });

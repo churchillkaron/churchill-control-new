@@ -83,3 +83,9 @@ test("live executable verifier never persists raw hidden output", () => {
   assert.match(liveRunner, /hidden_stderr_sha256: sha256\(hiddenStderr\)/);
   assert.match(liveRunner, /raw_hidden_verifier_output_persisted: false/);
 });
+
+
+test("live executable benchmark binds repository proof to exact suite digest", () => {
+  assert.match(liveRunner, /const suiteSha256 = sha256\(suiteSource\)/);
+  assert.match(liveRunner, /suite_sha256: suiteSha256/);
+});

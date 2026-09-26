@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import {
-  assessCodeAIRepositoryTaskBenchmark,
+  assessCodeAIRepositoryTaskBenchmark as assessRepositoryTaskBenchmarkRaw,
   codeAIRepositoryVerifierProtocolSha256,
 } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
 const BENCHMARK_RUN_ID = "11111111-1111-4111-8111-111111111111";
+const SUITE_SHA256 = "9".repeat(64);
+const assessCodeAIRepositoryTaskBenchmark = (report) => assessRepositoryTaskBenchmarkRaw({ suite_sha256: SUITE_SHA256, ...report });
 const VERIFIER_RUNTIME_IDENTITY = Object.freeze({ engine: "node", version: "v24.14.1", platform: "darwin", arch: "arm64" });
 const VERIFIER_RUNTIME_SHA256 = createHash("sha256").update(JSON.stringify(VERIFIER_RUNTIME_IDENTITY), "utf8").digest("hex");
 
@@ -24,6 +26,7 @@ function proof(overrides = {}) {
   const caseId = overrides.case_id || "case-1";
   return {
     case_id: caseId,
+    repository_origin: `https://github.com/avantiqo-benchmark/${caseId}`,
     allowed_edit_paths: ["invoice-total.mjs"],
     passed: true,
     base_commit: "1".repeat(40),
@@ -42,7 +45,9 @@ function proof(overrides = {}) {
     raw_hidden_verifier_output_persisted: false,
     repository_verification: {
       case_id: caseId,
+      repository_origin: `https://github.com/avantiqo-benchmark/${caseId}`,
       benchmark_run_id: overrides.benchmark_run_id || BENCHMARK_RUN_ID,
+      suite_sha256: overrides.suite_sha256 || SUITE_SHA256,
       independent: true,
       verifier: "hidden-node-test",
       verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
@@ -90,6 +95,7 @@ test("candidate pass flag alone cannot certify repository task superiority", () 
 test("synthetic-looking hashes without executed repository evidence cannot certify", () => {
   const synthetic = {
     case_id: "case-2",
+    repository_origin: "https://github.com/avantiqo-benchmark/case-2",
     allowed_edit_paths: ["invoice-total.mjs"],
     passed: true,
     base_commit: "1".repeat(40),
@@ -103,7 +109,9 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
     raw_hidden_verifier_output_persisted: false,
     repository_verification: {
       case_id: "case-2",
+      repository_origin: "https://github.com/avantiqo-benchmark/case-2",
       benchmark_run_id: BENCHMARK_RUN_ID,
+      suite_sha256: SUITE_SHA256,
       independent: true,
       verifier: "hidden-node-test",
       verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
@@ -450,5 +458,28 @@ test("spoofed verifier runtime digest cannot certify", () => {
   const base = proof();
   const result = assessCodeAIRepositoryTaskBenchmark({ benchmark_run_id: BENCHMARK_RUN_ID, runner_source_commit: "1".repeat(40), observations: [{ ...base, repository_verification: { ...base.repository_verification, verifier_runtime_sha256: "e".repeat(64) } }] });
   assert.equal(result.cases[0].gates.verifier_runtime_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("repository verification must match the exact suite digest", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{ ...base, repository_verification: { ...base.repository_verification, suite_sha256: "8".repeat(64) } }],
+  });
+  assert.equal(result.cases[0].gates.verification_suite_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+test("repository proof must match canonical case origin", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{ ...base, repository_origin: "https://github.com/avantiqo-benchmark/other-case" }],
+  });
+  assert.equal(result.cases[0].gates.repository_origin_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });

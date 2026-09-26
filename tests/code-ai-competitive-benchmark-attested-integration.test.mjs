@@ -24,9 +24,10 @@ const REPOSITORY_VERIFIER_RUNTIME_SHA256 = sha256(JSON.stringify(REPOSITORY_VERI
 const repositoryVerifierProtocolSha256 = sha256(JSON.stringify({ contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1", evidence_source: "INDEPENDENT_RUNNER", runtime: "node", candidate_binding: "DIFF_AND_ARTIFACT_SHA256", hidden_acceptance_required: true, protected_baseline_required: true }));
 const repositoryBaselineDigest = ({ caseId, hiddenSha }) => sha256(JSON.stringify({ case_id: caseId, base_commit: "1".repeat(40), hidden_acceptance_sha256: hiddenSha, exit_code: 1, passed: false }));
 
-function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85, categoryByCase = {}, evidenceCountByCase = {}, benchmarkRunId = "55555555-5555-4555-8555-555555555555" } = {}) {
+function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85, categoryByCase = {}, evidenceCountByCase = {}, benchmarkRunId = "55555555-5555-4555-8555-555555555555", suiteSha = null } = {}) {
   return caseIds.map((case_id, index) => ({
     case_id,
+    repository_origin: `https://github.com/avantiqo-benchmark/${case_id}`,
     category: categoryByCase[case_id] || null,
     allowed_edit_paths: [`benchmark-case-${index}.mjs`],
     passed: true,
@@ -60,6 +61,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
       artifact_bytes: 1024,
       repository_verification: {
         case_id,
+        repository_origin: `https://github.com/avantiqo-benchmark/${case_id}`,
         benchmark_run_id: benchmarkRunId,
         independent: true,
         verifier: "hidden-node-test",
@@ -129,7 +131,7 @@ function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs
       estimated_supplier_cost_usd: Number((caseIds.length * 0.0005).toFixed(8)),
       cost_measurement_source: "RUNNER_SUM_OF_RECOMPUTED_CASE_COSTS_V1",
     },
-    observations: observations(caseIds, wallMs, { qualityScore, categoryByCase, evidenceCountByCase, benchmarkRunId }),
+    observations: observations(caseIds, wallMs, { qualityScore, categoryByCase, evidenceCountByCase, benchmarkRunId, suiteSha }),
   };
 }
 
@@ -147,7 +149,7 @@ async function fixture() {
   const refAPath = join(dir, "ref-a.json");
   const refBPath = join(dir, "ref-b.json");
   const outputPath = join(dir, "competitive.json");
-  const ownedObservations = observations(caseIds, 50, { categoryByCase, evidenceCountByCase, benchmarkRunId: "55555555-5555-4555-8555-555555555555" }).map((item, index) => ({
+  const ownedObservations = observations(caseIds, 50, { categoryByCase, evidenceCountByCase, benchmarkRunId: "55555555-5555-4555-8555-555555555555", suiteSha }).map((item, index) => ({
     ...item,
     code_cpu_fallback: false,
     code_runtime_model_already_gpu_resident: index > 0,

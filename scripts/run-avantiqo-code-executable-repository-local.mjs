@@ -173,7 +173,9 @@ async function seedRepository(benchmarkCase) {
   };
 }
 
-const suite = JSON.parse(await readFile(suitePath, "utf8"));
+const suiteSource = await readFile(suitePath, "utf8");
+const suiteSha256 = sha256(suiteSource);
+const suite = JSON.parse(suiteSource);
 if (text(suite.contract, 180) !== SUITE_CONTRACT) throw new Error(`${CONTRACT}_SUITE_CONTRACT_INVALID`);
 const allCases = list(suite.cases);
 const cases = requestedLimit > 0 ? allCases.slice(0, Math.min(requestedLimit, allCases.length)) : allCases;
@@ -319,6 +321,7 @@ for (const benchmarkCase of cases) {
       .join("\n---FILE---\n");
     observations.push({
       case_id: benchmarkCase.case_id,
+      repository_origin: fixture.origin,
       allowed_edit_paths: list(benchmarkCase.allowed_edit_paths).map((value) => text(value, 500)),
       passed: hiddenPassed,
       status: text(result?.status, 120),
@@ -339,7 +342,9 @@ for (const benchmarkCase of cases) {
       artifact_bytes: Buffer.byteLength(artifact, "utf8"),
       repository_verification: {
         case_id: benchmarkCase.case_id,
+        repository_origin: fixture.origin,
         benchmark_run_id: benchmarkRunId,
+        suite_sha256: suiteSha256,
         independent: true,
         verifier: "avantiqo-hidden-node-assert",
         verifier_contract: CODE_AI_REPOSITORY_VERIFIER_CONTRACT,
@@ -391,6 +396,7 @@ console.log(JSON.stringify({
   success: passed === observations.length,
   contract: CONTRACT,
   suite_contract: SUITE_CONTRACT,
+  suite_sha256: suiteSha256,
   case_count: observations.length,
   passed_case_count: passed,
   pass_rate: observations.length ? passed / observations.length : 0,

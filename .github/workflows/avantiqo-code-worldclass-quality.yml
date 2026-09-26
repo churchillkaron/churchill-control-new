@@ -103,12 +103,6 @@ jobs:
           npm test > /tmp/code-head-tests.log 2>&1
           head_rc=$?
           set -e
-          if [ "${head_rc}" -eq 0 ]; then
-            echo "PR repository suite is green; base comparison is unnecessary."
-            echo "AVANTIQO_CODE_REPOSITORY_REGRESSION_DELTA=PASS"
-            exit 0
-          fi
-
           test -n "${PR_BASE_SHA}"
           git fetch --no-tags origin "${PR_BASE_SHA}" --depth=1
           base_dir="${RUNNER_TEMP}/code-regression-base"

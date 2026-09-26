@@ -57,13 +57,78 @@ export function extractRepositoryTestFailures(log) {
   return [...failures].sort();
 }
 
+
+export function extractRepositoryTestSummary(log) {
+  const summary = { tests: null, pass: null, fail: null, cancelled: null, skipped: null, todo: null };
+  for (const rawLine of String(log || "").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    const match = line.match(/^(?:ℹ|#)\s+(tests|pass|fail|cancelled|skipped|todo)\s+(\d+)$/i);
+    if (match) summary[match[1].toLowerCase()] = Number(match[2]);
+  }
+  const complete = Object.values(summary).every((value) => Number.isInteger(value) && value >= 0);
+  const accounted = complete
+    ? summary.pass + summary.fail + summary.cancelled + summary.skipped + summary.todo
+    : null;
+  return {
+    ...summary,
+    complete,
+    consistent: complete && accounted === summary.tests,
+    accounted,
+    executed: complete ? summary.pass + summary.fail : null,
+  };
+}
+
 export function compareRepositoryRegressionDelta({ headLog, baseLog, headExit, baseExit }) {
+  const headSummary = extractRepositoryTestSummary(headLog);
+  const baseSummary = extractRepositoryTestSummary(baseLog);
+  if (!headSummary.complete || !baseSummary.complete) {
+    return {
+      success: false, contract: CONTRACT, head_exit: headExit, base_exit: baseExit,
+      head_summary: headSummary, base_summary: baseSummary,
+      head_failures: extractRepositoryTestFailures(headLog),
+      base_failures: extractRepositoryTestFailures(baseLog),
+      new_failures: [], reason: "TEST_INVENTORY_UNPARSEABLE",
+    };
+  }
+  if (!headSummary.consistent || !baseSummary.consistent) {
+    return {
+      success: false, contract: CONTRACT, head_exit: headExit, base_exit: baseExit,
+      head_summary: headSummary, base_summary: baseSummary,
+      head_failures: extractRepositoryTestFailures(headLog),
+      base_failures: extractRepositoryTestFailures(baseLog),
+      new_failures: [], reason: "TEST_INVENTORY_INCONSISTENT",
+    };
+  }
+  if (headSummary.tests < baseSummary.tests || headSummary.executed < baseSummary.executed) {
+    return {
+      success: false, contract: CONTRACT, head_exit: headExit, base_exit: baseExit,
+      head_summary: headSummary, base_summary: baseSummary,
+      head_failures: extractRepositoryTestFailures(headLog),
+      base_failures: extractRepositoryTestFailures(baseLog),
+      new_failures: [], reason: "TEST_INVENTORY_SHRANK",
+    };
+  }
+  if (
+    headSummary.cancelled > baseSummary.cancelled ||
+    headSummary.skipped > baseSummary.skipped ||
+    headSummary.todo > baseSummary.todo
+  ) {
+    return {
+      success: false, contract: CONTRACT, head_exit: headExit, base_exit: baseExit,
+      head_summary: headSummary, base_summary: baseSummary,
+      head_failures: extractRepositoryTestFailures(headLog),
+      base_failures: extractRepositoryTestFailures(baseLog),
+      new_failures: [], reason: "TEST_NONEXECUTED_COVERAGE_INCREASED",
+    };
+  }
   if (headExit === 0) {
     return {
       success: true,
       contract: CONTRACT,
       head_exit: headExit,
       base_exit: baseExit,
+      head_summary: headSummary,
+      base_summary: baseSummary,
       head_failures: [],
       base_failures: baseExit === 0 ? [] : extractRepositoryTestFailures(baseLog),
       new_failures: [],
@@ -76,6 +141,8 @@ export function compareRepositoryRegressionDelta({ headLog, baseLog, headExit, b
       contract: CONTRACT,
       head_exit: headExit,
       base_exit: baseExit,
+      head_summary: headSummary,
+      base_summary: baseSummary,
       head_failures: extractRepositoryTestFailures(headLog),
       base_failures: [],
       new_failures: extractRepositoryTestFailures(headLog),
@@ -91,6 +158,8 @@ export function compareRepositoryRegressionDelta({ headLog, baseLog, headExit, b
       contract: CONTRACT,
       head_exit: headExit,
       base_exit: baseExit,
+      head_summary: headSummary,
+      base_summary: baseSummary,
       head_failures: headFailures,
       base_failures: baseFailures,
       new_failures: [],
@@ -104,6 +173,8 @@ export function compareRepositoryRegressionDelta({ headLog, baseLog, headExit, b
     contract: CONTRACT,
     head_exit: headExit,
     base_exit: baseExit,
+    head_summary: headSummary,
+    base_summary: baseSummary,
     head_failures: headFailures,
     base_failures: baseFailures,
     new_failures: newFailures,
@@ -127,6 +198,10 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
     contract: result.contract,
     head_exit: result.head_exit,
     base_exit: result.base_exit,
+    head_test_count: result.head_summary?.tests ?? null,
+    base_test_count: result.base_summary?.tests ?? null,
+    head_executed_count: result.head_summary?.executed ?? null,
+    base_executed_count: result.base_summary?.executed ?? null,
     head_failure_count: result.head_failures.length,
     base_failure_count: result.base_failures.length,
     new_failure_count: result.new_failures.length,

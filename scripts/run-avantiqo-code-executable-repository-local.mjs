@@ -9,6 +9,7 @@ import {
   CODE_AI_REPOSITORY_VERIFIER_RUNTIME_CONTRACT,
   CODE_AI_REPOSITORY_VERIFIER_INVOCATION_CONTRACT,
   CODE_AI_REPOSITORY_VERIFIER_RESOURCE_CONTRACT,
+  CODE_AI_REPOSITORY_GIT_TOOLCHAIN_CONTRACT,
   codeAIRepositoryVerifierInvocationSha256,
   codeAIRepositoryVerifierResourceSha256,
   codeAIRepositoryVerifierProtocolSha256,
@@ -72,6 +73,13 @@ function must(command, args, cwd) {
   }
   return result;
 }
+const gitToolchainIdentity = Object.freeze({
+  engine: "git",
+  version_output: text(must("git", ["--version"], process.cwd()).stdout, 240),
+  platform: process.platform,
+  arch: process.arch,
+});
+const gitToolchainSha256 = sha256(JSON.stringify(gitToolchainIdentity));
 const runnerSourceCommit = text(must("git", ["rev-parse", "HEAD"], process.cwd()).stdout, 80).toLowerCase();
 if (!/^[a-f0-9]{40}$/i.test(runnerSourceCommit)) throw new Error(`${CONTRACT}_RUNNER_SOURCE_COMMIT_INVALID`);
 const runnerSourceStatus = text(must("git", ["status", "--porcelain", "--untracked-files=no"], process.cwd()).stdout, 12000);
@@ -196,6 +204,7 @@ async function seedRepository(benchmarkCase) {
     verifier_environment_sha256: verifierEnvironmentSha256,
     verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
     verifier_resource_sha256: codeAIRepositoryVerifierResourceSha256(),
+    git_toolchain_sha256: gitToolchainSha256,
     exit_code: baselineExitCode,
     passed: false,
   }));
@@ -393,6 +402,9 @@ for (const benchmarkCase of cases) {
         verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
         verifier_resource_contract: CODE_AI_REPOSITORY_VERIFIER_RESOURCE_CONTRACT,
         verifier_resource_sha256: codeAIRepositoryVerifierResourceSha256(),
+        git_toolchain_contract: CODE_AI_REPOSITORY_GIT_TOOLCHAIN_CONTRACT,
+        git_toolchain_identity: gitToolchainIdentity,
+        git_toolchain_sha256: gitToolchainSha256,
         evidence_source: "INDEPENDENT_RUNNER",
         candidate_diff_sha256: sha256(patch),
         candidate_artifact_sha256: sha256(artifact),
@@ -415,6 +427,7 @@ for (const benchmarkCase of cases) {
         protected_baseline_verifier_environment_sha256: verifierEnvironmentSha256,
         protected_baseline_verifier_invocation_sha256: codeAIRepositoryVerifierInvocationSha256(),
         protected_baseline_verifier_resource_sha256: codeAIRepositoryVerifierResourceSha256(),
+        protected_baseline_git_toolchain_sha256: gitToolchainSha256,
         protected_baseline_exit_code: fixture.baselineExitCode,
         protected_baseline_passed: false,
         candidate_self_report_authority: false,

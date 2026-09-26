@@ -193,6 +193,7 @@ for (const entry of prompts) {
     narrative_grounding_score: Number(grade.narrative_grounding_score || 0),
     evidence_distinctness_score: Number(grade.evidence_distinctness_score || 0),
     response_template_fingerprint_sha256: String(grade.response_template_fingerprint_sha256 || "").slice(0, 80) || null,
+    response_template_simhash64: String(grade.response_template_simhash64 || "").slice(0, 32) || null,
     evidence_key_count: Number(grade.evidence_key_count || 0),
     wall_ms: wallMs,
     latency_measurement_source: "RUNNER_MONOTONIC_CLOCK_V1",

@@ -46,6 +46,8 @@ test("competitive benchmark measures quality latency and cost", () => {
   assert.match(source, /owned_cross_case_templates_unique/);
   assert.match(source, /reference_cross_case_templates_unique/);
   assert.match(source, /unique_cross_case_template_fingerprints_required: true/);
+  assert.match(source, /MIN_TEMPLATE_SIMHASH_HAMMING_DISTANCE/);
+  assert.match(source, /minimum_cross_case_template_simhash_hamming_distance/);
   assert.match(source, /latency_outcome/);
   assert.match(source, /p95_latency_competitive/);
   assert.match(source, /cost_competitive/);

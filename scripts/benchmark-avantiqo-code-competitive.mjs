@@ -18,6 +18,7 @@ const MAX_CROSS_EVIDENCE_SKEW_HOURS = 24;
 const MIN_NON_LOSS_RATE = 0.95;
 const MIN_NARRATIVE_GROUNDING_SCORE = 0.5;
 const MIN_EVIDENCE_DISTINCTNESS_SCORE = 0.25;
+const MIN_TEMPLATE_SIMHASH_HAMMING_DISTANCE = 8;
 const MIN_QUALITY_WIN_MARGIN = 0.03;
 const MIN_ABSOLUTE_CASE_QUALITY_SCORE = 0.50;
 const MIN_ABSOLUTE_MEAN_QUALITY_SCORE = 0.65;
@@ -88,23 +89,46 @@ function qualityFloor(report) {
   };
 }
 
+function hammingDistance64(left, right) {
+  let value = BigInt(`0x${left}`) ^ BigInt(`0x${right}`);
+  let count = 0;
+  while (value) {
+    count += Number(value & 1n);
+    value >>= 1n;
+  }
+  return count;
+}
+
 function templateFingerprintGate(report, requiredCaseIds) {
   const observations = observationMap(report);
-  const fingerprints = requiredCaseIds.map((caseId) => {
+  const rows = requiredCaseIds.map((caseId) => {
     const item = observations.get(caseId);
     if (item?.passed !== true) return null;
-    const value = text(item?.response_template_fingerprint_sha256).toLowerCase();
-    return /^[a-f0-9]{64}$/.test(value) ? value : null;
+    const fingerprint = text(item?.response_template_fingerprint_sha256).toLowerCase();
+    const simhash = text(item?.response_template_simhash64).toLowerCase();
+    return /^[a-f0-9]{64}$/.test(fingerprint) && /^[a-f0-9]{16}$/.test(simhash)
+      ? { case_id: caseId, fingerprint, simhash }
+      : null;
   });
-  const complete = fingerprints.every((value) => value !== null);
-  const valid = fingerprints.filter(Boolean);
-  const unique = new Set(valid).size === valid.length;
+  const complete = rows.every(Boolean);
+  const valid = rows.filter(Boolean);
+  const unique = new Set(valid.map((item) => item.fingerprint)).size === valid.length;
+  let minimumHammingDistance = null;
+  for (let left = 0; left < valid.length; left += 1) {
+    for (let right = left + 1; right < valid.length; right += 1) {
+      const distance = hammingDistance64(valid[left].simhash, valid[right].simhash);
+      minimumHammingDistance = minimumHammingDistance === null ? distance : Math.min(minimumHammingDistance, distance);
+    }
+  }
+  const sufficientlyDistinct = minimumHammingDistance === null || minimumHammingDistance >= MIN_TEMPLATE_SIMHASH_HAMMING_DISTANCE;
   return {
     complete,
     unique,
+    sufficiently_distinct: sufficientlyDistinct,
     passed_case_count: valid.length,
-    unique_fingerprint_count: new Set(valid).size,
-    passed: complete && unique,
+    unique_fingerprint_count: new Set(valid.map((item) => item.fingerprint)).size,
+    minimum_simhash_hamming_distance: minimumHammingDistance,
+    passed: complete && unique && sufficientlyDistinct,
   };
 }
 
@@ -446,6 +470,7 @@ const report = {
     minimum_narrative_grounding_score: MIN_NARRATIVE_GROUNDING_SCORE,
     minimum_evidence_distinctness_score: MIN_EVIDENCE_DISTINCTNESS_SCORE,
     unique_cross_case_template_fingerprints_required: true,
+    minimum_cross_case_template_simhash_hamming_distance: MIN_TEMPLATE_SIMHASH_HAMMING_DISTANCE,
     maximum_p95_latency_ratio: MAX_P95_LATENCY_RATIO,
     maximum_cost_ratio: MAX_COST_RATIO,
     identical_task_ids_required: true,

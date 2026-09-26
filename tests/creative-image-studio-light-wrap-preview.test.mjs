@@ -16,10 +16,20 @@ test("light wrap preview resolves export strength width color and crop geometry"
   assert.deepEqual(preview.image,{left:-20,top:-10,width:300,height:180});
 });
 
-test("masked light wrap fails conservative because export wraps post-mask alpha",()=>{
+test("exact geometric masked light wrap previews inside the same governed mask scope",()=>{
+  const maskStyle={clipPath:"inset(10% 20% 30% 15%)"};
   const preview=imageStudioLightWrapPreview({
     style:{contact_realism:{light_wrap_strength:.5,light_wrap_width_px:10}},
-    asset_url:"https://example.com/source.png",preview:{image:{width:200,height:100}},has_mask:true,
+    asset_url:"https://example.com/source.png",preview:{image:{width:200,height:100}},has_mask:true,mask_style:maskStyle,
+  });
+  assert.equal(preview.preview_supported,true);
+  assert.deepEqual(preview.mask_style,maskStyle);
+});
+
+test("complex masked light wrap still fails conservative because export owns post-mask alpha",()=>{
+  const preview=imageStudioLightWrapPreview({
+    style:{contact_realism:{light_wrap_strength:.5,light_wrap_width_px:10}},
+    asset_url:"https://example.com/source.png",preview:{image:{width:200,height:100}},has_mask:true,mask_style:{outline:"1px dashed"},
   });
   assert.equal(preview.preview_supported,false);
   assert.equal(preview.reason,"MASKED_LIGHT_WRAP_EXPORT_ONLY");
@@ -33,6 +43,7 @@ test("light wrap overlay uses SVG alpha erosion rather than a generic glow",()=>
   assert.match(source,/innerBand/);
   assert.match(source,/feFlood/);
   assert.match(source,/data-light-wrap-preview/);
+  assert.match(source,/style=\{spec\.mask_style\}/);
 });
 
 test("canvas and version compare share light wrap preview and masked fidelity warning",()=>{
@@ -43,6 +54,8 @@ test("canvas and version compare share light wrap preview and masked fidelity wa
   assert.match(canvas,/EDGE_FINISHED_LIGHT_WRAP_EXPORT_ONLY/);
   assert.match(canvas,/light wrap · deterministic export only/);
   assert.match(compare,/MASKED_LIGHT_WRAP_EXPORT_ONLY/);
+  assert.match(canvas,/maskStyle=\{maskStyle\}/);
+  assert.match(compare,/maskStyle=\{maskStyle\}/);
 });
 
 test("canvas and compare keep export stage ordering around base effects",()=>{

@@ -8,6 +8,7 @@ import { captureImageStudioHistoryState, pushImageStudioHistory, restoreImageStu
 import { buildImageStudioRetouchOperation } from "@/lib/creative/stills/runtime/CreativeImageStudioRetouchRuntime.js";
 import { buildImageStudioAdjustmentLayer } from "@/lib/creative/stills/runtime/CreativeImageStudioAdjustmentLayerRuntime.js";
 import { buildImageStudioMaskLayer } from "@/lib/creative/stills/runtime/CreativeImageStudioMaskLayerRuntime.js";
+import { attachImageStudioSemanticMatte, buildImageStudioSemanticMaskPatch } from "@/lib/creative/stills/runtime/CreativeImageStudioSemanticMaskRuntime.js";
 
 export const useImageStudioWorkspaceStore = create((set) => ({
   ...buildImageStudioWorkspaceState(),
@@ -84,6 +85,28 @@ export const useImageStudioWorkspaceStore = create((set) => ({
     if(!board||!targets.length)return state;
     const layer=buildImageStudioAdjustmentLayer({id:`adjustment-${crypto.randomUUID()}`,artboard_id:board.id,target_layer_ids:targets.map((item)=>item.id),sort_order:Math.max(-1,...state.layers.filter((item)=>item.artboard_id===board.id).map((item)=>Number(item.sort_order||0)))+1,name:`Adjustment · ${targets.length} target${targets.length===1?"":"s"}`});
     return {layers:[...state.layers,layer],selection:{...state.selection,layer_ids:[layer.id]},dirty:true,historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[]};
+  }),
+  createSemanticMaskFromSelected: (mode, options = {}) => set((state) => {
+    if (state.selection.layer_ids.length !== 1) return state;
+    const target=state.layers.find((layer)=>layer.id===state.selection.layer_ids[0]&&layer.layer_type==="IMAGE"&&!layer.locked);
+    if(!target)return state;
+    const mask=buildImageStudioMaskLayer({
+      id:`mask-${crypto.randomUUID()}`,artboard_id:target.artboard_id,target_layer_id:target.id,
+      region:{...(target.bounds||{})},mask_shape:"RECT",sort_order:Number(target.sort_order||0)+1,
+    });
+    const semantic={...mask,metadata:{...(mask.metadata||{}),...buildImageStudioSemanticMaskPatch(mode,options)}};
+    return {
+      layers:[...state.layers.map((layer)=>layer.id===target.id?{...layer,metadata:{...(layer.metadata||{}),clip_mask_layer_id:semantic.id}}:layer),semantic],
+      selection:{...state.selection,layer_ids:[semantic.id]},dirty:true,
+      historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[],
+    };
+  }),
+  attachSemanticMatteToMask: (maskId, evidence = {}) => set((state) => {
+    const mask=state.layers.find((layer)=>layer.id===maskId&&layer.layer_type==="MASK");
+    if(!mask)return state;
+    let updated;
+    try{updated=attachImageStudioSemanticMatte(mask,evidence);}catch{return state;}
+    return {layers:state.layers.map((layer)=>layer.id===maskId?updated:layer),dirty:true,historyPast:pushImageStudioHistory(state.historyPast,captureImageStudioHistoryState(state)),historyFuture:[]};
   }),
   createMaskLayerFromRegion: (mask_shape = "RECT") => set((state) => {
     if (!state.ui.region || state.selection.layer_ids.length !== 1) return state;

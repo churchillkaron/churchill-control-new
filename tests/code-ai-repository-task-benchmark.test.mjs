@@ -113,3 +113,12 @@ test("mismatched verification case id cannot certify", () => {
   assert.equal(result.cases[0].gates.verification_case_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });
+
+
+test("failed benchmark case cannot certify repository proof", () => {
+  const failed = proof({ passed: false });
+  const result = assessCodeAIRepositoryTaskBenchmark({ observations: [failed] });
+  assert.equal(result.cases[0].gates.candidate_case_passed, false);
+  assert.equal(result.cases[0].passed, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});

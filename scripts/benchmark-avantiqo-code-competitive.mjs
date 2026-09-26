@@ -259,6 +259,7 @@ const suiteSource = await readFile(suitePath, "utf8");
 const suite = JSON.parse(suiteSource);
 if (text(suite?.contract) !== SUITE_CONTRACT) throw new Error("AVANTIQO_CODE_COMPETITIVE_SUITE_CONTRACT_INVALID");
 const requiredCaseIds = list(suite?.cases).map((item) => text(item?.case_id)).filter(Boolean).sort();
+const canonicalCategoryByCase = new Map(list(suite?.cases).map((item) => [text(item?.case_id), text(item?.category)]));
 if (requiredCaseIds.length < MIN_CASES || new Set(requiredCaseIds).size !== requiredCaseIds.length) {
   throw new Error("AVANTIQO_CODE_COMPETITIVE_SUITE_INVALID");
 }
@@ -277,6 +278,12 @@ if (text(promptContract?.contract) !== PROMPT_CONTRACT) {
   throw new Error("AVANTIQO_CODE_COMPETITIVE_PROMPT_CONTRACT_INVALID");
 }
 const promptContractSha256 = sha256(promptContractSource);
+for (const observation of list(owned?.observations)) {
+  const caseId = text(observation?.case_id);
+  if (!caseId || text(observation?.category) !== canonicalCategoryByCase.get(caseId)) {
+    throw new Error(`AVANTIQO_CODE_COMPETITIVE_CANONICAL_CATEGORY_MISMATCH:${caseId || "UNKNOWN"}`);
+  }
+}
 verifyCodeAICompetitiveOwnedReport(owned, {
   suite_contract: SUITE_CONTRACT,
   suite_sha256: suiteSha256,
@@ -319,6 +326,12 @@ for (const provider of requiredProviders) {
   }
 }
 for (const reference of references) {
+  for (const observation of list(reference?.observations)) {
+    const caseId = text(observation?.case_id);
+    if (!caseId || text(observation?.category) !== canonicalCategoryByCase.get(caseId)) {
+      throw new Error(`AVANTIQO_CODE_COMPETITIVE_CANONICAL_CATEGORY_MISMATCH:${caseId || "UNKNOWN"}`);
+    }
+  }
   verifyCodeAICompetitiveReferenceReport(reference, {
     suite_contract: SUITE_CONTRACT,
     suite_sha256: suiteSha256,
@@ -387,6 +400,7 @@ const report = {
     maximum_p95_latency_ratio: MAX_P95_LATENCY_RATIO,
     maximum_cost_ratio: MAX_COST_RATIO,
     identical_task_ids_required: true,
+    canonical_case_category_binding_required: true,
     distinct_required_reference_providers: true,
     explicit_reference_model_binding_required: true,
     default_required_reference_providers: DEFAULT_REQUIRED_REFERENCE_PROVIDERS,

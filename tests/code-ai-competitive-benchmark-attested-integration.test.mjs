@@ -19,9 +19,10 @@ const env = {
 };
 const sha256 = (value) => createHash("sha256").update(value, "utf8").digest("hex");
 
-function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85 } = {}) {
+function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 0.85, categoryByCase = {} } = {}) {
   return caseIds.map((case_id, index) => ({
     case_id,
+    category: categoryByCase[case_id] || null,
     passed: true,
     quality_score: qualityScore,
     evidence_grounding_score: 0.9,
@@ -64,7 +65,7 @@ function observations(caseIds, wallMs, { repositoryProof = true, qualityScore = 
   }));
 }
 
-function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs, qualityScore = 0.85 }) {
+function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs, qualityScore = 0.85, categoryByCase = {} }) {
   return {
     contract: "AVANTIQO_CODE_COMPETITIVE_REFERENCE_REPORT_V1",
     generator_contract: "AVANTIQO_CODE_COMPETITIVE_REFERENCE_RUNNER_V1",
@@ -87,7 +88,7 @@ function referenceReport({ provider, model, caseIds, suiteSha, promptSha, wallMs
     raw_customer_content_included: false,
     raw_reasoning_persisted: false,
     economics: { estimated_supplier_cost_usd: 0.02 },
-    observations: observations(caseIds, wallMs, { qualityScore }),
+    observations: observations(caseIds, wallMs, { qualityScore, categoryByCase }),
   };
 }
 
@@ -97,6 +98,7 @@ async function fixture() {
   const suite = JSON.parse(suiteSource);
   const promptSource = await readFile(PROMPT_PATH, "utf8");
   const caseIds = suite.cases.map((item) => item.case_id).sort();
+  const categoryByCase = Object.fromEntries(suite.cases.map((item) => [item.case_id, item.category]));
   const suiteSha = sha256(suiteSource);
   const promptSha = sha256(promptSource);
   const ownedPath = join(dir, "owned.json");
@@ -128,7 +130,7 @@ async function fixture() {
       owned_compute_usd_per_hour: 1.8,
       owned_compute_rate_source: "OPERATOR_APPROVED_LOCAL_COMPUTE_RATE_V1",
     },
-    observations: observations(caseIds, 50).map((item) => ({
+    observations: observations(caseIds, 50, { categoryByCase }).map((item) => ({
       ...item,
       inference_elapsed_ms: 1000,
       owned_compute_usd_per_hour: 1.8,
@@ -139,10 +141,10 @@ async function fixture() {
   }, { env });
   await writeFile(ownedPath, JSON.stringify(owned));
   const refA = attestCodeAICompetitiveReferenceReport(referenceReport({
-    provider: "openai", model: "model-a", caseIds, suiteSha, promptSha, wallMs: 100,
+    provider: "openai", model: "model-a", caseIds, suiteSha, promptSha, wallMs: 100, categoryByCase,
   }), { env });
   const refB = attestCodeAICompetitiveReferenceReport(referenceReport({
-    provider: "google", model: "model-b", caseIds, suiteSha, promptSha, wallMs: 110,
+    provider: "google", model: "model-b", caseIds, suiteSha, promptSha, wallMs: 110, categoryByCase,
   }), { env });
   await writeFile(refAPath, JSON.stringify(refA));
   await writeFile(refBPath, JSON.stringify(refB));
@@ -244,30 +246,21 @@ test("single material quality win cannot establish superiority", async () => {
 });
 
 
-test("three wins in one category cannot establish broad superiority", async () => {
+test("three wins in one canonical category cannot establish broad superiority", async () => {
   const paths = await fixture();
+  const suite = JSON.parse(await readFile(SUITE_PATH, "utf8"));
+  const securityCases = new Set(suite.cases.filter((item) => item.category === "security").slice(0, 3).map((item) => item.case_id));
+  assert.equal(securityCases.size, 3);
   const owned = JSON.parse(await readFile(paths.ownedPath, "utf8"));
-  owned.observations = owned.observations.map((item, index) => ({
-    ...item,
-    category: index < 3 ? "security" : `category_${index}`,
-    quality_score: index < 3 ? 0.90 : 0.85,
-  }));
+  owned.observations = owned.observations.map((item) => ({ ...item, quality_score: securityCases.has(item.case_id) ? 0.90 : 0.85 }));
   delete owned.owned_attestation;
   await writeFile(paths.ownedPath, JSON.stringify(attestCodeAICompetitiveOwnedReport(owned, { env })));
 
   for (const referencePath of [paths.refAPath, paths.refBPath]) {
     const current = JSON.parse(await readFile(referencePath, "utf8"));
-    const unsigned = {
-      ...current,
-      observations: current.observations.map((item, index) => ({
-        ...item,
-        category: index < 3 ? "security" : `category_${index}`,
-        quality_score: 0.85,
-      })),
-    };
+    const unsigned = { ...current, observations: current.observations.map((item) => ({ ...item, quality_score: 0.85 })) };
     delete unsigned.attestation;
-    const resigned = attestCodeAICompetitiveReferenceReport(unsigned, { env });
-    await writeFile(referencePath, JSON.stringify(resigned));
+    await writeFile(referencePath, JSON.stringify(attestCodeAICompetitiveReferenceReport(unsigned, { env })));
   }
 
   const run = runBenchmark(paths);
@@ -283,6 +276,16 @@ test("three wins in one category cannot establish broad superiority", async () =
   assert.equal(report.superiority_claim_allowed, false);
 });
 
+test("spoofed observation category is rejected against the canonical suite", async () => {
+  const paths = await fixture();
+  const owned = JSON.parse(await readFile(paths.ownedPath, "utf8"));
+  owned.observations[0].category = "spoofed-category";
+  delete owned.owned_attestation;
+  await writeFile(paths.ownedPath, JSON.stringify(attestCodeAICompetitiveOwnedReport(owned, { env })));
+  const run = runBenchmark(paths);
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /AVANTIQO_CODE_COMPETITIVE_CANONICAL_CATEGORY_MISMATCH/);
+});
 
 test("duplicate vendor references cannot satisfy the provider floor", async () => {
   const paths = await fixture();

@@ -18,6 +18,8 @@ const MAX_CROSS_EVIDENCE_SKEW_HOURS = 24;
 const MIN_NON_LOSS_RATE = 0.95;
 const MIN_NARRATIVE_GROUNDING_SCORE = 0.5;
 const MIN_QUALITY_WIN_MARGIN = 0.03;
+const MIN_ABSOLUTE_CASE_QUALITY_SCORE = 0.50;
+const MIN_ABSOLUTE_MEAN_QUALITY_SCORE = 0.65;
 const MIN_SUPERIORITY_WIN_RATE = 0.10;
 const MIN_SUPERIORITY_WIN_CATEGORIES = 3;
 const MAX_P95_LATENCY_RATIO = 1.25;
@@ -68,6 +70,21 @@ function percentile(values, p) {
   if (!safe.length) return null;
   const index = Math.min(safe.length - 1, Math.max(0, Math.ceil(p * safe.length) - 1));
   return safe[index];
+}
+
+function qualityFloor(report) {
+  const passed = list(report?.observations).filter((item) => item?.passed === true);
+  const scores = passed.map((item) => finite(item?.quality_score));
+  const complete = passed.length > 0 && scores.length === passed.length && scores.every((score) => score !== null);
+  const minimum = complete ? Math.min(...scores) : null;
+  const mean = complete ? scores.reduce((sum, score) => sum + score, 0) / scores.length : null;
+  return {
+    complete,
+    minimum_quality_score: minimum === null ? null : Number(minimum.toFixed(4)),
+    mean_quality_score: mean === null ? null : Number(mean.toFixed(4)),
+    minimum_case_quality_passed: minimum !== null && minimum >= MIN_ABSOLUTE_CASE_QUALITY_SCORE,
+    mean_quality_passed: mean !== null && mean >= MIN_ABSOLUTE_MEAN_QUALITY_SCORE,
+  };
 }
 
 function observationMap(report) {
@@ -313,6 +330,10 @@ for (const reference of references) {
     throw new Error("AVANTIQO_CODE_COMPETITIVE_RUNNER_SOURCE_COMMIT_MISMATCH");
   }
 }
+const ownedQualityFloor = qualityFloor(owned);
+if (!ownedQualityFloor.complete || !ownedQualityFloor.minimum_case_quality_passed || !ownedQualityFloor.mean_quality_passed) {
+  throw new Error("AVANTIQO_CODE_COMPETITIVE_OWNED_ABSOLUTE_QUALITY_FLOOR_NOT_MET");
+}
 const comparisons = references.map((reference) => compareReference(owned, reference, requiredCaseIds));
 const referenceModelBindingsCertified = requiredProviders.every((provider) =>
   references.some((reference) =>
@@ -357,6 +378,8 @@ const report = {
     unique_signed_benchmark_run_ids_required: true,
     minimum_quality_non_loss_rate: MIN_NON_LOSS_RATE,
     minimum_material_quality_win_margin: MIN_QUALITY_WIN_MARGIN,
+    minimum_absolute_case_quality_score: MIN_ABSOLUTE_CASE_QUALITY_SCORE,
+    minimum_absolute_mean_quality_score: MIN_ABSOLUTE_MEAN_QUALITY_SCORE,
     deterministic_quality_score_required_for_passed_cases: true,
     case_specific_evidence_grounding_required_for_passed_cases: true,
     case_specific_narrative_grounding_required_for_passed_cases: true,
@@ -390,6 +413,7 @@ const report = {
   },
   competitive_certified: competitiveCertified,
   provider_diversity_certified: providerDiversityCertified,
+  owned_absolute_quality_floor: ownedQualityFloor,
   reference_model_bindings_certified: referenceModelBindingsCertified,
   required_reference_providers: requiredProviders,
   required_reference_models: requiredModels,

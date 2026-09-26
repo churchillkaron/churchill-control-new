@@ -347,6 +347,16 @@ const ownedQualityFloor = qualityFloor(owned);
 if (!ownedQualityFloor.complete || !ownedQualityFloor.minimum_case_quality_passed || !ownedQualityFloor.mean_quality_passed) {
   throw new Error("AVANTIQO_CODE_COMPETITIVE_OWNED_ABSOLUTE_QUALITY_FLOOR_NOT_MET");
 }
+const referenceQualityFloors = references.map((reference) => ({
+  provider: canonicalReferenceProvider(reference?.provider),
+  model: text(reference?.model?.product_model),
+  ...qualityFloor(reference),
+}));
+for (const floor of referenceQualityFloors) {
+  if (!floor.complete || !floor.minimum_case_quality_passed || !floor.mean_quality_passed) {
+    throw new Error(`AVANTIQO_CODE_COMPETITIVE_REFERENCE_ABSOLUTE_QUALITY_FLOOR_NOT_MET:${floor.provider || "unknown"}`);
+  }
+}
 const comparisons = references.map((reference) => compareReference(owned, reference, requiredCaseIds));
 const referenceModelBindingsCertified = requiredProviders.every((provider) =>
   references.some((reference) =>
@@ -393,6 +403,7 @@ const report = {
     minimum_material_quality_win_margin: MIN_QUALITY_WIN_MARGIN,
     minimum_absolute_case_quality_score: MIN_ABSOLUTE_CASE_QUALITY_SCORE,
     minimum_absolute_mean_quality_score: MIN_ABSOLUTE_MEAN_QUALITY_SCORE,
+    symmetric_absolute_quality_floor_required: true,
     deterministic_quality_score_required_for_passed_cases: true,
     case_specific_evidence_grounding_required_for_passed_cases: true,
     case_specific_narrative_grounding_required_for_passed_cases: true,
@@ -428,6 +439,7 @@ const report = {
   competitive_certified: competitiveCertified,
   provider_diversity_certified: providerDiversityCertified,
   owned_absolute_quality_floor: ownedQualityFloor,
+  reference_absolute_quality_floors: referenceQualityFloors,
   reference_model_bindings_certified: referenceModelBindingsCertified,
   required_reference_providers: requiredProviders,
   required_reference_models: requiredModels,

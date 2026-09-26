@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import {
-  assessCodeAIRepositoryTaskBenchmark,
+  assessCodeAIRepositoryTaskBenchmark as assessRepositoryTaskBenchmarkRaw,
   codeAIRepositoryVerifierEnvironmentSha256,
   codeAIRepositoryVerifierProtocolSha256,
 } from "../lib/code/runtime/CodeAIRepositoryTaskBenchmarkRuntime.js";
 
 const BENCHMARK_RUN_ID = "11111111-1111-4111-8111-111111111111";
+const SUITE_SHA256 = "9".repeat(64);
+const assessCodeAIRepositoryTaskBenchmark = (report) => assessRepositoryTaskBenchmarkRaw({ suite_sha256: SUITE_SHA256, ...report });
 const VERIFIER_RUNTIME_IDENTITY = Object.freeze({ engine: "node", version: "v24.14.1", platform: "darwin", arch: "arm64" });
 const VERIFIER_RUNTIME_SHA256 = createHash("sha256").update(JSON.stringify(VERIFIER_RUNTIME_IDENTITY), "utf8").digest("hex");
 const VERIFIER_ENVIRONMENT_SHA256 = codeAIRepositoryVerifierEnvironmentSha256();
@@ -48,6 +50,7 @@ function proof(overrides = {}) {
       case_id: caseId,
       benchmark_run_id: overrides.benchmark_run_id || BENCHMARK_RUN_ID,
       repository_origin: `https://github.com/avantiqo-benchmark/${caseId}`,
+      suite_sha256: overrides.suite_sha256 || SUITE_SHA256,
       independent: true,
       verifier: "hidden-node-test",
       verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
@@ -118,6 +121,7 @@ test("synthetic-looking hashes without executed repository evidence cannot certi
       case_id: "case-2",
       benchmark_run_id: BENCHMARK_RUN_ID,
       repository_origin: "https://github.com/avantiqo-benchmark/case-2",
+      suite_sha256: SUITE_SHA256,
       independent: true,
       verifier: "hidden-node-test",
       verifier_contract: "AVANTIQO_CODE_REPOSITORY_HIDDEN_VERIFIER_V1",
@@ -519,5 +523,17 @@ test("candidate byte lengths must match the verified diff and artifact evidence"
     observations: [{ ...base, repository_verification: { ...base.repository_verification, candidate_diff_bytes: base.diff_bytes + 1 } }],
   });
   assert.equal(result.cases[0].gates.verifier_candidate_bound, false);
+  assert.equal(result.repository_task_artifact_certified, false);
+});
+
+
+test("repository verification must match the exact suite digest", () => {
+  const base = proof();
+  const result = assessCodeAIRepositoryTaskBenchmark({
+    benchmark_run_id: BENCHMARK_RUN_ID,
+    runner_source_commit: "1".repeat(40),
+    observations: [{ ...base, repository_verification: { ...base.repository_verification, suite_sha256: "8".repeat(64) } }],
+  });
+  assert.equal(result.cases[0].gates.verification_suite_bound, false);
   assert.equal(result.repository_task_artifact_certified, false);
 });
